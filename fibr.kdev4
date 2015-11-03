@@ -1,0 +1,4 @@
+[Project]
+Name=fibr
+Manager=KDevCMakeManager
+VersionControl=kdevgit
