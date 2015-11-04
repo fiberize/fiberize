@@ -18,7 +18,7 @@ enum Locality : uint8_t {
     Remote = 3
 };
 
-template <typename A, uint8_t locality, typename = std::enable_if_t<true>>
+template <typename A, typename = std::enable_if_t<true>>
 struct Sendable {
     
     /**
@@ -32,34 +32,21 @@ struct Sendable {
     static Buffer store(A&& value);
     
     /**
-     * Loads a value from the buffer and deallocates the buffer.
+     * Loads a value from the buffer.
      */
-    static A restore(Buffer buffer);
+    static void restore(Buffer buffer, A* output);
     
-};
-
-template <typename A>
-struct Sendable<A, DevNull> {
-    
-    static Buffer store(const A&) {
-        return Buffer::empty();
-    }
-    
-    static Buffer store(A&&) {
-        return Buffer::empty();
-    }
-    
-    static A load(Buffer) {
-        abort();
-    }
-    
+    /**
+     * Destroys a value, without deallocating.
+     */
+    static void destroy(A* value);
 };
 
 /**
  * Sendable implementation for PODs, for any locality.
  */
-template <typename A, uint8_t locality>
-struct Sendable<A, locality, std::enable_if_t<boost::is_pod<A>::value>> {
+template <typename A>
+struct Sendable<A, std::enable_if_t<boost::is_pod<A>::value>> {
     
     static Buffer store(const A& value) {
         return Buffer::copyFrom(&value, sizeof(A));
@@ -69,16 +56,18 @@ struct Sendable<A, locality, std::enable_if_t<boost::is_pod<A>::value>> {
         return Buffer::copyFrom(&value, sizeof(A));        
     }
         
-    static A load(Buffer buffer) {
-        A value;
-        buffer.copyTo(&value, sizeof(A));
-        return value;
+    static void load(Buffer buffer, A* output) {
+        buffer.copyTo(output, sizeof(A));
+    }
+    
+    static void destroy(A*) {
+        // Noop.
     }
     
 };
 
-template <uint8_t locality>
-struct Sendable<Void, locality> {
+template <>
+struct Sendable<Void> {
 
     static Buffer store(const Void& value) {
         abort();
@@ -88,7 +77,11 @@ struct Sendable<Void, locality> {
         abort();
     }
         
-    static Void load(Buffer buffer) {
+    static void load(Buffer buffer, Void* output) {
+        abort();
+    }
+    
+    static void destroy(Void*) {
         abort();
     }
     

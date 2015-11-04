@@ -62,25 +62,13 @@ public:
      */
     template <typename A>
     void emit(const Event<A>& event, A&& value) {
-        PendingEvent pendingEvent;
-        pendingEvent.name = event.name();
-        pendingEvent.hash = event.hash();
-        
-        switch (impl_->locality()) {
-            case Local:
-                pendingEvent.buffer = Sendable<A, Local>::store(value);
-                break;
-
-            case Interprocess:
-                pendingEvent.buffer = Sendable<A, Interprocess>::store(value);
-                break;
-                
-            case Remote:
-                pendingEvent.buffer = Sendable<A, Remote>::store(value);
-                break;
+        if (impl_->locality() != DevNull) {
+            PendingEvent pendingEvent;
+            pendingEvent.name = event.name();
+            pendingEvent.hash = event.hash();
+            pendingEvent.buffer = Sendable<A>::store(value);
+            impl_->emit(pendingEvent);
         }
-        
-        impl_->emit(pendingEvent);
     }
     
     /**
@@ -88,25 +76,13 @@ public:
      */
     template <typename A>
     void emit(const Event<A>& event, const A& value) {
-        PendingEvent pendingEvent;
-        pendingEvent.name = event.name();
-        pendingEvent.hash = event.hash();
-        
-        switch (impl_->locality()) {
-            case Local:
-                pendingEvent.buffer = Sendable<A, Local>::store(value);
-                break;
-
-            case Interprocess:
-                pendingEvent.buffer = Sendable<A, Interprocess>::store(value);
-                break;
-                
-            case Remote:
-                pendingEvent.buffer = Sendable<A, Remote>::store(value);
-                break;
+        if (impl_->locality() != DevNull) {
+            PendingEvent pendingEvent;
+            pendingEvent.name = event.name();
+            pendingEvent.hash = event.hash();
+            pendingEvent.buffer = Sendable<A>::store(value);
+            impl_->emit(pendingEvent);
         }
-        
-        impl_->emit(pendingEvent);
     }
     
     /**

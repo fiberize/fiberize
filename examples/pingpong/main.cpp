@@ -5,36 +5,32 @@
 
 using namespace fiberize;
 
+Event<FiberRef> init("init");
 Event<int> ping("ping");
 Event<int> pong("pong");
 
-class Ping : public Fiber<Void> {
-    virtual Void run() {
-        while (true) {
-            std::cout << "Ping" << std::endl;
-            context()->yield();
-        }
-    }
-};
-
-class Pong : public Fiber<Void> {
-    virtual Void run() {
-        while (true) {
-            std::cout << "Pong" << std::endl;
-            context()->yield();
-        }
-    }
-};
-
-class Printer : public Fiber<Unit> {
-public:
-    Printer(std::string text): text(text) {}
-    
+class Ping : public Fiber<Unit> {
     virtual Unit run() {
-        std::cout << text << std::endl;
+        auto peer = init.await();
+        
+        int n = 0;
+        while (n < 1000000) {
+            peer.emit(ping, n);
+            n = pong.await();
+        }
     }
-    
-    std::string text;
+};
+
+class Pong : public Fiber<Unit> {
+    virtual Unit run() {
+        auto peer = init.await();
+
+        int n;
+        while (n < 1000000) {
+            n = ping.await();
+            peer.emit(pong, n + 1);
+        }
+    }
 };
 
 int main() {
@@ -43,7 +39,9 @@ int main() {
     
     auto ping = system.run<Ping>();
     auto pong = system.run<Pong>();
-    auto lol = system.run<Printer>("Hi");
+    
+    ping.emit(init, pong);
+    pong.emit(init, ping);
     
     while (true) {
         std::this_thread::sleep_for(1s);

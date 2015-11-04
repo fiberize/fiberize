@@ -20,7 +20,7 @@ public:
      * Executes the fiber and stores the result in a buffer.
      */
     virtual Buffer runStored() final {
-        return Sendable<A, Local>::store(std::move(run()));
+        return Sendable<A>::store(std::move(run()));
     }
     
     /**

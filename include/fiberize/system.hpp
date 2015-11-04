@@ -11,6 +11,11 @@
 
 namespace fiberize {
 
+/**
+ * Thread local random.
+ */
+extern thread_local std::default_random_engine random;
+    
 class System {
 public:
     /**
@@ -42,7 +47,7 @@ public:
             
             // Send it to a random executor.
             std::uniform_int_distribution<uint32_t> chooseExecutor(0, executors.size() - 1);
-            executors[chooseExecutor(System::random)]->execute(block);
+            executors[chooseExecutor(random)]->execute(block);
             
             // Create a local reference.
             impl = std::make_shared<detail::LocalFiberRef>(block->mailbox);
@@ -61,9 +66,9 @@ public:
     };
     
     /**
-     * Thread local random.
+     * Returns the fiber reference of the main thread.
      */
-    static thread_local std::default_random_engine random;
+    FiberRef mainFiber() const;
     
 private:
     /**
@@ -86,6 +91,15 @@ private:
      */
     std::atomic<bool> shuttingDown;
     
+    /**
+     * Mailbox of the main thread.
+     */
+    Mailbox* mainMailbox;
+    
+    /**
+     * Context of the main thread.
+     */
+    Context mainContext_;
 };
     
 } // namespace fiberize

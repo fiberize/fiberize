@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include <fiberize/context.hpp>
+
 namespace fiberize {
 
 template <typename A>
@@ -26,6 +28,25 @@ public:
     const uint64_t hash() const {
         std::hash<std::string> hash_fn;
         return hash_fn(name_);
+    }
+    
+private:
+    
+    struct EventFired {
+        A value;
+    };
+    
+public:
+    
+    /**
+     * Waits until an event occurs and returns its value.
+     */
+    A await() const {
+        try {
+            Context::current()->yield();
+        } catch (const EventFired& eventFired) {
+            return eventFired.value;
+        }
     }
     
 private:
