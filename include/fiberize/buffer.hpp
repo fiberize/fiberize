@@ -24,10 +24,20 @@ struct Buffer {
     };
     
     /**
+     * An empty buffer.
+     */
+    static Buffer empty() {
+        Buffer buffer;
+        memset(&buffer, 0, sizeof(Buffer));
+        buffer.isLarge = 0;
+        return buffer;
+    }
+    
+    /**
      * Creates a buffer from raw data.
      */
-    static Buffer copyFrom(void* data, uint64_t size) {
-        Buffer buffer;
+    static Buffer copyFrom(const void* data, uint64_t size) {
+        Buffer buffer = empty();
         if (size < sizeof(Buffer)) {
             buffer.isLarge = 0;
             memcpy(buffer.small.data, data, size);

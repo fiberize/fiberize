@@ -14,9 +14,7 @@ private:
 /**
  * Unit is a type with exactly one value.
  */
-struct Unit {
-    Unit() {};
-};
+struct Unit {};
     
     
 } // namespace fiberize

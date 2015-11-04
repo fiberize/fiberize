@@ -3,7 +3,7 @@
 
 #include <boost/context/all.hpp>
 
-#include <fiberize/detail/mailbox.hpp>
+#include <fiberize/mailbox.hpp>
 
 namespace fiberize {
 namespace detail {

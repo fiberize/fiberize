@@ -3,6 +3,8 @@
 
 #include <fiberize/detail/fiberbase.hpp>
 #include <fiberize/detail/executor.hpp>
+#include <fiberize/buffer.hpp>
+#include <fiberize/context.hpp>
 
 namespace fiberize {
     
@@ -14,14 +16,18 @@ public:
      */
     virtual A run() = 0;
     
-    virtual void entryPoint() {
-        try {
-            run();
-        } catch (...) {
-            
-        }
-        detail::Executor::current->currentControlBlock()->finished = true;
-        detail::Executor::current->suspend();
+    /**
+     * Executes the fiber and stores the result in a buffer.
+     */
+    virtual Buffer runStored() final {
+        return Sendable<A, Local>::store(std::move(run()));
+    }
+    
+    /**
+     * Returns this fibers context.
+     */
+    Context* context() const {
+        return Context::current;
     }
 };
 

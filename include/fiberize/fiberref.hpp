@@ -3,7 +3,7 @@
 
 #include <fiberize/types.hpp>
 #include <fiberize/event.hpp>
-#include <fiberize/detail/mailbox.hpp>
+#include <fiberize/mailbox.hpp>
 
 namespace fiberize {
 namespace detail {
@@ -62,7 +62,7 @@ public:
      */
     template <typename A>
     void emit(const Event<A>& event, A&& value) {
-        detail::PendingEvent pendingEvent;
+        PendingEvent pendingEvent;
         pendingEvent.name = event.name();
         pendingEvent.hash = event.hash();
         
@@ -88,7 +88,7 @@ public:
      */
     template <typename A>
     void emit(const Event<A>& event, const A& value) {
-        detail::PendingEvent pendingEvent;
+        PendingEvent pendingEvent;
         pendingEvent.name = event.name();
         pendingEvent.hash = event.hash();
         

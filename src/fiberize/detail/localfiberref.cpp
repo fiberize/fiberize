@@ -17,7 +17,7 @@ LocalFiberRef::~LocalFiberRef() {
 }
 
 void LocalFiberRef::emit(const PendingEvent& pendingEvent) {
-    mailbox_->pendingEvents.push(pendingEvent);
+    mailbox_->enqueue(pendingEvent);
 }
 
 Mailbox* LocalFiberRef::mailbox() {

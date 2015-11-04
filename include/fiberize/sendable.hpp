@@ -7,13 +7,15 @@
 #include <boost/type_traits.hpp>
 
 #include <fiberize/buffer.hpp>
+#include <fiberize/types.hpp>
 
 namespace fiberize {
 
 enum Locality : uint8_t {
-    Local = 0,
-    Interprocess = 1,
-    Remote = 2
+    DevNull = 0,
+    Local = 1,
+    Interprocess = 2,
+    Remote = 3
 };
 
 template <typename A, uint8_t locality, typename = std::enable_if_t<true>>
@@ -36,6 +38,23 @@ struct Sendable {
     
 };
 
+template <typename A>
+struct Sendable<A, DevNull> {
+    
+    static Buffer store(const A&) {
+        return Buffer::empty();
+    }
+    
+    static Buffer store(A&&) {
+        return Buffer::empty();
+    }
+    
+    static A load(Buffer) {
+        abort();
+    }
+    
+};
+
 /**
  * Sendable implementation for PODs, for any locality.
  */
@@ -45,11 +64,32 @@ struct Sendable<A, locality, std::enable_if_t<boost::is_pod<A>::value>> {
     static Buffer store(const A& value) {
         return Buffer::copyFrom(&value, sizeof(A));
     }
+    
+    static Buffer store(A&& value) {
+        return Buffer::copyFrom(&value, sizeof(A));        
+    }
         
     static A load(Buffer buffer) {
         A value;
         buffer.copyTo(&value, sizeof(A));
         return value;
+    }
+    
+};
+
+template <uint8_t locality>
+struct Sendable<Void, locality> {
+
+    static Buffer store(const Void& value) {
+        abort();
+    }
+    
+    static Buffer store(Void&& value) {
+        abort();
+    }
+        
+    static Void load(Buffer buffer) {
+        abort();
     }
     
 };

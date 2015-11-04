@@ -7,6 +7,7 @@
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/detail/executor.hpp>
 #include <fiberize/detail/localfiberref.hpp>
+#include <fiberize/detail/deadletterfiberref.hpp>
 
 namespace fiberize {
 
@@ -25,31 +26,50 @@ public:
     /**
      * Starts a fiber.
      */
-    template <typename FiberImpl, typename ...Args>
+    template <typename FiberImpl, typename MailboxImpl = LockfreeQueueMailbox, typename ...Args>
     FiberRef run(Args&& ...args) {
-        FiberImpl* fiber = new FiberImpl(std::forward(args)...);
-        
-        // Create the control block.
-        detail::ControlBlock* block = new detail::ControlBlock;
-        block->stack = stackAllocator.allocate();
-        block->context = boost::context::make_fcontext(block->stack.sp, block->stack.size, fiberTrampoline);
-        block->mailbox = new detail::Mailbox();
-        block->fiber = fiber;
-        block->finished = false;
-        
-        // Send it to a TODO: random executor.
-        executors[0]->execute(block);
-        
-        // Create a reference.
-        auto impl = std::make_shared<detail::LocalFiberRef>(block->mailbox);
+        std::shared_ptr<detail::FiberRefImpl> impl;
+        if (!shuttingDown) {
+            FiberImpl* fiber = new FiberImpl(std::forward<Args>(args)...);
+            
+            // Create the control block.
+            detail::ControlBlock* block = new detail::ControlBlock;
+            block->stack = stackAllocator.allocate();
+            block->context = boost::context::make_fcontext(block->stack.sp, block->stack.size, fiberRunner);
+            block->mailbox = new MailboxImpl();
+            block->fiber = fiber;
+            block->finished = false;
+            
+            // Send it to a random executor.
+            std::uniform_int_distribution<uint32_t> chooseExecutor(0, executors.size() - 1);
+            executors[chooseExecutor(System::random)]->execute(block);
+            
+            // Create a local reference.
+            impl = std::make_shared<detail::LocalFiberRef>(block->mailbox);
+        } else {
+            // System is shutting down, do not create new fibers.
+            impl = std::make_shared<detail::DeadLetterFiberRef>();
+        }
         return FiberRef(impl);
     }
+    
+    /**
+     * Shut down the system.
+     */
+    void shutdown() {
+        shuttingDown = true;
+    };
+    
+    /**
+     * Thread local random.
+     */
+    static thread_local std::default_random_engine random;
     
 private:
     /**
      * Trampoline used to start a fiber.
      */
-    static void fiberTrampoline(intptr_t);
+    static void fiberRunner(intptr_t);
 
     /**
      * Stack allocator.
@@ -60,6 +80,12 @@ private:
      * Currently running executors.
      */
     std::vector<std::unique_ptr<detail::Executor>> executors;
+    
+    /**
+     * Whether the system is shutting down.
+     */
+    std::atomic<bool> shuttingDown;
+    
 };
     
 } // namespace fiberize

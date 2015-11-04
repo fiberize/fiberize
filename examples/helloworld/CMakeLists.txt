@@ -1,0 +1,3 @@
+add_executable(helloworld main.cpp)
+target_link_libraries(helloworld fiberize)
+target_compile_features(helloworld PUBLIC PRIVATE cxx_template_template_parameters cxx_generic_lambdas)
