@@ -9,8 +9,7 @@
 namespace fiberize {
     
 template <typename A>
-class Fiber: public detail::FiberBase {
-public:
+struct Fiber: public detail::FiberBase {
     /**
      * Executes the fiber.
      */

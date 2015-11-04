@@ -42,11 +42,23 @@ public:
      * Waits until an event occurs and returns its value.
      */
     A await() const {
+        auto handler = bind([] (const A& value) {
+            super();
+            throw EventFired{value};
+        });
+        
         try {
             Context::current()->yield();
         } catch (const EventFired& eventFired) {
             return eventFired.value;
         }
+    }
+    
+    /**
+     * Binds an event to a handler.
+     */
+    HandlerRef bind(const std::function<void (const A&)>& handle) const {
+        return Context::current()->bind<A>(*this, handle);
     }
     
 private:

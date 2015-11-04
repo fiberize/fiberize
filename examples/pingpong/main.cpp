@@ -9,7 +9,7 @@ Event<FiberRef> init("init");
 Event<int> ping("ping");
 Event<int> pong("pong");
 
-class Ping : public Fiber<Unit> {
+struct Ping : public Fiber<Unit> {
     virtual Unit run() {
         auto peer = init.await();
         
@@ -21,7 +21,7 @@ class Ping : public Fiber<Unit> {
     }
 };
 
-class Pong : public Fiber<Unit> {
+struct Pong : public Fiber<Unit> {
     virtual Unit run() {
         auto peer = init.await();
 

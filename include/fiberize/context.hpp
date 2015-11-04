@@ -11,7 +11,7 @@ namespace detail {
     
 struct Handler {
     uint64_t refCount;
-    std::function<void (void*)> handle;
+    std::function<void (const void*)> handle;
 };
 
 struct HandlerBlock {
@@ -108,15 +108,18 @@ public:
         if (it == handlerBlocks.end()) {
             block = new detail::HandlerBlock;
             block->objectSize = sizeof(A);
-            block->restore = Sendable<A>::restore;
-            block->destroy = Sendable<A>::destroy;
+            void (*restore)(Buffer, A*) = Sendable<A>::restore;
+            void (*destroy)(A*) = Sendable<A>::destroy;
+            block->restore = reinterpret_cast<void (*)(Buffer, void*)>(restore);
+            block->destroy = reinterpret_cast<void (*)(void*)>(destroy);
+            handlerBlocks[event.name()] = block;
         } else {
             block = it->second;
         }
 
-        detail::Handler* handler;
+        detail::Handler* handler = new detail::Handler;
         handler->refCount = 0;
-        handler->handle = handle;
+        handler->handle = [handle] (const void* data) { handle(*reinterpret_cast<const A*>(data)); };
         block->handlers.push_back(handler);
         
         return HandlerRef(handler);

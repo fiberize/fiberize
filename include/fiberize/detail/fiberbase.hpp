@@ -8,8 +8,7 @@ namespace detail {
     
 struct ControlBlock;
     
-class FiberBase {
-public:
+struct FiberBase {
     virtual ~FiberBase() {};
     
     /**

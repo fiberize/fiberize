@@ -5,11 +5,9 @@
 
 using namespace fiberize;
 
-class Printer : public Fiber<Unit> {
-public:
+struct Printer : public Fiber<Unit> {
     Printer(int n): n(n) {}
     
-private:
     virtual Unit run() {
         std::cout << "Hello from fiber #" << n << std::endl;
     }

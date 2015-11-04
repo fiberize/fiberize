@@ -56,7 +56,7 @@ struct Sendable<A, std::enable_if_t<boost::is_pod<A>::value>> {
         return Buffer::copyFrom(&value, sizeof(A));        
     }
         
-    static void load(Buffer buffer, A* output) {
+    static void restore(Buffer buffer, A* output) {
         buffer.copyTo(output, sizeof(A));
     }
     
@@ -77,12 +77,34 @@ struct Sendable<Void> {
         abort();
     }
         
-    static void load(Buffer buffer, Void* output) {
+    static void restore(Buffer buffer, Void* output) {
         abort();
     }
     
     static void destroy(Void*) {
         abort();
+    }
+    
+};
+
+template <>
+struct Sendable<std::string> {
+
+    static Buffer store(const std::string& value) {
+        Buffer buffer;
+        buffer.isLarge = 1;
+        buffer.large.size = value.size();
+        buffer.large.data = malloc(value.size());
+        memcpy(buffer.large.data, value.data(), value.size());
+        return buffer;
+    }
+        
+    static void restore(Buffer buffer, std::string* output) {
+        new (output) std::string(reinterpret_cast<const char*>(buffer.large.data), buffer.large.size);
+    }
+    
+    static void destroy(std::string* value) {
+        value->~basic_string();
     }
     
 };

@@ -1,0 +1,3 @@
+add_executable(calculator main.cpp)
+target_link_libraries(calculator fiberize)
+target_compile_features(calculator PUBLIC PRIVATE cxx_template_template_parameters cxx_generic_lambdas)

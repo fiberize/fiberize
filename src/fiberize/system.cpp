@@ -12,9 +12,10 @@ System::System(): System(std::thread::hardware_concurrency()) {
 }
 
 System::System(uint32_t macrothreads)
-    : stackAllocator(1024)
+    : stackAllocator(1024 * 16)
     , mainMailbox(new LockfreeQueueMailbox())
-    , mainContext_(mainMailbox) {
+    , mainContext_(mainMailbox)
+    , shuttingDown(false) {
     // Spawn the executors.
     for (uint32_t i = 0; i < macrothreads; ++i) {
         std::unique_ptr<detail::Executor> executor(new detail::Executor());
