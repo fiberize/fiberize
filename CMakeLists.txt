@@ -9,8 +9,10 @@ find_package(Boost 1.59.0 COMPONENTS context REQUIRED)
 
 include_directories("${CMAKE_SOURCE_DIR}/include" ${Boost_INCLUDE_DIRS})
 add_library(fiberize ${FIBERIZE_SRCS})
-target_link_libraries(fiberize ${Boost_LIBRARIES})
+target_link_libraries(fiberize ${Boost_LIBRARIES} pthread)
 target_compile_features(fiberize PUBLIC PRIVATE cxx_template_template_parameters cxx_generic_lambdas)
 
 install(TARGETS fiberize RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
 install(FILES ${FIBERIZE_HDRS} DESTINATION include)
+
+add_subdirectory(examples)

@@ -35,6 +35,7 @@ public:
         block->context = boost::context::make_fcontext(block->stack.sp, block->stack.size, fiberTrampoline);
         block->mailbox = new detail::Mailbox();
         block->fiber = fiber;
+        block->finished = false;
         
         // Send it to a TODO: random executor.
         executors[0]->execute(block);
@@ -48,7 +49,7 @@ private:
     /**
      * Trampoline used to start a fiber.
      */
-    static void fiberTrampoline(intptr_t *data);
+    static void fiberTrampoline(intptr_t);
 
     /**
      * Stack allocator.

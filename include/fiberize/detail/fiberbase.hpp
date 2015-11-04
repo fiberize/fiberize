@@ -8,7 +8,8 @@ struct ControlBlock;
     
 class FiberBase {
 public:
-    virtual void entryPoint(ControlBlock* controlBlock);
+    virtual ~FiberBase() {};
+    virtual void entryPoint() = 0;
 };
     
 } // namespace detail

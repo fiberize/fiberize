@@ -3,7 +3,7 @@
 namespace fiberize {
 namespace detail {
 
-Mailbox::Mailbox() : refCount(1) {}
+Mailbox::Mailbox() : refCount(1), pendingEvents(0) {}
 
 Mailbox::~Mailbox() {
     PendingEvent event;

@@ -23,6 +23,21 @@ public:
      */
     void execute(ControlBlock* controlBlock);
     
+    /**
+     * Suspend this fiber. This can only be executed by a fiber on tthe current executor.
+     */
+    void suspend();
+    
+    /**
+     * Returns the currently executing control block,
+     */
+    ControlBlock* currentControlBlock();
+    
+    /**
+     * The current executor.
+     */
+    static thread_local Executor* current;
+    
 private:
     /**
      * Executes the fibers.
@@ -43,6 +58,11 @@ private:
      * Context returning to the executor.
      */
     boost::context::fcontext_t returnContext;
+    
+    /**
+     * The currently executing control block.
+     */
+    ControlBlock* currentControlBlock_;
 };
     
 } // namespace detail

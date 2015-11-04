@@ -13,7 +13,7 @@ namespace detail {
  */
 class FiberRefImpl {
 public:
-    virtual ~FiberRefImpl();
+    virtual ~FiberRefImpl() {};
     
     /**
      * The locality of this fiber.

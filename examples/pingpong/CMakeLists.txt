@@ -1,0 +1,5 @@
+find_package(Threads REQUIRED)
+
+add_executable(pingpong main.cpp)
+target_link_libraries(pingpong fiberize)
+target_compile_features(pingpong PUBLIC PRIVATE cxx_template_template_parameters cxx_generic_lambdas)

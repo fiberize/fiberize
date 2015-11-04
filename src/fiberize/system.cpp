@@ -15,9 +15,8 @@ System::System(uint32_t macrothreads): stackAllocator(1024 * 1024 * 32) {
     }
 }
 
-void System::fiberTrampoline(intptr_t* data) {
-    detail::ControlBlock* controlBlock = reinterpret_cast<detail::ControlBlock*>(data);
-    controlBlock->fiber->entryPoint(controlBlock);
+void System::fiberTrampoline(intptr_t) {
+    detail::Executor::current->currentControlBlock()->fiber->entryPoint();
 }
     
 } // namespace fiberize

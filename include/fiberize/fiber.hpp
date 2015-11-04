@@ -2,6 +2,7 @@
 #define FIBERIZE_FIBER_HPP
 
 #include <fiberize/detail/fiberbase.hpp>
+#include <fiberize/detail/executor.hpp>
 
 namespace fiberize {
     
@@ -13,12 +14,14 @@ public:
      */
     virtual A run() = 0;
     
-    virtual void entryPoint(detail::ControlBlock* controlBlock) {
+    virtual void entryPoint() {
         try {
             run();
         } catch (...) {
             
         }
+        detail::Executor::current->currentControlBlock()->finished = true;
+        detail::Executor::current->suspend();
     }
 };
 

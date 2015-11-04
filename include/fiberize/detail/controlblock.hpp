@@ -30,6 +30,11 @@ struct ControlBlock {
      * The fiber implementation.
      */
     FiberBase* fiber;
+    
+    /**
+     * Whether the fiber finished.
+     */
+    bool finished;
 };
  
 } // namespace detail
