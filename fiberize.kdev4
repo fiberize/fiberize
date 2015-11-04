@@ -1,4 +1,4 @@
 [Project]
-Name=fibr
+Name=fiberize
 Manager=KDevCMakeManager
 VersionControl=kdevgit

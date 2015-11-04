@@ -1,6 +1,16 @@
-cmake_minimum_required(VERSION 2.6)
-project(fibr)
+cmake_minimum_required(VERSION 3.0)
 
-add_executable(fibr main.cpp)
+project(fiberize)
 
-install(TARGETS fibr RUNTIME DESTINATION bin)
+file(GLOB_RECURSE FIBERIZE_SRCS "${CMAKE_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE FIBERIZE_HDRS "${CMAKE_SOURCE_DIR}/include/*.hpp")
+
+find_package(Boost 1.59.0 COMPONENTS context REQUIRED)
+
+include_directories("${CMAKE_SOURCE_DIR}/include" ${Boost_INCLUDE_DIRS})
+add_library(fiberize ${FIBERIZE_SRCS})
+target_link_libraries(fiberize ${Boost_LIBRARIES})
+target_compile_features(fiberize PUBLIC PRIVATE cxx_template_template_parameters cxx_generic_lambdas)
+
+install(TARGETS fiberize RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
+install(FILES ${FIBERIZE_HDRS} DESTINATION include)
