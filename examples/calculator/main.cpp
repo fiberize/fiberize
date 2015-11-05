@@ -3,21 +3,20 @@
 
 using namespace fiberize;
 
-Event<std::string> parserInput("parserInput");
-Event<uint> parserOutput("parserOutput");
-
 struct InvalidSyntax {};
 
+
 struct Calculator : public Fiber<Void> {
-    Calculator(FiberRef out): out(out) {}
-    FiberRef out;
-    
+    static Event<std::string> feed;
+    static Event<uint> result;
+    static Event<FiberRef> subscribe;
+
     // Lexer
     std::stringstream input;
     
     void waitForInput() {
         while (input.rdbuf()->in_avail() == 0) {
-            auto moreInput = parserInput.await();
+            auto moreInput = feed.await();
             input << moreInput;
         }
     }
@@ -91,13 +90,25 @@ struct Calculator : public Fiber<Void> {
         return value;
     }
     
+    // Driver
+    
+    std::vector<FiberRef> subscribers;
+    
     Void run() {
+        auto _handleSubscription = subscribe.bind([this] (const FiberRef& fiber) {
+            subscribers.push_back(fiber);
+        });
+        
         while (true) {
             try {
                 uint value = expression();
                 skipSpace();
                 symbol(';');
-                out.emit(parserOutput, value);
+                
+                process();
+                for (auto fiber : subscribers) {
+                    fiber.emit(result, value);
+                }
             } catch (const InvalidSyntax&) {
                 // Consume a character and try again.
                 getChar();
@@ -106,29 +117,25 @@ struct Calculator : public Fiber<Void> {
     }
 };
 
-struct InputReader : public Fiber<Void> {
-    InputReader(FiberRef out): out(out) {}
-    FiberRef out;
-
-    Void run() {
-        std::string input;
-        while (true) {
-            std::cout << "> ";
-            std::getline(std::cin, input);
-            out.emit(parserInput, input);
-        }
-    }
-};
+Event<std::string> Calculator::feed("Calculator::feed");
+Event<uint> Calculator::result("Calculator::result");
+Event<FiberRef> Calculator::subscribe("Calculator::subscribe");
 
 int main() {
     System fiberSystem;
-    FiberRef self = fiberSystem.mainFiber();
-    FiberRef calc = fiberSystem.run<Calculator>(self);
-    FiberRef inputReader = fiberSystem.run<InputReader>(calc);
     
-    auto _printResults = parserOutput.bind([] (uint value) {
-        std::cout << "= " << value << std::endl;
+    FiberRef calc = fiberSystem.run<Calculator>();
+    calc.emit(Calculator::subscribe, fiberSystem.currentFiber());
+    
+    auto _printResults = Calculator::result.bind([] (uint value) {
+        std::cout << value << std::endl;
     });
-    
-    Context::current()->yield();
+
+    std::string line;
+    while (true) {
+        std::cout << "> ";
+        std::getline(std::cin, line);
+        calc.emit(Calculator::feed, line);
+        Context::current()->process();
+    }
 }

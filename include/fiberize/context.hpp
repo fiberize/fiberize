@@ -42,6 +42,11 @@ public:
     void yield();
     
     /**
+     * Processes all pending events.
+     */
+    void process();
+    
+    /**
      * Handle an event in this context.
      */
     void handleEvent(const PendingEvent& event);

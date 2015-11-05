@@ -40,6 +40,13 @@ protected:
     void yield() const {
         return Context::current()->yield();
     }
+    
+    /**
+     * Processes all pending events.
+     */
+    void process() const {
+        return Context::current()->process();
+    }
 };
 
 } // namespace fiberize

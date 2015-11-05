@@ -49,16 +49,8 @@ Context::~Context() {
 }
 
 void Context::yield() {
-    PendingEvent event;
     while (true) {
-        while (mailbox_->dequeue(event)) {
-            try {
-                handleEvent(event);
-            } catch (...) {
-                event.freeData(event.data);
-                throw;
-            }
-        }
+        process();
         
         // Suspend the current thread.
         Context::current_ = nullptr;
@@ -71,6 +63,19 @@ void Context::yield() {
             std::this_thread::sleep_for(1ms);
         }
         Context::current_ = this;
+    }
+}
+
+void Context::process()
+{
+    PendingEvent event;
+    while (mailbox_->dequeue(event)) {
+        try {
+            handleEvent(event);
+        } catch (...) {
+            event.freeData(event.data);
+            throw;
+        }
     }
 }
 
