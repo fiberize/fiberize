@@ -1,76 +1,25 @@
 #ifndef FIBERIZE_CONTEXT_HPP
 #define FIBERIZE_CONTEXT_HPP
 
-#include <map>
+#include <unordered_map>
 #include <list>
 
+#include <boost/functional/hash.hpp>
+
 #include <fiberize/mailbox.hpp>
+#include <fiberize/path.hpp>
+#include <fiberize/handler.hpp>
 
 namespace fiberize {
 namespace detail {
-    
-struct Handler {
-    uint64_t refCount;
-    std::function<void (const void*)> handle;
-};
 
 struct HandlerBlock {
-    uint64_t objectSize;
-    void (*restore)(Buffer buffer, void* output);
-    void (*destroy)(void* value);
-    
-    std::list<Handler*> handlers;
+    std::list<std::unique_ptr<detail::Handler>> stackedHandlers;
 };
 
+class HandlerContext;
+    
 } // namespace detail
-
-class HandlerRef {
-public:
-    HandlerRef(detail::Handler* handler): handler(handler) {
-        if (handler != nullptr)
-            handler->refCount += 1;
-    }
-    
-    HandlerRef(const HandlerRef& ref): handler(handler) {
-        if (handler != nullptr)
-            handler->refCount += 1;
-    }
-    
-    HandlerRef(HandlerRef&& ref): handler(handler) {
-        ref.handler = nullptr;
-    }
-    
-    ~HandlerRef() {
-        release();
-    }
-    
-    HandlerRef& operator = (const HandlerRef& ref) {
-        if (handler != nullptr)
-            handler->refCount -= 1;
-        handler = ref.handler;
-        if (handler != nullptr)
-            handler->refCount += 1;
-        return *this;
-    }
-    
-    HandlerRef& operator = (HandlerRef&& ref) {
-        if (handler != nullptr)
-            handler->refCount -= 1;
-        handler = ref.handler;
-        ref.handler = nullptr;
-        return *this;
-    }
-    
-    void release() {
-        if (handler != nullptr) {
-            handler->refCount -= 1;
-            handler = nullptr;
-        }
-    }
-    
-private:
-    detail::Handler* handler;
-};
 
 template <typename A>
 class Event;
@@ -96,61 +45,33 @@ public:
      * Handle an event in this context.
      */
     void handleEvent(const PendingEvent& event);
-    
-    /**
-     * Binds an event to a handler.
-     */
-    template <typename A>
-    HandlerRef bind(const Event<A>& event, const std::function<void (const A&)>& handle) {
-        detail::HandlerBlock* block;
-        
-        auto it = handlerBlocks.find(event.name());
-        if (it == handlerBlocks.end()) {
-            block = new detail::HandlerBlock;
-            block->objectSize = sizeof(A);
-            void (*restore)(Buffer, A*) = Sendable<A>::restore;
-            void (*destroy)(A*) = Sendable<A>::destroy;
-            block->restore = reinterpret_cast<void (*)(Buffer, void*)>(restore);
-            block->destroy = reinterpret_cast<void (*)(void*)>(destroy);
-            handlerBlocks[event.name()] = block;
-        } else {
-            block = it->second;
-        }
 
-        detail::Handler* handler = new detail::Handler;
-        handler->refCount = 0;
-        handler->handle = [handle] (const void* data) { handle(*reinterpret_cast<const A*>(data)); };
-        block->handlers.push_back(handler);
-        
-        return HandlerRef(handler);
-    }
-    
+    /**
+     * Sets up a handler for an event.
+     */
+    HandlerRef bind(const Path& path, detail::Handler* handler);
+            
     /**
      * The current context.
      */
     static Context* current();
     
-private:
+private:    
     Mailbox* mailbox_;
     
-    // Handler context.
-    detail::HandlerBlock* currentBlock;
-    std::list<detail::Handler*>::iterator currentHandler;
-    void* currentValue;
-
-    // TODO: make this a hash map, use cached hashes
-    std::map<std::string, detail::HandlerBlock*> handlerBlocks;
+    // TODO: cache hashes
+    std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
 
     /**
      * Fiber local context.
      */
     static thread_local Context* current_;
     
-    friend void super();
+    friend detail::HandlerContext;
 };
 
 /**
- * Executes the superhandler.
+ * Executes the next handler in the stack.
  */
 void super();
     

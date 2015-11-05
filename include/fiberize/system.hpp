@@ -7,7 +7,7 @@
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/detail/executor.hpp>
 #include <fiberize/detail/localfiberref.hpp>
-#include <fiberize/detail/deadletterfiberref.hpp>
+#include <fiberize/detail/devnullfiberref.hpp>
 
 namespace fiberize {
 
@@ -41,6 +41,7 @@ public:
             detail::ControlBlock* block = new detail::ControlBlock;
             block->stack = stackAllocator.allocate();
             block->context = boost::context::make_fcontext(block->stack.sp, block->stack.size, fiberRunner);
+            block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
             block->mailbox = new MailboxImpl();
             block->fiber = fiber;
             block->finished = false;
@@ -50,10 +51,10 @@ public:
             executors[chooseExecutor(random)]->execute(block);
             
             // Create a local reference.
-            impl = std::make_shared<detail::LocalFiberRef>(block->mailbox);
+            impl = std::make_shared<detail::LocalFiberRef>(block->path, block->mailbox);
         } else {
             // System is shutting down, do not create new fibers.
-            impl = std::make_shared<detail::DeadLetterFiberRef>();
+            impl = std::make_shared<detail::DevNullFiberRef>();
         }
         return FiberRef(impl);
     }
@@ -61,9 +62,12 @@ public:
     /**
      * Shut down the system.
      */
-    void shutdown() {
-        shuttingDown = true;
-    };
+    void shutdown();
+    
+    /**
+     * Returns the UUID of this system.
+     */
+    boost::uuids::uuid uuid() const;
     
     /**
      * Returns the fiber reference of the main thread.
@@ -100,6 +104,16 @@ private:
      * Context of the main thread.
      */
     Context mainContext_;
+    
+    /**
+     * The prefix of this actor system.
+     */
+    boost::uuids::uuid uuid_;
+    
+    /**
+     * Generator used for event and fiber ids.
+     */
+    UniqueIdentGenerator uniqueIdentGenerator;
 };
     
 } // namespace fiberize

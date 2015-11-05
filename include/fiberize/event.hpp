@@ -4,6 +4,7 @@
 #include <string>
 
 #include <fiberize/context.hpp>
+#include <fiberize/path.hpp>
 
 namespace fiberize {
 
@@ -13,23 +14,15 @@ public:
     /**
      * Creates an event with the given name.
      */
-    Event(std::string&& name): name_(name) {}
+    Event(const std::string& name): path_(GlobalPath(NamedIdent(name))) {}
     
     /**
-     * Returns the name of this event.
+     * Returns the path of this event.
      */
-    const char* name() const {
-        return name_.c_str();
+    Path path() const {
+        return path_;
     }
-    
-    /**
-     * Returns the hash of this event.
-     */
-    const uint64_t hash() const {
-        std::hash<std::string> hash_fn;
-        return hash_fn(name_);
-    }
-    
+        
 private:
     
     struct EventFired {
@@ -42,10 +35,11 @@ public:
      * Waits until an event occurs and returns its value.
      */
     A await() const {
-        auto handler = bind([] (const A& value) {
+        void (*lol)(const A&) = [] (const A& value) {
             super();
             throw EventFired{value};
-        });
+        };
+        auto handler = bind(lol);
         
         try {
             Context::current()->yield();
@@ -57,12 +51,21 @@ public:
     /**
      * Binds an event to a handler.
      */
-    HandlerRef bind(const std::function<void (const A&)>& handle) const {
-        return Context::current()->bind<A>(*this, handle);
+    HandlerRef bind(const std::function<void (const A&)>& function) const {
+        detail::Handler* handler = new detail::TypedHandler<A>(function);
+        return Context::current()->bind(path(), handler);
     }
     
+    /**
+     * Binds an event to a handler.
+     */
+    HandlerRef bind(std::function<void (const A&)>&& function) const {
+        detail::Handler* handler = new detail::TypedHandler<A>(std::move(function));
+        return Context::current()->bind(path(), handler);
+    }
+
 private:
-    std::string name_;
+    Path path_;
 };
     
 } // namespace fiberize

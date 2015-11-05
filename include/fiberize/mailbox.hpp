@@ -10,13 +10,14 @@
 #include <boost/lockfree/queue.hpp>
 
 #include <fiberize/sendable.hpp>
+#include <fiberize/path.hpp>
 
 namespace fiberize {
 
 struct PendingEvent {
-    const char* name;
-    uint64_t hash;
-    Buffer buffer;
+    Path path;
+    void* data;
+    void (*freeData)(void*);
 };
 
 class Mailbox {
@@ -77,7 +78,7 @@ public:
     virtual void enqueue(const PendingEvent& event);    
     
 private:
-    boost::lockfree::queue<PendingEvent> pendingEvents;
+    boost::lockfree::queue<PendingEvent*> pendingEvents;
 };
 
 } // namespace fiberize

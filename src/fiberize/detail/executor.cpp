@@ -1,5 +1,8 @@
 #include <fiberize/detail/executor.hpp>
 
+#include <thread>
+#include <chrono>
+
 namespace fiberize {
 namespace detail {
 
@@ -37,7 +40,11 @@ void Executor::run() {
          * Busy-wait until we have something to do.
          * TODO: do not busy wait
          */
-        while (!runQueue.pop(controlBlock));
+        while (!runQueue.pop(controlBlock)) {
+            // TODO: change this to conditions.
+            using namespace std::literals;
+            std::this_thread::sleep_for(1ms);
+        }
    
         /**
          * Context switch to a fiber.

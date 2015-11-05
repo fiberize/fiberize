@@ -2,6 +2,7 @@
 #define FIBERIZE_FIBERREF_HPP
 
 #include <fiberize/types.hpp>
+#include <fiberize/path.hpp>
 #include <fiberize/event.hpp>
 #include <fiberize/mailbox.hpp>
 
@@ -19,6 +20,11 @@ public:
      * The locality of this fiber.
      */
     virtual Locality locality() const = 0;
+    
+    /**
+     * Path of this fiber.
+     */
+    virtual Path path() const = 0;
     
     /**
      * Emits an event for an appropriatly stored value.
@@ -58,19 +64,25 @@ public:
     FiberRef& operator = (FiberRef&& ref) = default;
     
     /**
+     * Returns the path to this fiber.
+     */
+    Path path() const {
+        return impl_->path();
+    }
+    
+    /**
      * Emits an event.
      */
     template <typename A>
     void emit(const Event<A>& event, A&& value) {
         if (impl_->locality() != DevNull) {
             PendingEvent pendingEvent;
-            pendingEvent.name = event.name();
-            pendingEvent.hash = event.hash();
-            pendingEvent.buffer = Sendable<A>::store(value);
+            pendingEvent.path = event.path();
+            pendingEvent.data = new A(std::move(value));
+            pendingEvent.freeData = [] (void* data) { delete reinterpret_cast<A*>(data); };
             impl_->emit(pendingEvent);
         }
-    }
-    
+    }    
     /**
      * Emits an event.
      */
@@ -78,9 +90,9 @@ public:
     void emit(const Event<A>& event, const A& value) {
         if (impl_->locality() != DevNull) {
             PendingEvent pendingEvent;
-            pendingEvent.name = event.name();
-            pendingEvent.hash = event.hash();
-            pendingEvent.buffer = Sendable<A>::store(value);
+            pendingEvent.path = event.path();
+            pendingEvent.data = new A(value);
+            pendingEvent.freeData = [] (void* data) { delete reinterpret_cast<A*>(data); };
             impl_->emit(pendingEvent);
         }
     }

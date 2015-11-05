@@ -2,8 +2,43 @@
 #include <fiberize/detail/executor.hpp>
 
 namespace fiberize {
+namespace detail {
 
-Context::Context(Mailbox* mailbox): mailbox_(mailbox), currentBlock(nullptr), currentValue(nullptr) {
+class HandlerContext {
+public:
+    HandlerContext(HandlerBlock* handlerBlock, const void* data)
+        : handlerBlock(handlerBlock)
+        , handler(handlerBlock->stackedHandlers.end())
+        , data(data) {
+        stashedContext = Context::current_;
+        Context::current_ = nullptr;
+        HandlerContext::current_ = this;
+    };
+    
+    ~HandlerContext() {
+        Context::current_ = stashedContext;
+        HandlerContext::current_ = nullptr;
+    }
+    
+    const void* data;
+    HandlerBlock* handlerBlock;
+    std::list<std::unique_ptr<Handler>>::iterator handler;
+    
+    static HandlerContext* current() {
+        return current_;
+    }
+    
+private:
+    static thread_local HandlerContext* current_;
+
+    Context* stashedContext;
+};
+    
+thread_local HandlerContext* HandlerContext::current_ = nullptr;
+    
+} // namespace detail
+
+Context::Context(Mailbox* mailbox): mailbox_(mailbox) {
     Context::current_ = this;
     mailbox_->grab();
 }
@@ -20,7 +55,7 @@ void Context::yield() {
             try {
                 handleEvent(event);
             } catch (...) {
-                event.buffer.free();
+                event.freeData(event.data);
                 throw;
             }
         }
@@ -40,26 +75,25 @@ void Context::yield() {
 }
 
 void super() {
-    Context* context = Context::current();
-    assert(context->currentBlock != nullptr);
+    detail::HandlerContext* context = detail::HandlerContext::current();
     
     /**
      * Check if we executed all handlers.
      */
-    if (context->currentHandler == context->currentBlock->handlers.begin()) {
+    if (context->handler == context->handlerBlock->stackedHandlers.begin()) {
         return;
     }
     
     /**
      * Otherwise find an alive handler.
      */
-    auto it = --context->currentHandler;
-    while ((*it)->refCount == 0) {
-        if (it == context->currentBlock->handlers.begin()) {
+    auto it = --context->handler;
+    while ((*it)->isDestroyed()) {
+        if (it == context->handlerBlock->stackedHandlers.begin()) {
             /**
              * That was the last handler.
              */
-            context->currentBlock->handlers.pop_front();
+            context->handlerBlock->stackedHandlers.pop_front();
             return;
         } else {
             /**
@@ -67,78 +101,60 @@ void super() {
              */
             auto copy = it;
             --it;
-            context->currentBlock->handlers.erase(copy);
+            context->handlerBlock->stackedHandlers.erase(copy);
         }
     }
     
     /**
      * Set the current handler and execute it.
      */
-    context->currentHandler = it;
-    (*it)->handle(context->currentValue);
+    context->handler = it;
+    (*it)->execute(context->data);
 }
 
 void Context::handleEvent(const PendingEvent& event) {
     /**
      * Find a handler block.
      */
-    auto it = handlerBlocks.find(event.name);
+    auto it = handlerBlocks.find(event.path);
     if (it == handlerBlocks.end())
-        return;    
-    currentBlock = it->second;
+        return;
+    detail::HandlerBlock* block = it->second.get();
     
     /**
      * Get rid of dead handlers at the back.
      */
-    while (!currentBlock->handlers.empty() && currentBlock->handlers.back()->refCount == 0) {
-        delete currentBlock->handlers.back();
-        currentBlock->handlers.pop_back();
+    while (!block->stackedHandlers.empty() && block->stackedHandlers.back()->isDestroyed()) {
+        block->stackedHandlers.pop_back();
     }
     
     /**
      * There are no handlers at all, remove the handler block.
      */
-    if (currentBlock->handlers.empty()) {
-        delete currentBlock;
+    if (block->stackedHandlers.empty()) {
         handlerBlocks.erase(it);
-        currentBlock = nullptr;
         return;
     }
-    
-    /**
-     * Deserialize the event value.
-     */
-    currentValue = malloc(currentBlock->objectSize);
-    try {
-        currentBlock->restore(event.buffer, currentValue);
-    } catch (...) {
-        currentBlock = nullptr;
-        free(currentValue);
-        currentValue = nullptr;
-        throw;
-    }
-    
+        
     /**
      * Execute the handler.
      */
-    currentHandler = currentBlock->handlers.end();
-    try {
-        super();
-    } catch (...) {
-        currentBlock->destroy(currentValue);
-        currentBlock = nullptr;
-        free(currentValue);
-        currentValue = nullptr;
-        throw;
+    detail::HandlerContext handlerContext(block, event.data);
+    super();
+}
+
+HandlerRef Context::bind(const Path& path, fiberize::detail::Handler* handler) {
+    detail::HandlerBlock* block;
+    auto it = handlerBlocks.find(path);
+    if (it == handlerBlocks.end()) {
+        block = new detail::HandlerBlock;
+        handlerBlocks.emplace(std::make_pair(path, std::unique_ptr<detail::HandlerBlock>(block)));
+    } else {
+        block = it->second.get();
     }
-    
-    /**
-     * Free the value.
-     */
-    currentBlock->destroy(currentValue);
-    currentBlock = nullptr;
-    free(currentValue);
-    currentValue = nullptr;
+
+    block->stackedHandlers.emplace_back(handler);        
+    return HandlerRef(handler);
 }
 
 Context* Context::current() {

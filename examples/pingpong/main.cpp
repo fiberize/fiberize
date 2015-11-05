@@ -6,17 +6,17 @@
 using namespace fiberize;
 
 Event<FiberRef> init("init");
-Event<int> ping("ping");
-Event<int> pong("pong");
+Event<Unit> ping("ping");
+Event<Unit> pong("pong");
 
 struct Ping : public Fiber<Unit> {
     virtual Unit run() {
         auto peer = init.await();
         
-        int n = 0;
-        while (n < 1000000) {
-            peer.emit(ping, n);
-            n = pong.await();
+        while (true) {
+            std::cout << "Ping" << std::endl;
+            peer.emit(ping);
+            pong.await();
         }
     }
 };
@@ -25,10 +25,10 @@ struct Pong : public Fiber<Unit> {
     virtual Unit run() {
         auto peer = init.await();
 
-        int n;
-        while (n < 1000000) {
-            n = ping.await();
-            peer.emit(pong, n + 1);
+        while (true) {
+            ping.await();
+            std::cout << "Pong" << std::endl;
+            peer.emit(pong);
         }
     }
 };
@@ -43,7 +43,5 @@ int main() {
     ping.emit(init, pong);
     pong.emit(init, ping);
     
-    while (true) {
-        std::this_thread::sleep_for(1s);
-    }
+    Context::current()->yield();
 }

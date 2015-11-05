@@ -4,6 +4,7 @@
 #include <boost/context/all.hpp>
 
 #include <fiberize/mailbox.hpp>
+#include <fiberize/path.hpp>
 
 namespace fiberize {
 namespace detail {
@@ -20,6 +21,11 @@ struct ControlBlock {
      * The last saved context.
      */
     boost::context::fcontext_t context;
+    
+    /**
+     * Path to this fiber.
+     */
+    Path path;
     
     /**
      * Mailbox attached to this control block.

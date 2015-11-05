@@ -23,7 +23,8 @@ bool Mailbox::drop() {
 BlockingCircularBufferMailbox::~BlockingCircularBufferMailbox() {
     std::lock_guard<std::mutex> lock(mutex);
     for (PendingEvent& event : pendingEvents) {
-        event.buffer.free();
+        if (event.freeData != nullptr)
+            event.freeData(event.data);
     }
 }
 
@@ -47,18 +48,28 @@ LockfreeQueueMailbox::LockfreeQueueMailbox(): pendingEvents(0) {
 }
 
 LockfreeQueueMailbox::~LockfreeQueueMailbox() {
-    PendingEvent event;
-    while (pendingEvents.unsynchronized_pop(event)) {
-        event.buffer.free();
+    PendingEvent* event;
+    while (pendingEvents.unsynchronized_pop(event)) {        
+        if (event->freeData)
+            event->freeData(event->data);
+        delete event;
     }
 }
 
 void LockfreeQueueMailbox::enqueue(const PendingEvent& event) {
-    pendingEvents.push(event);
+    PendingEvent* ptr = new PendingEvent(event);
+    pendingEvents.push(ptr);
 }
 
 bool LockfreeQueueMailbox::dequeue(PendingEvent& event) {
-    return pendingEvents.pop(event);
+    PendingEvent* ptr;
+    if (pendingEvents.pop(ptr)) {
+        event = *ptr;
+        delete ptr;
+        return true;
+    } else {
+        return false;
+    }
 }
 
 } // namespace fiberize
