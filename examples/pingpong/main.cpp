@@ -1,7 +1,5 @@
 #include <fiberize/fiberize.hpp>
 #include <iostream>
-#include <chrono>
-#include <thread>
 
 using namespace fiberize;
 
@@ -34,7 +32,6 @@ struct Pong : public Fiber<Unit> {
 };
 
 int main() {
-    using namespace std::literals;
     System system;
     
     auto ping = system.run<Ping>();

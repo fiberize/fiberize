@@ -1,7 +1,5 @@
 #include <fiberize/fiberize.hpp>
 #include <iostream>
-#include <chrono>
-#include <thread>
 
 using namespace fiberize;
 

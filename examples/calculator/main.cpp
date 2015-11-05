@@ -5,7 +5,6 @@ using namespace fiberize;
 
 struct InvalidSyntax {};
 
-
 struct Calculator : public Fiber<Void> {
     static Event<std::string> feed;
     static Event<uint> result;
