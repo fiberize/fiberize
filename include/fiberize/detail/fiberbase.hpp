@@ -1,8 +1,6 @@
 #ifndef FIBERIZE_DETAIL_FIBERBASE_HPP
 #define FIBERIZE_DETAIL_FIBERBASE_HPP
 
-#include <fiberize/buffer.hpp>
-
 namespace fiberize {
 namespace detail {
     

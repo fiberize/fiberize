@@ -5,7 +5,6 @@
 #include <fiberize/detail/executor.hpp>
 #include <fiberize/fiberref.hpp>
 #include <fiberize/context.hpp>
-#include <fiberize/buffer.hpp>
 #include <fiberize/event.hpp>
 
 namespace fiberize {

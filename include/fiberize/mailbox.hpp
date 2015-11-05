@@ -9,7 +9,6 @@
 #include <boost/circular_buffer.hpp>
 #include <boost/lockfree/queue.hpp>
 
-#include <fiberize/sendable.hpp>
 #include <fiberize/path.hpp>
 
 namespace fiberize {

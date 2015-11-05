@@ -5,6 +5,7 @@
 #include <fiberize/path.hpp>
 #include <fiberize/event.hpp>
 #include <fiberize/mailbox.hpp>
+#include <fiberize/locality.hpp>
 
 namespace fiberize {
 namespace detail {
