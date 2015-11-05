@@ -6,6 +6,7 @@
 #include <fiberize/fiberref.hpp>
 #include <fiberize/context.hpp>
 #include <fiberize/event.hpp>
+#include <fiberize/system.hpp>
 
 namespace fiberize {
     
@@ -23,6 +24,7 @@ struct Fiber: public detail::FiberBase {
      */
     virtual void _execute() {
         auto controlBlock = detail::Executor::current()->currentControlBlock();
+        self_ = detail::Executor::current()->system()->currentFiber();
         try {
             auto finished = Event<A>::fromPath(controlBlock->finishedEventPath);
             controlBlock->parent.emit(finished, run());
@@ -46,6 +48,16 @@ protected:
     void process() const {
         return Context::current()->process();
     }
+    
+    /**
+     * Returns the reference to the current fiber.
+     */
+    FiberRef self() const {
+        return self_;
+    }
+    
+private:
+    FiberRef self_;
 };
 
 } // namespace fiberize

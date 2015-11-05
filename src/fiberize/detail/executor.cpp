@@ -53,7 +53,7 @@ void Executor::run() {
         while (!runQueue.pop(controlBlock)) {
             // TODO: change this to conditions or sth
             using namespace std::literals;
-            std::this_thread::sleep_for(1ms);
+            std::this_thread::sleep_for(1ns);
         }
    
         /**

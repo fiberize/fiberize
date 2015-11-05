@@ -157,7 +157,7 @@ public:
      */
     template <typename A>
     Event<A> newEvent() {
-        return Event<A>(Event<A>::fromPath, PrefixedPath(uuid(), uniqueIdentGenerator.generate()));
+        return Event<A>::fromPath(PrefixedPath(uuid(), uniqueIdentGenerator.generate()));
     }
     
     /**

@@ -16,3 +16,4 @@ install(TARGETS fiberize RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
 install(FILES ${FIBERIZE_HDRS} DESTINATION include)
 
 add_subdirectory(examples)
+add_subdirectory(benchmarks)
