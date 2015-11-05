@@ -62,9 +62,9 @@ void Context::yield() {
         
         // Suspend the current thread.
         Context::current_ = nullptr;
-        detail::Executor* executor = detail::Executor::current;
+        detail::Executor* executor = detail::Executor::current();
         if (executor != nullptr) {
-            detail::Executor::current->suspend();
+            executor->suspend();
         } else {
             // TODO: change this to conditions.
             using namespace std::literals;

@@ -1,10 +1,11 @@
-#ifndef FIBERIZE_DETAIL_CONTROL_BLOCK_HPP
-#define FIBERIZE_DETAIL_CONTROL_BLOCK_HPP
+#ifndef FIBERIZE_DETAIL_CONTROLBLOCK_HPP
+#define FIBERIZE_DETAIL_CONTROLBLOCK_HPP
 
 #include <boost/context/all.hpp>
 
 #include <fiberize/mailbox.hpp>
 #include <fiberize/path.hpp>
+#include <fiberize/fiberref.hpp>
 
 namespace fiberize {
 namespace detail {
@@ -38,12 +39,27 @@ struct ControlBlock {
     FiberBase* fiber;
     
     /**
-     * Whether the fiber finished.
+     * Path to the event emmitted when the fiber successfully finishes.
      */
-    bool finished;
+    Path finishedEventPath;
+    
+    /**
+     * Path to the event emitted when the fiber throws an uncaught exception.
+     */
+    Path crashedEventPath;
+    
+    /**
+     * The fiber that spawned this fiber.
+     */
+    FiberRef parent;
+    
+    /**
+     * Whether the fiber finished or crashed.
+     */
+    bool exited;
 };
  
 } // namespace detail
 } // namespace fiberize
 
-#endif // FIBERIZE_DETAIL_CONTROL_BLOCK_HPP
+#endif // FIBERIZE_DETAIL_CONTROLBLOCK_HPP

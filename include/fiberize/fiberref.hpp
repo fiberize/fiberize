@@ -37,6 +37,10 @@ public:
 
 class FiberRef {
 public:
+    /**
+     * Creates a fiber reference pointing to /dev/null.
+     */
+    FiberRef();
     
     /**
      * Creates a new fiber reference with the given implementation.
@@ -66,7 +70,7 @@ public:
     /**
      * Returns the path to this fiber.
      */
-    Path path() const {
+    inline Path path() const {
         return impl_->path();
     }
     
@@ -75,20 +79,21 @@ public:
      */
     template <typename A>
     void emit(const Event<A>& event, A&& value) {
-        if (impl_->locality() != DevNull) {
+        if (impl_->locality() != DevNull && event.path() != Path(DevNullPath{})) {
             PendingEvent pendingEvent;
             pendingEvent.path = event.path();
             pendingEvent.data = new A(std::move(value));
             pendingEvent.freeData = [] (void* data) { delete reinterpret_cast<A*>(data); };
             impl_->emit(pendingEvent);
         }
-    }    
+    }
+    
     /**
      * Emits an event.
      */
     template <typename A>
     void emit(const Event<A>& event, const A& value) {
-        if (impl_->locality() != DevNull) {
+        if (impl_->locality() != DevNull && event.path() != Path(DevNullPath{})) {
             PendingEvent pendingEvent;
             pendingEvent.path = event.path();
             pendingEvent.data = new A(value);
@@ -100,14 +105,14 @@ public:
     /**
      * Emits a valueless event.
      */
-    void emit(const Event<Unit>& event) {
+    inline void emit(const Event<Unit>& event) {
         emit(event, {});
     }
     
     /**
      * The internal implementation.
      */
-    std::shared_ptr<detail::FiberRefImpl> impl() {
+    inline std::shared_ptr<detail::FiberRefImpl> impl() {
         return impl_;
     }
     

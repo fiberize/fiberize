@@ -1,4 +1,6 @@
 #include <fiberize/detail/executor.hpp>
+#include <fiberize/detail/fiberbase.hpp>
+#include <fiberize/system.hpp>
 
 #include <thread>
 #include <chrono>
@@ -6,7 +8,7 @@
 namespace fiberize {
 namespace detail {
 
-Executor::Executor(): runQueue(100) {
+Executor::Executor(fiberize::System* system): runQueue(100), system_(system) {
     thread = std::thread(&Executor::run, this);
 }
 
@@ -25,11 +27,19 @@ void Executor::suspend() {
     boost::context::jump_fcontext(&currentControlBlock_->context, returnContext, 0);
 }
 
+System* Executor::system() {
+    return system_;
+}
+
+Executor* Executor::current() {
+    return current_;
+}
+
 void Executor::run() {
     /**
      * Set the thread local executor to this.
      */
-    Executor::current = this;
+    Executor::current_ = this;
     
     /**
      * Loop forever executing fibers.
@@ -38,10 +48,10 @@ void Executor::run() {
     while (true) {
         /**
          * Busy-wait until we have something to do.
-         * TODO: do not busy wait
+         * TODO: work stealing and epoll
          */
         while (!runQueue.pop(controlBlock)) {
-            // TODO: change this to conditions.
+            // TODO: change this to conditions or sth
             using namespace std::literals;
             std::this_thread::sleep_for(1ms);
         }
@@ -56,18 +66,21 @@ void Executor::run() {
         /**
          * If the fiber didn't finish put it back on the queue.
          */
-        if (!controlBlock->finished) {
+        if (!controlBlock->exited) {
             runQueue.push(controlBlock);
         } else {
             /**
              * Otherwise destroy the control block.
              */
-            // TODO: free memory
+            delete controlBlock->fiber;
+            controlBlock->mailbox->drop();
+            system()->stackAllocator.deallocate(controlBlock->stack);
+            delete controlBlock;
         }
     }
 }
 
-thread_local Executor* Executor::current = nullptr;
+thread_local Executor* Executor::current_ = nullptr;
 
 } // namespace detail    
 } // namespace fiberize

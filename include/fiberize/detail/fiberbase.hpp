@@ -12,9 +12,9 @@ struct FiberBase {
     virtual ~FiberBase() {};
     
     /**
-     * Run the fiber and store the result in a buffer.
+     * Run the fiber and take care of return value and unhandled exceptions.
      */
-    virtual Buffer runStored() = 0;
+    virtual void _execute() = 0;
 };
     
 } // namespace detail

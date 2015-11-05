@@ -25,8 +25,23 @@ System::System(uint32_t macrothreads)
     , shuttingDown(false) {
     // Spawn the executors.
     for (uint32_t i = 0; i < macrothreads; ++i) {
-        std::unique_ptr<detail::Executor> executor(new detail::Executor());
+        std::unique_ptr<detail::Executor> executor(new detail::Executor(this));
         executors.push_back(std::move(executor));
+    }
+}
+
+System::~System() {
+    mainMailbox->drop();
+}
+
+FiberRef System::currentFiber() const {
+    auto executor = detail::Executor::current();
+    if (executor == nullptr) {
+        // TODO: what about threads spawned by the user?
+        return mainFiber();
+    } else {
+        auto controlBlock = executor->currentControlBlock();
+        return FiberRef(std::make_shared<detail::LocalFiberRef>(controlBlock->path, controlBlock->mailbox));
     }
 }
 
@@ -36,18 +51,11 @@ FiberRef System::mainFiber() const {
 }
 
 void System::fiberRunner(intptr_t) {
-    try {
-        Context context(detail::Executor::current->currentControlBlock()->mailbox);
-        
-        // TODO: handle return values
-        Buffer buffer = detail::Executor::current->currentControlBlock()->fiber->runStored();
-        buffer.free();
-    } catch (...) {
-        // TODO: handle fiber failures.
-    }
-    
-    detail::Executor::current->currentControlBlock()->finished = true;
-    detail::Executor::current->suspend();
+    auto controlBlock = detail::Executor::current()->currentControlBlock();
+    Context context(controlBlock->mailbox);        
+    controlBlock->fiber->_execute();
+    controlBlock->exited = true;
+    detail::Executor::current()->suspend();
 }
 
 void System::shutdown() {

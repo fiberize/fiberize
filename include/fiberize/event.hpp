@@ -7,14 +7,28 @@
 #include <fiberize/path.hpp>
 
 namespace fiberize {
-
+    
 template <typename A>
 class Event {
 public:
+    struct FromPath {};
+    
     /**
      * Creates an event with the given name.
      */
     Event(const std::string& name): path_(GlobalPath(NamedIdent(name))) {}
+    
+    /**
+     * Creates an event with the given path.
+     */
+    Event(FromPath, const Path& path): path_(path) {}
+    
+    /**
+     * Creates an event with the given path.
+     */
+    static Event<A> fromPath(const Path& path) {
+        return Event<A>(FromPath{}, path);
+    }
     
     /**
      * Returns the path of this event.
@@ -35,11 +49,10 @@ public:
      * Waits until an event occurs and returns its value.
      */
     A await() const {
-        void (*lol)(const A&) = [] (const A& value) {
+        auto handler = bind([] (const A& value) {
             super();
             throw EventFired{value};
-        };
-        auto handler = bind(lol);
+        });
         
         try {
             Context::current()->yield();

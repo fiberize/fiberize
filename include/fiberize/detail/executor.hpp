@@ -9,6 +9,9 @@
 #include <fiberize/detail/controlblock.hpp>
 
 namespace fiberize {
+
+class System;    
+
 namespace detail {
     
 class Executor {
@@ -16,7 +19,7 @@ public:
     /**
      * Spawns the executor in a new thread.
      */
-    Executor();
+    Executor(System* system);
     
     /**
      * Schedules a fiber to be executed by this executor.
@@ -34,15 +37,31 @@ public:
     ControlBlock* currentControlBlock();
     
     /**
-     * The current executor.
+     * Returns the fiber system this executor is attached to.
      */
-    static thread_local Executor* current;
+    System* system();
+
+    /**
+     * Returns the current executor, or nullptr if this is thread does not have an associated executor.
+     */
+    static Executor* current();
     
 private:
+
+    /**
+     * The current executor.
+     */
+    static thread_local Executor* current_;
+    
     /**
      * Executes the fibers.
      */
     void run();
+    
+    /**
+     * The fiber system.
+     */
+    System* system_;
     
     /**
      * The thread this executor is running on.

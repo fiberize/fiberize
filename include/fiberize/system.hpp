@@ -1,6 +1,8 @@
 #ifndef FIBERIZE_SYSTEM_HPP
 #define FIBERIZE_SYSTEM_HPP
 
+#include <utility>
+
 #include <boost/context/all.hpp>
 
 #include <fiberize/fiberref.hpp>
@@ -15,7 +17,43 @@ namespace fiberize {
  * Thread local random.
  */
 extern thread_local std::default_random_engine random;
+
+/**
+ * Bundles the reference to a fiber and it's "finished" and "crashed" events.
+ */
+template <typename A>
+class FiberResult {
+public:
+    FiberResult(const FiberRef &ref, const Event<A> &finished, const Event<Unit>& crashed)
+        : ref_(ref), finished_(finished), crashed_(crashed) {}
     
+    /**
+     * Returns the reference to the fiber.
+     */
+    FiberRef ref() const {
+        return ref_;
+    }
+    
+    /**
+     * An event which fires when the fiber successfully finishes.
+     */
+    Event<A> finished() const {
+        return finished_;
+    }
+    
+    /**
+     * An event which fires when an uncaugh exception escapes the fiber run function.
+     */
+    Event<Unit> crashed() const {
+        return crashed_;
+    }
+    
+private:
+    FiberRef ref_;
+    Event<A> finished_;
+    Event<Unit> crashed_;
+};
+
 class System {
 public:
     /**
@@ -29,13 +67,26 @@ public:
     System(uint32_t macrothreads);
     
     /**
-     * Starts a fiber.
+     * Cleans up the main fiber.
      */
-    template <typename FiberImpl, typename MailboxImpl = LockfreeQueueMailbox, typename ...Args>
-    FiberRef run(Args&& ...args) {
-        std::shared_ptr<detail::FiberRefImpl> impl;
+    ~System();
+    
+    /**
+     * Starts a new fiber.
+     * 
+     * This is the most general of the "run" function family. It expects a factory used to create the
+     * fiber and two events: one when the fiber finishes and the second when the fiber crashes.
+     */
+    template <
+        typename MailboxImpl = LockfreeQueueMailbox, 
+        typename FiberFactory, 
+        typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type,
+        typename Result = decltype(std::declval<FiberImpl>().run())
+        >
+    FiberRef runWithEvents(const Event<Result>& finished, const Event<Unit>& crashed, const FiberFactory& fiberFactory) {
+        std::shared_ptr<detail::FiberRefImpl> impl;        
         if (!shuttingDown) {
-            FiberImpl* fiber = new FiberImpl(std::forward<Args>(args)...);
+            FiberImpl* fiber = fiberFactory();
             
             // Create the control block.
             detail::ControlBlock* block = new detail::ControlBlock;
@@ -44,7 +95,10 @@ public:
             block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
             block->mailbox = new MailboxImpl();
             block->fiber = fiber;
-            block->finished = false;
+            block->parent = currentFiber();
+            block->finishedEventPath = finished.path();
+            block->crashedEventPath = crashed.path();
+            block->exited = false;
             
             // Send it to a random executor.
             std::uniform_int_distribution<uint32_t> chooseExecutor(0, executors.size() - 1);
@@ -56,7 +110,54 @@ public:
             // System is shutting down, do not create new fibers.
             impl = std::make_shared<detail::DevNullFiberRef>();
         }
-        return FiberRef(impl);
+        return FiberRef(impl);    
+    }
+    
+    /**
+     * Starts a fiber, ignoring its result. 
+     * 
+     * The fiber is constructed using the given arguments.
+     */
+    template <
+        typename FiberImpl, 
+        typename MailboxImpl = LockfreeQueueMailbox,
+        typename Result = decltype(std::declval<FiberImpl>().run()),
+        typename ...Args
+        >
+    FiberRef run(Args&& ...args) {
+        return runWithEvents<MailboxImpl>(
+            Event<Result>::fromPath(DevNullPath{}), 
+            Event<Unit>::fromPath(DevNullPath{}), 
+            [&] () { return new FiberImpl(std::forward<Args>(args)...); }
+        );
+    }
+
+    /**
+     * Starts a fiber and collects its result.
+     * 
+     * The fiber is constructed using the given arguments.
+     */
+    template <
+        typename FiberImpl, 
+        typename MailboxImpl = LockfreeQueueMailbox,
+        typename Result = decltype(std::declval<FiberImpl>().run()),
+        typename ...Args
+        >
+    FiberResult<Result> runWithResult(Args&& ...args) {
+        Event<Result> finished = newEvent<Result>();
+        Event<Unit> crashed = newEvent<Unit>();
+        FiberRef ref = runWithEvents<MailboxImpl>(finished, crashed, [&] () {
+            return new FiberImpl(std::forward<Args>(args)...);
+        });
+        return FiberResult<Result>(ref, finished, crashed);
+    }
+    
+    /**
+     * Creates a new unique event.
+     */
+    template <typename A>
+    Event<A> newEvent() {
+        return Event<A>(Event<A>::fromPath, PrefixedPath(uuid(), uniqueIdentGenerator.generate()));
     }
     
     /**
@@ -68,6 +169,11 @@ public:
      * Returns the UUID of this system.
      */
     boost::uuids::uuid uuid() const;
+    
+    /**
+     * Returns the currently running fiber.
+     */
+    FiberRef currentFiber() const;
     
     /**
      * Returns the fiber reference of the main thread.
@@ -82,6 +188,9 @@ private:
 
     /**
      * Stack allocator.
+     * 
+     * TODO: reuse stacks
+     * TODO: segmented stacks
      */
     boost::context::fixedsize_stack stackAllocator;
     
@@ -114,6 +223,8 @@ private:
      * Generator used for event and fiber ids.
      */
     UniqueIdentGenerator uniqueIdentGenerator;
+    
+    friend detail::Executor;
 };
     
 } // namespace fiberize
