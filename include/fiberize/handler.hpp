@@ -20,6 +20,7 @@ namespace detail {
 struct Handler {
 public:
     inline Handler(): refCount(0) {};
+    virtual ~Handler() {};
 
     virtual void execute(const void* data) = 0;
     
