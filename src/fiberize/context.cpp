@@ -68,17 +68,18 @@ void Context::yield() {
                  * Too bad, now we have to process it and start again.
                  */
                 controlBlock->mutex.unlock();
-                
+
                 try {
                     handleEvent(event);
                 } catch (...) {
                     event.freeData(event.data);
                     throw;
                 }
+                event.freeData(event.data);
 
                 continue;
             }
-            
+
             /**
              * No new events, we can suspend the thread.
              */
@@ -103,6 +104,7 @@ void Context::process()
             event.freeData(event.data);
             throw;
         }
+        event.freeData(event.data);
     }
 }
 
