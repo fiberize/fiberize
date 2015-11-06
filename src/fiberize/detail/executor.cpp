@@ -20,7 +20,7 @@ Executor::Executor(fiberize::System* system, uint64_t seed, uint32_t myIndex)
     {}
 
 void Executor::start() {
-    thread = std::thread(&Executor::idle, this);    
+    thread = std::thread(&Executor::idle, this);
 }
 
 void Executor::stop() {
@@ -40,7 +40,7 @@ ControlBlock* Executor::currentControlBlock() {
     return currentControlBlock_;
 }
 
-void Executor::suspend() {    
+void Executor::suspend() {
     /**
      * Switch to the next fiber.
      */
@@ -57,7 +57,7 @@ void Executor::terminate() {
     currentControlBlock_->fiber.reset();
     currentControlBlock_->drop();
     currentControlBlock_ = nullptr;
-    
+
     /**
      * Switch to the next fiber.
      */
@@ -73,7 +73,7 @@ void Executor::idle() {
      * Set the thread local executor to this.
      */
     Executor::current_ = this;
-    
+
     /**
      * Idle loop.
      */
@@ -85,7 +85,7 @@ void Executor::idle() {
             jumpToFiber(&idleContext, controlBlock);
             afterJump();
         }
-            
+
         if (system->executors.size() > 1) {
             /**
              * Choose a random executor that is not ourself.
@@ -93,7 +93,7 @@ void Executor::idle() {
             uint32_t i = randomExecutor(randomEngine);
             if (i >= myIndex)
                 i += 1;
-            
+
             /**
              * Try to take his job.
              */
@@ -110,16 +110,16 @@ void Executor::idle() {
 
 void Executor::switchFromRunning() {
     ControlBlock* controlBlock;
-    
+
     if (runQueue.pop(controlBlock)) {
         /**
          * Switch the current control block to the next fiber and make the jump
          * saving our current state to the control block.
          */
         jumpToFiber(&currentControlBlock_->context, controlBlock);
-            
+
         /**
-         * We returned from the jump, this means another fiber switched to us. 
+         * We returned from the jump, this means another fiber switched to us.
          * The current control block was restored by the fiber making the jump.
          */
         afterJump();
@@ -133,14 +133,14 @@ void Executor::switchFromRunning() {
 
 void Executor::switchFromTerminated() {
     ControlBlock* controlBlock;
- 
+
     if (runQueue.pop(controlBlock)) {
         /**
          * Switch the current control block to the next fiber and make the jump
          * saving our current state to the control block.
          */
         jumpToFiber(&dummyContext, controlBlock);
-            
+
         /**
           * The jump cannot return.
           */
@@ -156,8 +156,8 @@ void Executor::switchFromTerminated() {
 void Executor::jumpToIdle(boost::context::fcontext_t* stash) {
     previousControlBlock_ = currentControlBlock_;
     currentControlBlock_ = nullptr;
-    
-    boost::context::jump_fcontext(stash, idleContext, 0);    
+
+    boost::context::jump_fcontext(stash, idleContext, 0);
 }
 
 void Executor::jumpToFiber(boost::context::fcontext_t* stash, ControlBlock* controlBlock) {
@@ -175,7 +175,7 @@ void Executor::jumpToFiber(boost::context::fcontext_t* stash, ControlBlock* cont
 void Executor::afterJump() {
     if (previousControlBlock_ != nullptr) {
         /**
-         * We jumped from a fiber and are holding the mutex on it. 
+         * We jumped from a fiber and are holding the mutex on it.
          * Suspend that fiber and drop the reference.
          */
         previousControlBlock_->status = detail::Suspended;
@@ -183,7 +183,7 @@ void Executor::afterJump() {
         previousControlBlock_->drop();
         previousControlBlock_ = nullptr;
     }
-    
+
     if (currentControlBlock_ != nullptr) {
         /**
          * We jumped to a fiber. Set its status to running.
@@ -199,19 +199,21 @@ void Executor::fiberRunner(intptr_t) {
      * Change the status to Running.
      */
     detail::Executor::current()->afterJump();
-    
-    /**
-     * Setup the context.
-     */
     auto controlBlock = detail::Executor::current()->currentControlBlock();
     auto system = detail::Executor::current()->system;
-    Context context(controlBlock, system);
 
-    /**
-     * Execute the fiber.
-     */
-    controlBlock->fiber->_execute();
-    
+    {
+        /**
+         * Setup the context.
+         */
+        Context context(controlBlock, system);
+
+        /**
+         * Execute the fiber.
+         */
+        controlBlock->fiber->_execute();
+    }
+
     /**
      * Terminate the fiber.
      */
@@ -222,5 +224,5 @@ void Executor::fiberRunner(intptr_t) {
 
 thread_local Executor* Executor::current_ = nullptr;
 
-} // namespace detail    
+} // namespace detail
 } // namespace fiberize
