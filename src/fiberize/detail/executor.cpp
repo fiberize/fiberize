@@ -194,6 +194,7 @@ void Executor::afterJump() {
 
 void Executor::fiberRunner(intptr_t controlBlockPtr) {
     ControlBlock* controlBlock = reinterpret_cast<ControlBlock*>(controlBlockPtr);
+    controlBlock->grab();
 
     /**
      * Change the status to Running.
