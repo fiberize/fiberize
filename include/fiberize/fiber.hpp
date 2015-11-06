@@ -24,7 +24,8 @@ struct Fiber: public detail::FiberBase {
      */
     virtual void _execute() {
         auto controlBlock = detail::Executor::current()->currentControlBlock();
-        self_ = detail::Executor::current()->system->currentFiber();
+        system_ = detail::Executor::current()->system;
+        self_ = system_->currentFiber();
         try {
             auto finished = Event<A>::fromPath(controlBlock->finishedEventPath);
             A result = run();
@@ -59,8 +60,16 @@ protected:
         return self_;
     }
     
+    /**
+     * Returns the fiber system.
+     */
+    System* system() const {
+        return system_;
+    }
+    
 private:
     FiberRef self_;
+    System* system_;
 };
 
 } // namespace fiberize
