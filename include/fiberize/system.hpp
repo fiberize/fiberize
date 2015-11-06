@@ -100,6 +100,9 @@ public:
             block->status = detail::Suspended;
             block->refCount = 0;
             
+            // Increment fiber counter.
+            std::atomic_fetch_add(&running, 1ul);
+            
             // Schedule the block.
             block->mutex.lock();
             schedule(block);
@@ -166,6 +169,11 @@ public:
     void shutdown();
     
     /**
+     * Event that fires when all fibers finished running.
+     */
+    Event<Unit> allFibersFinished();
+    
+    /**
      * Returns the UUID of this system.
      */
     boost::uuids::uuid uuid() const;
@@ -186,6 +194,8 @@ private:
      */
     void schedule(detail::ControlBlock* controlBlock);
     
+    void fiberFinished();
+    
     /**
      * Creates a block for a thread that is not running an executor.
      */
@@ -205,12 +215,10 @@ private:
     /**
      * Currently running executors.
      */
-    std::vector<std::unique_ptr<detail::Executor>> executors;
+    std::vector<detail::Executor*> executors;
     
-    /**
-     * Whether the system is shutting down.
-     */
-    std::atomic<bool> shuttingDown;
+    bool shuttingDown;
+    Event<Unit> allFibersFinished_;
     
     /**
      * Unmanaaged control block of the main thread.
@@ -226,6 +234,11 @@ private:
      * The prefix of this actor system.
      */
     boost::uuids::uuid uuid_;
+    
+    /**
+     * Number of running actors.
+     */
+    std::atomic<uint64_t> running;
     
     /**
      * Generator used for event and fiber ids.

@@ -47,9 +47,8 @@ struct Emitter : public Fiber<Unit> {
 
 int main() {
     System system;
-    auto echo = system.run<Echo>();
-    auto emitter = system.runWithResult<Emitter>(echo, 100, 1000000);
+    auto echo = system.run<Echo, BlockingCircularBufferMailbox>();
+    auto emitter = system.runWithResult<Emitter, BlockingCircularBufferMailbox>(echo, 100, 1000000);
     emitter.finished().await();
-    std::cout << "done" << std::endl;
-    exit(0);
+    return 0;
 }

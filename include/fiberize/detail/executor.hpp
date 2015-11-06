@@ -23,9 +23,14 @@ public:
     Executor(System* system, uint64_t seed, uint32_t myIndex);
     
     /**
-     * Strts the executor.
+     * Starts the executor.
      */
     void start();
+    
+    /**
+     * Stops the executor in a hacky way.
+     */
+    void stop();
     
     //// Fiber lifecycle.
     
@@ -158,6 +163,8 @@ private:
      * Stack allocator.
      */
     std::unique_ptr<detail::StackPool> stackPool;
+    
+    bool emergencyStop;
 };
     
 } // namespace detail

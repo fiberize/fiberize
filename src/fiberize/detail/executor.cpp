@@ -16,10 +16,16 @@ Executor::Executor(fiberize::System* system, uint64_t seed, uint32_t myIndex)
     , stackPool(new detail::CachedFixedSizeStackPool)
     , currentControlBlock_(nullptr)
     , previousControlBlock_(nullptr)
+    , emergencyStop(false)
     {}
 
 void Executor::start() {
     thread = std::thread(&Executor::idle, this);    
+}
+
+void Executor::stop() {
+    emergencyStop = true;
+    thread.join();
 }
 
 void Executor::schedule(ControlBlock* controlBlock) {
@@ -73,7 +79,7 @@ void Executor::idle() {
     ControlBlock* controlBlock;
     std::uniform_int_distribution<uint32_t> randomExecutor(0, system->executors.size() - 2);
 
-    while (true) {
+    while (!emergencyStop) {
         while (runQueue.pop(controlBlock)) {
             jumpToFiber(&idleContext, controlBlock);
             afterJump();
@@ -208,6 +214,7 @@ void Executor::fiberRunner(intptr_t) {
     /**
      * Terminate the fiber.
      */
+    system->fiberFinished();
     controlBlock->mutex.lock();
     detail::Executor::current()->terminate();
 }

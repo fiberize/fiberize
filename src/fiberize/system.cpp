@@ -15,7 +15,9 @@ System::System() : System(std::thread::hardware_concurrency()) {}
 System::System(uint32_t macrothreads)
     : mainControlBlock(createUnmanagedBlock())
     , mainContext_(mainControlBlock, this)
-    , shuttingDown(false) {
+    , shuttingDown(false)
+    , allFibersFinished_(newEvent<Unit>())
+    , running(0) {
     mainControlBlock->grab();
         
     /**
@@ -38,6 +40,12 @@ System::System(uint32_t macrothreads)
 }
 
 System::~System() {
+    for (detail::Executor* executor : executors) {
+        executor->stop();
+    }
+    for (detail::Executor* executor : executors) {
+        delete executor;
+    }
     mainControlBlock->drop();
 }
 
@@ -58,11 +66,23 @@ FiberRef System::mainFiber() const {
 
 void System::shutdown() {
     shuttingDown = true;
-};
+}
+
+Event<Unit> System::allFibersFinished() {
+    return allFibersFinished_;
+}
 
 void System::schedule(detail::ControlBlock* controlBlock) {
     std::uniform_int_distribution<uint32_t> chooseExecutor(0, executors.size() - 1);
     executors[chooseExecutor(random)]->schedule(controlBlock);
+}
+
+void System::fiberFinished() {
+    if (std::atomic_fetch_sub_explicit(&running, 1lu, std::memory_order_release) == 1) {
+         std::atomic_thread_fence(std::memory_order_acquire);
+         // TODO: subscription
+         mainFiber().emit(allFibersFinished_);
+    }
 }
 
 boost::uuids::uuid System::uuid() const {
