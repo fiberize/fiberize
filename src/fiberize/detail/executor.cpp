@@ -54,6 +54,7 @@ void Executor::terminate() {
     currentControlBlock_->status = detail::Dead;
     currentControlBlock_->mutex.unlock();
     stackPool->delayedDeallocate(currentControlBlock_->stack);
+    currentControlBlock_->fiber.reset();
     currentControlBlock_->drop();
     currentControlBlock_ = nullptr;
     
