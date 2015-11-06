@@ -32,7 +32,7 @@ struct Pong : public Fiber<Unit> {
 };
 
 int main() {
-    System system(1);
+    System system;
     
     auto ping = system.run<Ping>();
     auto pong = system.run<Pong>();
