@@ -64,16 +64,7 @@ void Executor::terminate() {
     switchFromTerminated();
 }
 
-Executor* Executor::current() {
-    return current_;
-}
-
 void Executor::idle() {
-    /**
-     * Set the thread local executor to this.
-     */
-    Executor::current_ = this;
-
     /**
      * Idle loop.
      */
@@ -175,7 +166,8 @@ void Executor::jumpToFiber(boost::context::fcontext_t* stash, ControlBlock* cont
         controlBlock->context = boost::context::make_fcontext(controlBlock->stack.sp, controlBlock->stack.size, &Executor::fiberRunner);
     }
 
-    boost::context::jump_fcontext(stash, controlBlock->context, 0);
+    controlBlock->executor = this;
+    boost::context::jump_fcontext(stash, controlBlock->context, reinterpret_cast<intptr_t>(controlBlock));
 }
 
 void Executor::afterJump() {
@@ -185,6 +177,7 @@ void Executor::afterJump() {
          * Suspend that fiber and drop the reference.
          */
         previousControlBlock_->status = detail::Suspended;
+        previousControlBlock_->executor = nullptr;
         previousControlBlock_->mutex.unlock();
         previousControlBlock_->drop();
         previousControlBlock_ = nullptr;
@@ -199,35 +192,26 @@ void Executor::afterJump() {
     }
 }
 
-void Executor::fiberRunner(intptr_t) {
+void Executor::fiberRunner(intptr_t controlBlockPtr) {
+    ControlBlock* controlBlock = reinterpret_cast<ControlBlock*>(controlBlockPtr);
+
     /**
      * Change the status to Running.
      */
-    detail::Executor::current()->afterJump();
-    auto controlBlock = detail::Executor::current()->currentControlBlock();
-    auto system = detail::Executor::current()->system;
+    controlBlock->executor->afterJump();
 
-    {
-        /**
-         * Setup the context.
-         */
-        Context context(controlBlock, system);
-
-        /**
-         * Execute the fiber.
-         */
-        controlBlock->fiber->_execute();
-    }
+    /**
+     * Execute the fiber.
+     */
+    controlBlock->fiber->_execute(controlBlock);
 
     /**
      * Terminate the fiber.
      */
-    system->fiberFinished();
+    controlBlock->executor->system->fiberFinished();
     controlBlock->mutex.lock();
-    detail::Executor::current()->terminate();
+    controlBlock->executor->terminate();
 }
-
-thread_local Executor* Executor::current_ = nullptr;
 
 } // namespace detail
 } // namespace fiberize

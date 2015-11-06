@@ -14,7 +14,7 @@ Path LocalFiberRef::path() const {
     return block->path;
 }
 
-LocalFiberRef::LocalFiberRef(ControlBlock* block): block(block) {
+LocalFiberRef::LocalFiberRef(System* system, ControlBlock* block): system(system), block(block) {
     block->grab();
 }
 
@@ -29,7 +29,7 @@ void LocalFiberRef::emit(const PendingEvent& pendingEvent) {
     if (block->status == Suspended) {
         if (block->mutex.try_unlock_shared_and_lock_upgrade()) {
             block->mutex.unlock_upgrade_and_lock();
-            Context::current()->system->schedule(block);
+            system->schedule(block);
             return;
         }
     }

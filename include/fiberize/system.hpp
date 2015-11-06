@@ -72,58 +72,7 @@ public:
     ~System();
     
     /**
-     * Starts a new fiber.
-     * 
-     * This is the most general of the "run" function family. It expects a factory used to create the
-     * fiber and two events: one when the fiber finishes and the second when the fiber crashes.
-     */
-    template <
-        typename MailboxImpl = LockfreeQueueMailbox, 
-        typename FiberFactory, 
-        typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type,
-        typename Result = decltype(std::declval<FiberImpl>().run())
-        >
-    FiberRef runWithParams(
-        const Event<Result>& finished,
-        const Event<Unit>& crashed,
-        const Ident& ident,
-        bool watch,
-        const FiberFactory& fiberFactory
-    ) {
-        std::shared_ptr<detail::FiberRefImpl> impl;        
-        if (!shuttingDown) {
-            FiberImpl* fiber = fiberFactory();
-            
-            // Create the control block.
-            detail::ControlBlock* block = new detail::ControlBlock();
-            block->path = PrefixedPath(uuid(), ident);
-            block->mailbox.reset(new MailboxImpl());
-            block->fiber.reset(fiber);
-            if (watch)
-                block->watchers.push_back(currentFiber());
-            block->finishedEventPath = finished.path();
-            block->crashedEventPath = crashed.path();
-            block->status = detail::Suspended;
-            block->refCount = 0;
-            
-            // Increment fiber counter.
-            std::atomic_fetch_add(&running, 1ul);
-
-            // Schedule the block.
-            block->mutex.lock();
-            schedule(block);
-            
-            // Create a local reference.
-            impl = std::make_shared<detail::LocalFiberRef>(block);
-        } else {
-            // System is shutting down, do not create new fibers.
-            impl = std::make_shared<detail::DevNullFiberRef>();
-        }
-        return FiberRef(impl);    
-    }
-    
-    /**
-     * Starts a fiber, ignoring its result. 
+     * Starts a new unnamed fiber.
      * 
      * The fiber is constructed using the given arguments.
      */
@@ -134,35 +83,13 @@ public:
         typename ...Args
         >
     FiberRef run(Args&& ...args) {
-        Event<Result> finished = newEvent<Result>();
-        Event<Unit> crashed = newEvent<Unit>();
-        return runWithParams<MailboxImpl>(finished, crashed, uniqueIdentGenerator.generate(), false, [&] () {
+        return runImpl<MailboxImpl>(uniqueIdentGenerator.generate(), [&] () {
             return new FiberImpl(std::forward<Args>(args)...);
         });
     }
 
     /**
-     * Starts a fiber and collects its result.
-     * 
-     * The fiber is constructed using the given arguments.
-     */
-    template <
-        typename FiberImpl, 
-        typename MailboxImpl = LockfreeQueueMailbox,
-        typename Result = decltype(std::declval<FiberImpl>().run()),
-        typename ...Args
-        >
-    FiberResult<Result> runWithResult(Args&& ...args) {
-        Event<Result> finished = newEvent<Result>();
-        Event<Unit> crashed = newEvent<Unit>();
-        FiberRef ref = runWithParams<MailboxImpl>(finished, crashed, uniqueIdentGenerator.generate(), true, [&] () {
-            return new FiberImpl(std::forward<Args>(args)...);
-        });
-        return FiberResult<Result>(ref, finished, crashed);
-    }
-
-    /**
-     * Starts a named fiber, ignoring its result.
+     * Starts a new named fiber.
      *
      * The fiber is constructed using the given arguments.
      */
@@ -175,29 +102,9 @@ public:
     FiberRef runNamed(const std::string& name, Args&& ...args) {
         Event<Result> finished = newEvent<Result>();
         Event<Unit> crashed = newEvent<Unit>();
-        return runWithParams<MailboxImpl>(finished, crashed, NamedIdent(name), false, [&] () {
+        return runImpl<MailboxImpl>(NamedIdent(name), [&] () {
             return new FiberImpl(std::forward<Args>(args)...);
         });
-    }
-
-    /**
-     * Starts a fiber and collects its result.
-     *
-     * The fiber is constructed using the given arguments.
-     */
-    template <
-        typename FiberImpl,
-        typename MailboxImpl = LockfreeQueueMailbox,
-        typename Result = decltype(std::declval<FiberImpl>().run()),
-        typename ...Args
-        >
-    FiberResult<Result> runNamedWithResult(const std::string& name, Args&& ...args) {
-        Event<Result> finished = newEvent<Result>();
-        Event<Unit> crashed = newEvent<Unit>();
-        FiberRef ref = runWithParams<MailboxImpl>(finished, crashed, NamedIdent(name), true, [&] () {
-            return new FiberImpl(std::forward<Args>(args)...);
-        });
-        return FiberResult<Result>(ref, finished, crashed);
     }
     
     /**
@@ -224,22 +131,69 @@ public:
     boost::uuids::uuid uuid() const;
     
     /**
-     * Returns the currently running fiber.
-     */
-    FiberRef currentFiber() const;
-    
-    /**
      * Returns the fiber reference of the main thread.
      */
-    FiberRef mainFiber() const;
-    
+    FiberRef mainFiber();
+
+    /**
+     * Returns the context attached to the main thread.
+     */
+    Context* mainContext();
+
 private:
+
     /**
      * Reschedule the fiber. It must be locked for writing.
      */
     void schedule(detail::ControlBlock* controlBlock);
 
     void fiberFinished();
+
+    /**
+     * Starts a new fiber.
+     *
+     * This is the most general of the "run" function family. It expects a factory used to create the
+     * fiber and two events: one when the fiber finishes and the second when the fiber crashes.
+     */
+    template <
+        typename MailboxImpl = LockfreeQueueMailbox,
+        typename FiberFactory,
+        typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type,
+        typename Result = decltype(std::declval<FiberImpl>().run())
+        >
+    FiberRef runImpl(const Ident& ident, const FiberFactory& fiberFactory) {
+        std::shared_ptr<detail::FiberRefImpl> impl;
+        if (!shuttingDown) {
+            FiberImpl* fiber = fiberFactory();
+            Event<Result> finished = newEvent<Result>();
+            Event<Unit> crashed = newEvent<Unit>();
+
+            // Create the control block.
+            detail::ControlBlock* block = new detail::ControlBlock();
+            block->path = PrefixedPath(uuid(), ident);
+            block->mailbox.reset(new MailboxImpl());
+            block->fiber.reset(fiber);
+            block->finishedEventPath = finished.path();
+            block->crashedEventPath = crashed.path();
+            block->status = detail::Suspended;
+            block->refCount = 0;
+            block->executor = nullptr;
+
+            // Increment fiber counter.
+            std::atomic_fetch_add(&running, 1ul);
+
+            // Schedule the block.
+            block->mutex.lock();
+            schedule(block);
+
+            // Create a local reference.
+            impl = std::make_shared<detail::LocalFiberRef>(this, block);
+        } else {
+            // System is shutting down, do not create new fibers.
+            impl = std::make_shared<detail::DevNullFiberRef>();
+        }
+        return FiberRef(impl);
+    }
 
     /**
      * Creates a block for a thread that is not running an executor.
@@ -254,6 +208,7 @@ private:
         block->crashedEventPath = DevNullPath();
         block->status = detail::Running;
         block->refCount = 0;
+        block->executor = nullptr;
         return block;
     }
     
@@ -274,7 +229,7 @@ private:
      * Context of the main thread.
      */
     Context mainContext_;
-    
+
     /**
      * The prefix of this actor system.
      */

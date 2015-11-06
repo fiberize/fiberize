@@ -19,7 +19,7 @@ int main() {
     for (int i = 0; i < 10000000; ++i) {
         system.run<Printer>(i);
     }
-    
-    system.allFibersFinished().await();    
+
+    system.allFibersFinished().await(system.mainContext());
     return 0;
 }

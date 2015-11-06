@@ -17,6 +17,7 @@ namespace fiberize {
 namespace detail {
 
 class FiberBase;
+class Executor;
 
 enum LifeStatus : uint8_t {
     Suspended,
@@ -71,7 +72,7 @@ struct ControlBlock {
      * The number of fiber references pointing to this block.
      */
     std::atomic<std::size_t> refCount;
-    
+
     /**
      * Status of this fiber.
      */
@@ -81,12 +82,17 @@ struct ControlBlock {
      * Lock used during status change.
      */
     boost::upgrade_mutex mutex;
-    
+
+    /**
+     * Executor executing this fiber.
+     */
+    Executor* executor;
+
     /**
      * Grabs a reference.
      */
     void grab();
-    
+
     /**
      * Drops a reference. Returns whether the object was destroyed.
      */

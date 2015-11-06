@@ -9,22 +9,22 @@ Event<Unit> pong("pong");
 
 struct Ping : public Fiber<Unit> {
     virtual Unit run() {
-        auto peer = init.await();
+        auto peer = await(init);
         
         while (true) {
             std::cout << "Ping" << std::endl;
             peer.emit(ping);
-            pong.await();
+            await(pong);
         }
     }
 };
 
 struct Pong : public Fiber<Unit> {
     virtual Unit run() {
-        auto peer = init.await();
+        auto peer = await(init);
 
         while (true) {
-            ping.await();
+            await(ping);
             std::cout << "Pong" << std::endl;
             peer.emit(pong);
         }
@@ -40,5 +40,5 @@ int main() {
     ping.emit(init, pong);
     pong.emit(init, ping);
     
-    Context::current()->yield();
+    system.mainContext()->yield();
 }

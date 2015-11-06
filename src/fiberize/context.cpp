@@ -11,15 +11,7 @@ public:
         : handlerBlock(handlerBlock)
         , handler(handlerBlock->stackedHandlers.end())
         , data(data) {
-        stashedContext = Context::current_;
-        Context::current_ = nullptr;
-        HandlerContext::current_ = this;
     };
-    
-    ~HandlerContext() {
-        Context::current_ = stashedContext;
-        HandlerContext::current_ = nullptr;
-    }
     
     const void* data;
     HandlerBlock* handlerBlock;
@@ -40,12 +32,10 @@ thread_local HandlerContext* HandlerContext::current_ = nullptr;
 } // namespace detail
 
 Context::Context(detail::ControlBlock* controlBlock, System* system): controlBlock(controlBlock), system(system) {
-    Context::current_ = this;
     controlBlock->grab();
 }
 
 Context::~Context() {
-    Context::current_ = nullptr;
     controlBlock->drop();
 }
 
@@ -54,8 +44,7 @@ void Context::yield() {
         process();
         
         // Suspend the current thread.
-        detail::Executor* executor = detail::Executor::current();
-        if (executor != nullptr) {
+        if (controlBlock->executor != nullptr) {
             controlBlock->mutex.lock();
 
             /**
@@ -83,9 +72,7 @@ void Context::yield() {
             /**
              * No new events, we can suspend the thread.
              */
-            Context::current_ = nullptr;
-            executor->suspend();
-            Context::current_ = this;
+            controlBlock->executor->suspend();
         } else {
             // TODO: change this to conditions.
             using namespace std::literals;
@@ -108,26 +95,24 @@ void Context::process()
     }
 }
 
-void super() {
-    detail::HandlerContext* context = detail::HandlerContext::current();
-    
+void Context::super() {
     /**
      * Check if we executed all handlers.
      */
-    if (context->handler == context->handlerBlock->stackedHandlers.begin()) {
+    if (handlerContext->handler == handlerContext->handlerBlock->stackedHandlers.begin()) {
         return;
     }
     
     /**
      * Otherwise find an alive handler.
      */
-    auto it = --context->handler;
+    auto it = --handlerContext->handler;
     while ((*it)->isDestroyed()) {
-        if (it == context->handlerBlock->stackedHandlers.begin()) {
+        if (it == handlerContext->handlerBlock->stackedHandlers.begin()) {
             /**
              * That was the last handler.
              */
-            context->handlerBlock->stackedHandlers.pop_front();
+            handlerContext->handlerBlock->stackedHandlers.pop_front();
             return;
         } else {
             /**
@@ -135,15 +120,15 @@ void super() {
              */
             auto copy = it;
             --it;
-            context->handlerBlock->stackedHandlers.erase(copy);
+            handlerContext->handlerBlock->stackedHandlers.erase(copy);
         }
     }
     
     /**
      * Set the current handler and execute it.
      */
-    context->handler = it;
-    (*it)->execute(context->data);
+    handlerContext->handler = it;
+    (*it)->execute(handlerContext->data);
 }
 
 void Context::handleEvent(const PendingEvent& event) {
@@ -173,8 +158,9 @@ void Context::handleEvent(const PendingEvent& event) {
     /**
      * Execute the handler.
      */
-    detail::HandlerContext handlerContext(block, event.data);
+    handlerContext.reset(new detail::HandlerContext(block, event.data));
     super();
+    handlerContext.reset();
 }
 
 HandlerRef Context::bind(const Path& path, fiberize::detail::Handler* handler) {
@@ -190,11 +176,5 @@ HandlerRef Context::bind(const Path& path, fiberize::detail::Handler* handler) {
     block->stackedHandlers.emplace_back(handler);        
     return HandlerRef(handler);
 }
-
-Context* Context::current() {
-    return current_;
-}
- 
-thread_local Context* Context::current_ = nullptr;
  
 }

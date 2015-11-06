@@ -48,14 +48,14 @@ public:
     /**
      * Waits until an event occurs and returns its value.
      */
-    A await() const {
-        auto handler = bind([] (const A& value) {
-            super();
+    A await(Context* context) const {
+        auto handler = bind(context, [context] (const A& value) {
+            context->super();
             throw EventFired{value};
         });
         
         try {
-            Context::current()->yield();
+            context->yield();
         } catch (const EventFired& eventFired) {
             return eventFired.value;
         }
@@ -64,17 +64,17 @@ public:
     /**
      * Binds an event to a handler.
      */
-    HandlerRef bind(const std::function<void (const A&)>& function) const {
+    HandlerRef bind(Context* context, const std::function<void (const A&)>& function) const {
         detail::Handler* handler = new detail::TypedHandler<A>(function);
-        return Context::current()->bind(path(), handler);
+        return context->bind(path(), handler);
     }
     
     /**
      * Binds an event to a handler.
      */
-    HandlerRef bind(std::function<void (const A&)>&& function) const {
+    HandlerRef bind(Context* context, std::function<void (const A&)>&& function) const {
         detail::Handler* handler = new detail::TypedHandler<A>(std::move(function));
-        return Context::current()->bind(path(), handler);
+        return context->bind(path(), handler);
     }
 
 private:

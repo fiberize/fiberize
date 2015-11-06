@@ -15,7 +15,7 @@ struct Calculator : public Fiber<Void> {
     
     void waitForInput() {
         while (input.rdbuf()->in_avail() == 0) {
-            auto moreInput = feed.await();
+            auto moreInput = await(feed);
             input << moreInput;
         }
     }
@@ -94,7 +94,7 @@ struct Calculator : public Fiber<Void> {
     std::vector<FiberRef> subscribers;
     
     Void run() {
-        auto _handleSubscription = subscribe.bind([this] (const FiberRef& fiber) {
+        auto _handleSubscription = subscribe.bind(context(), [this] (const FiberRef& fiber) {
             subscribers.push_back(fiber);
         });
         
@@ -123,10 +123,12 @@ Event<FiberRef> Calculator::subscribe("Calculator::subscribe");
 int main() {
     System fiberSystem;
     
+    FiberRef self = fiberSystem.mainFiber();
+    Context* context = fiberSystem.mainContext();
     FiberRef calc = fiberSystem.run<Calculator>();
-    calc.emit(Calculator::subscribe, fiberSystem.currentFiber());
+    calc.emit(Calculator::subscribe, self);
     
-    auto _printResults = Calculator::result.bind([] (uint value) {
+    auto _printResults = Calculator::result.bind(context, [] (uint value) {
         std::cout << value << std::endl;
     });
 
@@ -135,6 +137,6 @@ int main() {
         std::cout << "> ";
         std::getline(std::cin, line);
         calc.emit(Calculator::feed, line);
-        Context::current()->process();
+        context->process();
     }
 }

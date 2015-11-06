@@ -9,10 +9,11 @@ struct Noop : public Fiber<Unit> {
 
 int main() {
     System system;
-    
-    for (int i = 0; i < 1000; ++i) {
-        system.runWithResult<Noop>().finished().await();
+
+    for (int i = 0; i < 100; ++i) {
+        system.run<Noop>();
     }
-    
+
+    system.allFibersFinished().await(system.mainContext());
     return 0;
 }

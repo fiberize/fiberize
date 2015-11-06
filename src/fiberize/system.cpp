@@ -19,7 +19,7 @@ System::System(uint32_t macrothreads)
     , allFibersFinished_(newEvent<Unit>())
     , running(0) {
     mainControlBlock->grab();
-        
+
     /**
      * Generate the uuid.
      */
@@ -28,7 +28,7 @@ System::System(uint32_t macrothreads)
     boost::random::mt19937 pseudorandom(seedDist(secureRandom));
     boost::uuids::random_generator uuidGenerator(pseudorandom);
     uuid_ = uuidGenerator();
-    
+
     // Spawn the executors.
     for (uint32_t i = 0; i < macrothreads; ++i) {
         executors.emplace_back(new detail::Executor(this, seedDist(secureRandom), i));
@@ -49,19 +49,12 @@ System::~System() {
     mainControlBlock->drop();
 }
 
-FiberRef System::currentFiber() const {
-    auto executor = detail::Executor::current();
-    if (executor == nullptr) {
-        // TODO: what about threads spawned by the user?
-        return mainFiber();
-    } else {
-        auto controlBlock = executor->currentControlBlock();
-        return FiberRef(std::make_shared<detail::LocalFiberRef>(controlBlock));
-    }
+FiberRef System::mainFiber() {
+    return FiberRef(std::make_shared<detail::LocalFiberRef>(this, mainControlBlock));
 }
 
-FiberRef System::mainFiber() const {
-    return FiberRef(std::make_shared<detail::LocalFiberRef>(mainControlBlock));
+Context* System::mainContext() {
+    return &mainContext_;
 }
 
 void System::shutdown() {
