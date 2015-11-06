@@ -14,11 +14,6 @@
 namespace fiberize {
 
 /**
- * Thread local random.
- */
-extern thread_local std::default_random_engine random;
-
-/**
  * Bundles the reference to a fiber and it's "finished" and "crashed" events.
  */
 template <typename A>
@@ -239,6 +234,11 @@ private:
      * Number of running actors.
      */
     std::atomic<uint64_t> running;
+
+    /**
+     * Counter used implement round robin task balancing.
+     */
+    std::atomic<uint64_t> roundRobinCounter;
     
     /**
      * Generator used for event and fiber ids.

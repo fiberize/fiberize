@@ -7,8 +7,6 @@
 #include <boost/uuid/uuid_generators.hpp>
 
 namespace fiberize {
-    
-thread_local std::default_random_engine random;
 
 System::System() : System(std::thread::hardware_concurrency()) {}
 
@@ -17,7 +15,8 @@ System::System(uint32_t macrothreads)
     , mainContext_(mainControlBlock, this)
     , shuttingDown(false)
     , allFibersFinished_(newEvent<Unit>())
-    , running(0) {
+    , running(0)
+    , roundRobinCounter(0) {
     mainControlBlock->grab();
 
     /**
@@ -66,8 +65,9 @@ Event<Unit> System::allFibersFinished() {
 }
 
 void System::schedule(detail::ControlBlock* controlBlock) {
-    std::uniform_int_distribution<uint32_t> chooseExecutor(0, executors.size() - 1);
-    executors[chooseExecutor(random)]->schedule(controlBlock);
+    // TODO: optimize memory order
+    uint64_t i = std::atomic_fetch_add(&roundRobinCounter, 1lu);
+    executors[i % executors.size()]->schedule(controlBlock);
 }
 
 void System::fiberFinished() {
