@@ -1,4 +1,7 @@
 #include <fiberize/detail/localfiberref.hpp>
+#include <fiberize/detail/controlblock.hpp>
+#include <fiberize/system.hpp>
+#include <iostream>
 
 namespace fiberize {
 namespace detail {
@@ -8,24 +11,30 @@ Locality LocalFiberRef::locality() const {
 }
 
 Path LocalFiberRef::path() const {
-    return path_;
+    return block->path;
 }
 
-
-LocalFiberRef::LocalFiberRef(const Path& path, Mailbox* mailbox): path_(path), mailbox_(mailbox) {
-    this->mailbox_->grab();
+LocalFiberRef::LocalFiberRef(ControlBlock* block): block(block) {
+    block->grab();
 }
 
 LocalFiberRef::~LocalFiberRef() {
-    this->mailbox_->drop();
+    block->drop();
 }
 
 void LocalFiberRef::emit(const PendingEvent& pendingEvent) {
-    mailbox_->enqueue(pendingEvent);
-}
-
-Mailbox* LocalFiberRef::mailbox() {
-    return mailbox_;
+    block->mutex.lock_shared();
+    block->mailbox->enqueue(pendingEvent);
+    if (block->status == Suspended) {
+        if (block->mutex.try_unlock_shared_and_lock_upgrade()) {
+            block->mutex.unlock_upgrade_and_lock();
+            Context::current()->system->schedule(block);    
+        } else {
+            block->mutex.unlock_shared();
+        }
+    } else {
+        block->mutex.unlock_shared();
+    }
 }
 
 } // namespace detail

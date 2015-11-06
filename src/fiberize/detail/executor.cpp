@@ -8,11 +8,25 @@
 namespace fiberize {
 namespace detail {
 
-Executor::Executor(fiberize::System* system): runQueue(100), system_(system) {
-    thread = std::thread(&Executor::run, this);
+Executor::Executor(fiberize::System* system, uint64_t seed, uint32_t myIndex)
+    : runQueue(1024)
+    , system(system)
+    , randomEngine(seed)
+    , myIndex(myIndex)
+    , stackPool(new detail::CachedFixedSizeStackPool)
+    , currentControlBlock_(nullptr)
+    , previousControlBlock_(nullptr)
+    {}
+
+void Executor::start() {
+    thread = std::thread(&Executor::idle, this);    
 }
 
-void Executor::execute(ControlBlock* controlBlock) {
+void Executor::schedule(ControlBlock* controlBlock) {
+    assert(controlBlock->status == detail::Suspended);
+    controlBlock->status = detail::Scheduled;
+    controlBlock->mutex.unlock();
+    controlBlock->grab();
     runQueue.push(controlBlock);
 }
 
@@ -20,64 +34,182 @@ ControlBlock* Executor::currentControlBlock() {
     return currentControlBlock_;
 }
 
-void Executor::suspend() {
+void Executor::suspend() {    
     /**
-     * Context switch back to the control loop.
+     * Switch to the next fiber.
      */
-    boost::context::jump_fcontext(&currentControlBlock_->context, returnContext, 0);
+    switchFromRunning();
 }
 
-System* Executor::system() {
-    return system_;
+void Executor::terminate() {
+    /**
+     * Destroy the control block.
+     */
+    currentControlBlock_->status = detail::Dead;
+    currentControlBlock_->mutex.unlock();
+    stackPool->delayedDeallocate(currentControlBlock_->stack);
+    currentControlBlock_->drop();
+    currentControlBlock_ = nullptr;
+    
+    /**
+     * Switch to the next fiber.
+     */
+    switchFromTerminated();
 }
 
 Executor* Executor::current() {
     return current_;
 }
 
-void Executor::run() {
+void Executor::idle() {
     /**
      * Set the thread local executor to this.
      */
     Executor::current_ = this;
     
     /**
-     * Loop forever executing fibers.
+     * Idle loop.
      */
     ControlBlock* controlBlock;
+    std::uniform_int_distribution<uint32_t> randomExecutor(0, system->executors.size() - 2);
+
     while (true) {
-        /**
-         * Busy-wait until we have something to do.
-         * TODO: work stealing and epoll
-         */
-        while (!runQueue.pop(controlBlock)) {
-            // TODO: change this to conditions or sth
-            using namespace std::literals;
-            std::this_thread::sleep_for(1ns);
+        while (runQueue.pop(controlBlock)) {
+            jumpToFiber(&idleContext, controlBlock);
+            afterJump();
         }
-   
-        /**
-         * Context switch to a fiber.
-         */
-        currentControlBlock_ = controlBlock;
-        boost::context::jump_fcontext(&returnContext, controlBlock->context, 0);
-        currentControlBlock_ = nullptr;
-        
-        /**
-         * If the fiber didn't finish put it back on the queue.
-         */
-        if (!controlBlock->exited) {
-            runQueue.push(controlBlock);
-        } else {
+            
+        if (system->executors.size() > 1) {
             /**
-             * Otherwise destroy the control block.
+             * Choose a random executor that is not ourself.
              */
-            delete controlBlock->fiber;
-            controlBlock->mailbox->drop();
-            system()->stackAllocator.deallocate(controlBlock->stack);
-            delete controlBlock;
+            uint32_t i = randomExecutor(randomEngine);
+            if (i >= myIndex)
+                i += 1;
+            
+            /**
+             * Try to take his job.
+             */
+            if (system->executors[i]->runQueue.pop(controlBlock)) {
+                jumpToFiber(&idleContext, controlBlock);
+                afterJump();
+            } else {
+                using namespace std::literals;
+                std::this_thread::sleep_for(1ns);
+            }
         }
     }
+}
+
+void Executor::switchFromRunning() {
+    ControlBlock* controlBlock;
+    
+    if (runQueue.pop(controlBlock)) {
+        /**
+         * Switch the current control block to the next fiber and make the jump
+         * saving our current state to the control block.
+         */
+        jumpToFiber(&currentControlBlock_->context, controlBlock);
+            
+        /**
+         * We returned from the jump, this means another fiber switched to us. 
+         * The current control block was restored by the fiber making the jump.
+         */
+        afterJump();
+    } else {
+        /**
+         * Jump to the idle context.
+         */
+        jumpToIdle(&currentControlBlock_->context);
+    }
+}
+
+void Executor::switchFromTerminated() {
+    ControlBlock* controlBlock;
+ 
+    if (runQueue.pop(controlBlock)) {
+        /**
+         * Switch the current control block to the next fiber and make the jump
+         * saving our current state to the control block.
+         */
+        jumpToFiber(&dummyContext, controlBlock);
+            
+        /**
+          * The jump cannot return.
+          */
+        __builtin_unreachable();
+    } else {
+        /**
+         * Jump to the idle context.
+         */
+        jumpToIdle(&dummyContext);
+    }
+}
+
+void Executor::jumpToIdle(boost::context::fcontext_t* stash) {
+    previousControlBlock_ = currentControlBlock_;
+    currentControlBlock_ = nullptr;
+    
+    boost::context::jump_fcontext(stash, idleContext, 0);    
+}
+
+void Executor::jumpToFiber(boost::context::fcontext_t* stash, ControlBlock* controlBlock) {
+    previousControlBlock_ = currentControlBlock_;
+    currentControlBlock_ = controlBlock;
+
+    if (controlBlock->stack.sp == nullptr) {
+        controlBlock->stack = stackPool->allocate();
+        controlBlock->context = boost::context::make_fcontext(controlBlock->stack.sp, controlBlock->stack.size, &Executor::fiberRunner);
+    }
+
+    boost::context::jump_fcontext(stash, controlBlock->context, 0);
+}
+
+void Executor::afterJump() {
+    if (previousControlBlock_ != nullptr) {
+        /**
+         * We jumped from a fiber and are holding the mutex on it. 
+         * Suspend that fiber and drop the reference.
+         */
+        previousControlBlock_->status = detail::Suspended;
+        previousControlBlock_->mutex.unlock();
+        previousControlBlock_->drop();
+        previousControlBlock_ = nullptr;
+    }
+    
+    if (currentControlBlock_ != nullptr) {
+        /**
+         * We jumped to a fiber. Set its status to running.
+         */
+        currentControlBlock_->mutex.lock();
+        currentControlBlock_->status = detail::Running;
+        currentControlBlock_->mutex.unlock();
+    }
+}
+
+void Executor::fiberRunner(intptr_t) {
+    /**
+     * Change the status to Running.
+     */
+    detail::Executor::current()->afterJump();
+    
+    /**
+     * Setup the context.
+     */
+    auto controlBlock = detail::Executor::current()->currentControlBlock();
+    auto system = detail::Executor::current()->system;
+    Context context(controlBlock, system);
+
+    /**
+     * Execute the fiber.
+     */
+    controlBlock->fiber->_execute();
+    
+    /**
+     * Terminate the fiber.
+     */
+    controlBlock->mutex.lock();
+    detail::Executor::current()->terminate();
 }
 
 thread_local Executor* Executor::current_ = nullptr;

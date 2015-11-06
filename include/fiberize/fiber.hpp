@@ -24,13 +24,16 @@ struct Fiber: public detail::FiberBase {
      */
     virtual void _execute() {
         auto controlBlock = detail::Executor::current()->currentControlBlock();
-        self_ = detail::Executor::current()->system()->currentFiber();
+        self_ = detail::Executor::current()->system->currentFiber();
         try {
             auto finished = Event<A>::fromPath(controlBlock->finishedEventPath);
-            controlBlock->parent.emit(finished, run());
+            A result = run();
+            for (FiberRef& watcher : controlBlock->watchers)
+                watcher.emit(finished, result);
         } catch (...) {
             auto crashed = Event<Unit>::fromPath(controlBlock->crashedEventPath);
-            controlBlock->parent.emit(crashed);
+            for (FiberRef& watcher: controlBlock->watchers)
+                watcher.emit(crashed);
         }
     }
     

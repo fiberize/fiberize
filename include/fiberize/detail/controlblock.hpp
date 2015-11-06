@@ -6,12 +6,25 @@
 #include <fiberize/mailbox.hpp>
 #include <fiberize/path.hpp>
 #include <fiberize/fiberref.hpp>
+#include <fiberize/detail/fiberbase.hpp>
+
+#include <iostream>
+#include <limits>
+
+#include <boost/thread/shared_mutex.hpp>
 
 namespace fiberize {
 namespace detail {
 
 class FiberBase;
-    
+
+enum LifeStatus : uint8_t {
+    Suspended,
+    Scheduled,
+    Running,
+    Dead
+};
+
 struct ControlBlock {
     /**
      * The stack of this fiber.
@@ -31,12 +44,12 @@ struct ControlBlock {
     /**
      * Mailbox attached to this control block.
      */
-    Mailbox* mailbox;
+    std::unique_ptr<Mailbox> mailbox;
     
     /**
      * The fiber implementation.
      */
-    FiberBase* fiber;
+    std::unique_ptr<FiberBase> fiber;
     
     /**
      * Path to the event emmitted when the fiber successfully finishes.
@@ -49,14 +62,35 @@ struct ControlBlock {
     Path crashedEventPath;
     
     /**
-     * The fiber that spawned this fiber.
+     * Fibers watching this fiber.
+     * TODO: figure out concurrent acccess
      */
-    FiberRef parent;
+    std::vector<FiberRef> watchers;
     
     /**
-     * Whether the fiber finished or crashed.
+     * The number of fiber references pointing to this block.
      */
-    bool exited;
+    std::atomic<std::size_t> refCount;
+    
+    /**
+     * Status of this fiber.
+     */
+    LifeStatus status;
+
+    /**
+     * Lock used during status change.
+     */
+    boost::upgrade_mutex mutex;
+    
+    /**
+     * Grabs a reference.
+     */
+    void grab();
+    
+    /**
+     * Drops a reference. Returns whether the object was destroyed.
+     */
+    bool drop();
 };
  
 } // namespace detail

@@ -8,7 +8,7 @@ namespace detail {
 
 class LocalFiberRef : public FiberRefImpl {
 public:
-    LocalFiberRef(const Path& path, Mailbox* mailbox);
+    LocalFiberRef(ControlBlock* block);
     ~LocalFiberRef();
     
     // FiberRefImpl
@@ -16,11 +16,7 @@ public:
     virtual Path path() const;
     virtual void emit(const PendingEvent& pendingEvent);
 
-    Mailbox* mailbox();
-    
-private:
-    Path path_;
-    Mailbox* mailbox_;
+    ControlBlock* const block;
 };
     
 } // namespace detail

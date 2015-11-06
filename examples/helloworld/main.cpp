@@ -14,7 +14,6 @@ struct Printer : public Fiber<Unit> {
 };
 
 int main() {
-    using namespace std::literals;
     System system;
     
     for (int i = 0; i < 1000000; ++i) {

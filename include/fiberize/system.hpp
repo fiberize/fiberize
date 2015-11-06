@@ -83,29 +83,29 @@ public:
         typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type,
         typename Result = decltype(std::declval<FiberImpl>().run())
         >
-    FiberRef runWithEvents(const Event<Result>& finished, const Event<Unit>& crashed, const FiberFactory& fiberFactory) {
+    FiberRef runWithEvents(const Event<Result>& finished, const Event<Unit>& crashed, bool watch, const FiberFactory& fiberFactory) {
         std::shared_ptr<detail::FiberRefImpl> impl;        
         if (!shuttingDown) {
             FiberImpl* fiber = fiberFactory();
             
             // Create the control block.
-            detail::ControlBlock* block = new detail::ControlBlock;
-            block->stack = stackAllocator.allocate();
-            block->context = boost::context::make_fcontext(block->stack.sp, block->stack.size, fiberRunner);
+            detail::ControlBlock* block = new detail::ControlBlock();
             block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
-            block->mailbox = new MailboxImpl();
-            block->fiber = fiber;
-            block->parent = currentFiber();
+            block->mailbox.reset(new MailboxImpl());
+            block->fiber.reset(fiber);
+            if (watch)
+                block->watchers.push_back(currentFiber());
             block->finishedEventPath = finished.path();
             block->crashedEventPath = crashed.path();
-            block->exited = false;
+            block->status = detail::Suspended;
+            block->refCount = 0;
             
-            // Send it to a random executor.
-            std::uniform_int_distribution<uint32_t> chooseExecutor(0, executors.size() - 1);
-            executors[chooseExecutor(random)]->execute(block);
+            // Schedule the block.
+            block->mutex.lock();
+            schedule(block);
             
             // Create a local reference.
-            impl = std::make_shared<detail::LocalFiberRef>(block->path, block->mailbox);
+            impl = std::make_shared<detail::LocalFiberRef>(block);
         } else {
             // System is shutting down, do not create new fibers.
             impl = std::make_shared<detail::DevNullFiberRef>();
@@ -125,11 +125,11 @@ public:
         typename ...Args
         >
     FiberRef run(Args&& ...args) {
-        return runWithEvents<MailboxImpl>(
-            Event<Result>::fromPath(DevNullPath{}), 
-            Event<Unit>::fromPath(DevNullPath{}), 
-            [&] () { return new FiberImpl(std::forward<Args>(args)...); }
-        );
+        Event<Result> finished = newEvent<Result>();
+        Event<Unit> crashed = newEvent<Unit>();
+        return runWithEvents<MailboxImpl>(finished, crashed, false, [&] () {
+            return new FiberImpl(std::forward<Args>(args)...);
+        });
     }
 
     /**
@@ -146,7 +146,7 @@ public:
     FiberResult<Result> runWithResult(Args&& ...args) {
         Event<Result> finished = newEvent<Result>();
         Event<Unit> crashed = newEvent<Unit>();
-        FiberRef ref = runWithEvents<MailboxImpl>(finished, crashed, [&] () {
+        FiberRef ref = runWithEvents<MailboxImpl>(finished, crashed, true, [&] () {
             return new FiberImpl(std::forward<Args>(args)...);
         });
         return FiberResult<Result>(ref, finished, crashed);
@@ -182,17 +182,25 @@ public:
     
 private:
     /**
-     * Trampoline used to start a fiber.
+     * Reschedule the fiber. It must be locked for writing.
      */
-    static void fiberRunner(intptr_t);
-
+    void schedule(detail::ControlBlock* controlBlock);
+    
     /**
-     * Stack allocator.
-     * 
-     * TODO: reuse stacks
-     * TODO: segmented stacks
+     * Creates a block for a thread that is not running an executor.
      */
-    boost::context::fixedsize_stack stackAllocator;
+    template <typename MailboxImpl = LockfreeQueueMailbox>
+    detail::ControlBlock* createUnmanagedBlock() {
+        detail::ControlBlock* block = new detail::ControlBlock();
+        block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
+        block->mailbox.reset(new MailboxImpl());
+        block->fiber.reset();
+        block->finishedEventPath = DevNullPath();
+        block->crashedEventPath = DevNullPath();
+        block->status = detail::Running;
+        block->refCount = 0;
+        return block;
+    }
     
     /**
      * Currently running executors.
@@ -205,9 +213,9 @@ private:
     std::atomic<bool> shuttingDown;
     
     /**
-     * Mailbox of the main thread.
+     * Unmanaaged control block of the main thread.
      */
-    Mailbox* mainMailbox;
+    detail::ControlBlock* mainControlBlock;
     
     /**
      * Context of the main thread.
@@ -225,6 +233,7 @@ private:
     UniqueIdentGenerator uniqueIdentGenerator;
     
     friend detail::Executor;
+    friend detail::LocalFiberRef;
 };
     
 } // namespace fiberize

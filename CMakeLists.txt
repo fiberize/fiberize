@@ -5,8 +5,9 @@ project(fiberize)
 file(GLOB_RECURSE FIBERIZE_SRCS "${CMAKE_SOURCE_DIR}/src/*.cpp")
 file(GLOB_RECURSE FIBERIZE_HDRS "${CMAKE_SOURCE_DIR}/include/*.hpp")
 
-find_package(Boost 1.59.0 COMPONENTS context REQUIRED)
+find_package(Boost 1.59.0 COMPONENTS context thread system REQUIRED)
 
+add_definitions(-DBOOST_THREAD_VERSION=3)
 include_directories("${CMAKE_SOURCE_DIR}/include" ${Boost_INCLUDE_DIRS})
 add_library(fiberize ${FIBERIZE_SRCS})
 target_link_libraries(fiberize ${Boost_LIBRARIES} pthread)

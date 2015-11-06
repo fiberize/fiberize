@@ -3,9 +3,7 @@
 
 namespace fiberize {
 namespace detail {
-    
-struct ControlBlock;
-    
+
 struct FiberBase {
     virtual ~FiberBase() {};
     

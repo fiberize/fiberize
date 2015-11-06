@@ -11,14 +11,18 @@
 #include <fiberize/handler.hpp>
 
 namespace fiberize {
-namespace detail {
 
+class System;
+    
+namespace detail {
+    
 struct HandlerBlock {
     std::list<std::unique_ptr<detail::Handler>> stackedHandlers;
 };
 
 class HandlerContext;
-    
+struct ControlBlock;
+
 } // namespace detail
 
 template <typename A>
@@ -27,9 +31,9 @@ class Event;
 class Context {
 public:
     /**
-     * Creates a new context attached to the given mailbox.
+     * Creates a new context attached to the given control block.
      */
-    Context(Mailbox* mailbox);
+    Context(detail::ControlBlock* controlBlock, System* system);
     
     /**
      * Destroys the context.
@@ -55,15 +59,23 @@ public:
      * Sets up a handler for an event.
      */
     HandlerRef bind(const Path& path, detail::Handler* handler);
-            
+    
+    /**
+     * The system this context is attached to.
+     */
+    System* const system;
+
+    /**
+     * The control block of this fiber.
+     */
+    detail::ControlBlock* const controlBlock;
+    
     /**
      * The current context.
      */
     static Context* current();
     
-private:    
-    Mailbox* mailbox_;
-    
+private:        
     // TODO: cache hashes
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
 

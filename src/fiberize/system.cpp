@@ -10,28 +10,35 @@ namespace fiberize {
     
 thread_local std::default_random_engine random;
 
-System::System() : System(std::thread::hardware_concurrency()) {
+System::System() : System(std::thread::hardware_concurrency()) {}
+
+System::System(uint32_t macrothreads)
+    : mainControlBlock(createUnmanagedBlock())
+    , mainContext_(mainControlBlock, this)
+    , shuttingDown(false) {
+    mainControlBlock->grab();
+        
+    /**
+     * Generate the uuid.
+     */
     std::random_device secureRandom;
     std::uniform_int_distribution<uint64_t> seedDist;
     boost::random::mt19937 pseudorandom(seedDist(secureRandom));
     boost::uuids::random_generator uuidGenerator(pseudorandom);
     uuid_ = uuidGenerator();
-}
-
-System::System(uint32_t macrothreads)
-    : stackAllocator(1024 * 16)
-    , mainMailbox(new LockfreeQueueMailbox())
-    , mainContext_(mainMailbox)
-    , shuttingDown(false) {
+    
     // Spawn the executors.
     for (uint32_t i = 0; i < macrothreads; ++i) {
-        std::unique_ptr<detail::Executor> executor(new detail::Executor(this));
-        executors.push_back(std::move(executor));
+        executors.emplace_back(new detail::Executor(this, seedDist(secureRandom), i));
+    }
+
+    for (uint32_t i = 0; i < macrothreads; ++i) {
+        executors[i]->start();
     }
 }
 
 System::~System() {
-    mainMailbox->drop();
+    mainControlBlock->drop();
 }
 
 FiberRef System::currentFiber() const {
@@ -41,26 +48,22 @@ FiberRef System::currentFiber() const {
         return mainFiber();
     } else {
         auto controlBlock = executor->currentControlBlock();
-        return FiberRef(std::make_shared<detail::LocalFiberRef>(controlBlock->path, controlBlock->mailbox));
+        return FiberRef(std::make_shared<detail::LocalFiberRef>(controlBlock));
     }
 }
 
 FiberRef System::mainFiber() const {
-    auto mainFiberPath = PrefixedPath(uuid(), NamedIdent("main"));
-    return FiberRef(std::make_shared<detail::LocalFiberRef>(mainFiberPath, mainMailbox));
-}
-
-void System::fiberRunner(intptr_t) {
-    auto controlBlock = detail::Executor::current()->currentControlBlock();
-    Context context(controlBlock->mailbox);        
-    controlBlock->fiber->_execute();
-    controlBlock->exited = true;
-    detail::Executor::current()->suspend();
+    return FiberRef(std::make_shared<detail::LocalFiberRef>(mainControlBlock));
 }
 
 void System::shutdown() {
     shuttingDown = true;
 };
+
+void System::schedule(detail::ControlBlock* controlBlock) {
+    std::uniform_int_distribution<uint32_t> chooseExecutor(0, executors.size() - 1);
+    executors[chooseExecutor(random)]->schedule(controlBlock);
+}
 
 boost::uuids::uuid System::uuid() const {
     return uuid_;

@@ -22,12 +22,7 @@ struct PendingEvent {
 class Mailbox {
 public:
     /**
-     * Creates the mailbox with one reference.
-     */
-    Mailbox();
-
-    /**
-     * Destroys the mailbox and frees all buffers.
+     * Destroys the mailbox and frees all data.
      */
     virtual ~Mailbox();
     
@@ -40,22 +35,6 @@ public:
      * Enqueues an event.
      */
     virtual void enqueue(const PendingEvent& event) = 0;
-    
-    /**
-     * Grabs a reference.
-     */
-    void grab();
-    
-    /**
-     * Drops a reference. Returns whether the object was destroyed.
-     */
-    bool drop();
-
-private:
-    /**
-     * The number of fiber references pointing to this block.
-     */
-    std::atomic<std::size_t> refCount;  
 };
 
 class BlockingCircularBufferMailbox : public Mailbox {

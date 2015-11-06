@@ -1,0 +1,3 @@
+add_executable(echo main.cpp)
+target_link_libraries(echo fiberize)
+target_compile_features(echo PUBLIC PRIVATE cxx_template_template_parameters cxx_generic_lambdas)

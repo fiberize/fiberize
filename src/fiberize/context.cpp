@@ -1,5 +1,6 @@
 #include <fiberize/context.hpp>
 #include <fiberize/detail/executor.hpp>
+#include <fiberize/detail/controlblock.hpp>
 
 namespace fiberize {
 namespace detail {
@@ -38,38 +39,64 @@ thread_local HandlerContext* HandlerContext::current_ = nullptr;
     
 } // namespace detail
 
-Context::Context(Mailbox* mailbox): mailbox_(mailbox) {
+Context::Context(detail::ControlBlock* controlBlock, System* system): controlBlock(controlBlock), system(system) {
     Context::current_ = this;
-    mailbox_->grab();
+    controlBlock->grab();
 }
 
 Context::~Context() {
     Context::current_ = nullptr;
-    mailbox_->drop();
+    controlBlock->drop();
 }
 
 void Context::yield() {
-    while (true) {
+    while (true) {        
         process();
         
         // Suspend the current thread.
-        Context::current_ = nullptr;
         detail::Executor* executor = detail::Executor::current();
         if (executor != nullptr) {
+            controlBlock->mutex.lock();
+            
+            /**
+             * It's possible that someone queued a message before we locked the mutex.
+             * Check if this is the case.
+             */
+            PendingEvent event;
+            if (controlBlock->mailbox->dequeue(event)) {
+                /**
+                 * Too bad, now we have to process it and start again.
+                 */
+                controlBlock->mutex.unlock();
+                
+                try {
+                    handleEvent(event);
+                } catch (...) {
+                    event.freeData(event.data);
+                    throw;
+                }
+
+                continue;
+            }
+            
+            /**
+             * No new events, we can suspend the thread.
+             */
+            Context::current_ = nullptr;
             executor->suspend();
+            Context::current_ = this;
         } else {
             // TODO: change this to conditions.
             using namespace std::literals;
             std::this_thread::sleep_for(1ms);
         }
-        Context::current_ = this;
     }
 }
 
 void Context::process()
 {
     PendingEvent event;
-    while (mailbox_->dequeue(event)) {
+    while (controlBlock->mailbox->dequeue(event)) {
         try {
             handleEvent(event);
         } catch (...) {
