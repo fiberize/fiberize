@@ -25,16 +25,16 @@ LocalFiberRef::~LocalFiberRef() {
 void LocalFiberRef::emit(const PendingEvent& pendingEvent) {
     block->mutex.lock_shared();
     block->mailbox->enqueue(pendingEvent);
+
     if (block->status == Suspended) {
         if (block->mutex.try_unlock_shared_and_lock_upgrade()) {
             block->mutex.unlock_upgrade_and_lock();
-            Context::current()->system->schedule(block);    
-        } else {
-            block->mutex.unlock_shared();
+            Context::current()->system->schedule(block);
+            return;
         }
-    } else {
-        block->mutex.unlock_shared();
     }
+
+    block->mutex.unlock_shared();
 }
 
 } // namespace detail

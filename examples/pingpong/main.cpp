@@ -34,8 +34,8 @@ struct Pong : public Fiber<Unit> {
 int main() {
     System system;
     
-    auto ping = system.run<Ping>();
-    auto pong = system.run<Pong>();
+    auto ping = system.runNamed<Ping>("ping");
+    auto pong = system.runNamed<Pong>("pong");
     
     ping.emit(init, pong);
     pong.emit(init, ping);

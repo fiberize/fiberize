@@ -82,6 +82,7 @@ void Executor::idle() {
 
     while (!emergencyStop) {
         while (runQueue.pop(controlBlock)) {
+            assert(controlBlock->status == Scheduled);
             jumpToFiber(&idleContext, controlBlock);
             afterJump();
         }
@@ -98,6 +99,7 @@ void Executor::idle() {
              * Try to take his job.
              */
             if (system->executors[i]->runQueue.pop(controlBlock)) {
+                assert(controlBlock->status == Scheduled);
                 jumpToFiber(&idleContext, controlBlock);
                 afterJump();
             } else {
@@ -112,6 +114,8 @@ void Executor::switchFromRunning() {
     ControlBlock* controlBlock;
 
     if (runQueue.pop(controlBlock)) {
+        assert(controlBlock->status == Scheduled);
+
         /**
          * Switch the current control block to the next fiber and make the jump
          * saving our current state to the control block.
@@ -135,6 +139,8 @@ void Executor::switchFromTerminated() {
     ControlBlock* controlBlock;
 
     if (runQueue.pop(controlBlock)) {
+        assert(controlBlock->status == Scheduled);
+
         /**
          * Switch the current control block to the next fiber and make the jump
          * saving our current state to the control block.
@@ -188,9 +194,8 @@ void Executor::afterJump() {
         /**
          * We jumped to a fiber. Set its status to running.
          */
-        currentControlBlock_->mutex.lock();
+        boost::unique_lock<boost::shared_mutex> lock(currentControlBlock_->mutex);
         currentControlBlock_->status = detail::Running;
-        currentControlBlock_->mutex.unlock();
     }
 }
 

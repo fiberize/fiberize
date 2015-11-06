@@ -50,14 +50,14 @@ Context::~Context() {
 }
 
 void Context::yield() {
-    while (true) {        
+    while (true) {
         process();
         
         // Suspend the current thread.
         detail::Executor* executor = detail::Executor::current();
         if (executor != nullptr) {
             controlBlock->mutex.lock();
-            
+
             /**
              * It's possible that someone queued a message before we locked the mutex.
              * Check if this is the case.

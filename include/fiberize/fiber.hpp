@@ -32,8 +32,10 @@ struct Fiber: public detail::FiberBase {
             for (FiberRef& watcher : controlBlock->watchers)
                 watcher.emit(finished, result);
         } catch (...) {
+            // TODO: proper logging
+            std::cerr << "fiber crashed" << std::endl;
             auto crashed = Event<Unit>::fromPath(controlBlock->crashedEventPath);
-            for (FiberRef& watcher: controlBlock->watchers)
+            for (FiberRef& watcher : controlBlock->watchers)
                 watcher.emit(crashed);
         }
     }
@@ -59,7 +61,7 @@ protected:
     FiberRef self() const {
         return self_;
     }
-    
+
     /**
      * Returns the fiber system.
      */
