@@ -1,0 +1,9 @@
+sudo: required
+
+language: cpp
+
+services:
+  - docker
+
+script:
+- docker build .
