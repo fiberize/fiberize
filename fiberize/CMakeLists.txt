@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 2.8)
 
 project(fiberize)
 
@@ -8,10 +8,14 @@ file(GLOB_RECURSE FIBERIZE_HDRS "${CMAKE_SOURCE_DIR}/include/*.hpp")
 find_package(Boost 1.59.0 COMPONENTS context thread system REQUIRED)
 
 add_definitions(-DBOOST_THREAD_VERSION=3)
+
+#add_definitions(-DBOOST_USE_SEGMENTED_STACKS)
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsplit-stack")
+
 include_directories("${CMAKE_SOURCE_DIR}/include" ${Boost_INCLUDE_DIRS})
 add_library(fiberize ${FIBERIZE_SRCS})
 target_link_libraries(fiberize ${Boost_LIBRARIES} pthread)
-target_compile_features(fiberize PUBLIC PRIVATE cxx_template_template_parameters cxx_generic_lambdas)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y")
 
 install(TARGETS fiberize RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
 install(FILES ${FIBERIZE_HDRS} DESTINATION include)

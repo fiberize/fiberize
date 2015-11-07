@@ -16,7 +16,7 @@ struct Printer : public Fiber<Unit> {
 int main() {
     System system;
     
-    for (int i = 0; i < 10000000; ++i) {
+    for (int i = 0; i < 1000000; ++i) {
         system.run<Printer>(i);
     }
 

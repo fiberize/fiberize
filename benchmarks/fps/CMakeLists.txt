@@ -1,3 +1,0 @@
-add_executable(fps main.cpp)
-target_link_libraries(fps fiberize)
-target_compile_features(fps PUBLIC PRIVATE cxx_template_template_parameters cxx_generic_lambdas)
