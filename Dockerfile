@@ -8,10 +8,10 @@ RUN apt-get update
 RUN apt-get install -y wget build-essential g++ git cmake valgrind libbz2-dev
 
 # Install boost with valgrind support.
-RUN wget http://downloads.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz > /dev/null
+RUN wget http://downloads.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz
 RUN tar xzf boost_1_59_0.tar.gz
-RUN cd boost_1_59_0/tools/build && ./bootstrap.sh && ./b2 -j8 toolset=gcc install --prefix=/usr > /dev/null
-RUN cd boost_1_59_0 && b2 -j8 toolset=gcc valgrind=on --prefix=/usr install > /dev/null
+RUN cd boost_1_59_0/tools/build && ./bootstrap.sh && ./b2 -j8 toolset=gcc install --prefix=/usr
+RUN cd boost_1_59_0 && b2 -j8 toolset=gcc valgrind=on --prefix=/usr install
 
 # Build and install fiberize.
 COPY fiberize/ fiberize/
