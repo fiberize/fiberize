@@ -11,23 +11,42 @@ namespace fiberize {
 template <typename A>
 class Event {
 public:
-    struct FromPath {};
-    
     /**
      * Creates an event with the given name.
      */
     Event(const std::string& name): path_(GlobalPath(NamedIdent(name))) {}
     
-    /**
-     * Creates an event with the given path.
-     */
-    Event(FromPath, const Path& path): path_(path) {}
-    
+private:
+    struct FromPath {};
+
+    explicit Event(FromPath, const Path& path): path_(path) {}
+
+public:
     /**
      * Creates an event with the given path.
      */
     static Event<A> fromPath(const Path& path) {
         return Event<A>(FromPath{}, path);
+    }
+
+    Event(const Event&) = default;
+    Event(Event&&) = default;
+
+    Event& operator = (const Event&) = delete;
+    Event& operator = (Event&&) = delete;
+
+    /**
+     * Compares two events by comparing their paths.
+     */
+    bool operator == (const Event& other) {
+        return path_ == other.path_;
+    }
+
+    /**
+     * Compares two events by comparing their paths.
+     */
+    bool operator != (const Event& other) {
+        return path_ != other.path_;
     }
     
     /**
@@ -36,7 +55,15 @@ public:
     Path path() const {
         return path_;
     }
-        
+
+    /**
+     * Returns the hash of the path of the event.
+     */
+    uint64_t hash() const {
+        boost::hash<Path> hasher;
+        return hasher(path_);
+    }
+
 private:
     
     struct EventFired {
