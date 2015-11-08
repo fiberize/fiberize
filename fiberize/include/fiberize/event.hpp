@@ -38,14 +38,14 @@ public:
     /**
      * Compares two events by comparing their paths.
      */
-    bool operator == (const Event& other) {
+    bool operator == (const Event& other) const {
         return path_ == other.path_;
     }
 
     /**
      * Compares two events by comparing their paths.
      */
-    bool operator != (const Event& other) {
+    bool operator != (const Event& other) const {
         return path_ != other.path_;
     }
     
