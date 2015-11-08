@@ -15,4 +15,4 @@ RUN cd boost_1_59_0 && b2 -j8 toolset=gcc valgrind=on --prefix=/usr install
 
 # Build and install fiberize.
 COPY fiberize/ fiberize/
-RUN mkdir -p build/fiberize && cd build/fiberize && cmake ../../fiberize/ -DCMAKE_BUILD_TYPE=Release && make -j8 && make install
+RUN mkdir -p build/fiberize && cd build/fiberize && cmake -DVALGRIND=ON ../../fiberize/ -DCMAKE_BUILD_TYPE=Release && make -j8 && make install

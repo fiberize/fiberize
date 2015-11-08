@@ -3,6 +3,7 @@
 #include <fiberize/context.hpp>
 
 #include <thread>
+#include <chrono>
 
 #include <boost/uuid/uuid_generators.hpp>
 
@@ -21,16 +22,23 @@ System::System(uint32_t macrothreads)
 
     /**
      * Generate the uuid.
+     *
+     * If valgrind support is enabled we cannot use std::random_device, because valgrind 3.11.0
+     * doesn't recognize the rdrand instruction used in the implementation of random_device.
      */
-    std::random_device secureRandom;
+#ifdef FIBERIZE_VALGRIND
+    std::default_random_engine seedGenerator(std::chrono::system_clock::now().time_since_epoch().count());
+#else
+    std::random_device seedGenerator;
+#endif
     std::uniform_int_distribution<uint64_t> seedDist;
-    boost::random::mt19937 pseudorandom(seedDist(secureRandom));
+    boost::random::mt19937 pseudorandom(seedDist(seedGenerator));
     boost::uuids::random_generator uuidGenerator(pseudorandom);
     uuid_ = uuidGenerator();
 
     // Spawn the executors.
     for (uint32_t i = 0; i < macrothreads; ++i) {
-        executors.emplace_back(new detail::Executor(this, seedDist(secureRandom), i));
+        executors.emplace_back(new detail::Executor(this, seedDist(seedGenerator), i));
     }
 
     for (uint32_t i = 0; i < macrothreads; ++i) {
