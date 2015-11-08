@@ -12,6 +12,11 @@ template <typename A>
 class Event {
 public:
     /**
+     * Creates a /dev/null event.
+     */
+    Event() {}
+
+    /**
      * Creates an event with the given name.
      */
     Event(const std::string& name): path_(GlobalPath(NamedIdent(name))) {}
@@ -32,8 +37,8 @@ public:
     Event(const Event&) = default;
     Event(Event&&) = default;
 
-    Event& operator = (const Event&) = delete;
-    Event& operator = (Event&&) = delete;
+    Event& operator = (const Event&) = default;
+    Event& operator = (Event&&) = default;
 
     /**
      * Compares two events by comparing their paths.

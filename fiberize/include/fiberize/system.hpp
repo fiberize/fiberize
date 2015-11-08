@@ -212,9 +212,6 @@ private:
      */
     std::vector<detail::Executor*> executors;
     
-    bool shuttingDown;
-    Event<Unit> allFibersFinished_;
-    
     /**
      * Unmanaaged control block of the main thread.
      */
@@ -223,7 +220,7 @@ private:
     /**
      * Context of the main thread.
      */
-    Context mainContext_;
+    Context* mainContext_;
 
     /**
      * The prefix of this actor system.
@@ -244,6 +241,10 @@ private:
      * Generator used for event and fiber ids.
      */
     UniqueIdentGenerator uniqueIdentGenerator;
+
+    bool shuttingDown;
+
+    Event<Unit> allFibersFinished_;
     
     friend detail::Executor;
     friend detail::LocalFiberRef;

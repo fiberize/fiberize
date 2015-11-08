@@ -11,14 +11,10 @@ namespace fiberize {
 
 System::System() : System(std::thread::hardware_concurrency()) {}
 
-System::System(uint32_t macrothreads)
-    : mainControlBlock(createUnmanagedBlock())
-    , mainContext_(mainControlBlock, this)
-    , shuttingDown(false)
-    , allFibersFinished_(newEvent<Unit>())
-    , running(0)
-    , roundRobinCounter(0) {
-    mainControlBlock->grab();
+System::System(uint32_t macrothreads) {
+    shuttingDown = false;
+    running = 0;
+    roundRobinCounter = 0;
 
     /**
      * Generate the uuid.
@@ -35,6 +31,11 @@ System::System(uint32_t macrothreads)
     boost::random::mt19937 pseudorandom(seedDist(seedGenerator));
     boost::uuids::random_generator uuidGenerator(pseudorandom);
     uuid_ = uuidGenerator();
+
+    allFibersFinished_ = newEvent<Unit>();
+    mainControlBlock = createUnmanagedBlock();
+    mainControlBlock->grab();
+    mainContext_ = new Context(mainControlBlock, this);
 
     // Spawn the executors.
     for (uint32_t i = 0; i < macrothreads; ++i) {
@@ -53,6 +54,7 @@ System::~System() {
     for (detail::Executor* executor : executors) {
         delete executor;
     }
+    delete mainContext_;
     mainControlBlock->drop();
 }
 
@@ -61,7 +63,7 @@ FiberRef System::mainFiber() {
 }
 
 Context* System::mainContext() {
-    return &mainContext_;
+    return mainContext_;
 }
 
 void System::shutdown() {
