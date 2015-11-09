@@ -98,7 +98,7 @@ public:
      */
     template <typename... Args>
     HandlerRef bind(Args&&... args) const {
-        detail::Handler* handler = new detail::TypedHandler<A>(std::forward<Args...>(args...));
+        detail::Handler* handler = new detail::TypedHandler<A>(std::forward<Args>(args...)...);
         return FiberContext::current()->bind(path(), handler);
     }
 

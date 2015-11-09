@@ -23,7 +23,7 @@ struct HandlerBlock {
 
 class HandlerContext {
 public:
-    inline HandlerContext(HandlerBlock* handlerBlock, const void* data)
+    explicit inline HandlerContext(HandlerBlock* handlerBlock, const void* data)
         : handlerBlock(handlerBlock)
         , handler(handlerBlock->stackedHandlers.end())
         , data(data) {
