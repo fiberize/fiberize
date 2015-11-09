@@ -31,6 +31,7 @@ public:
 private:
     const uint32_t maxSize;
     boost::circular_buffer<boost::context::stack_context> pool;
+    boost::context::stack_context delayed;
     boost::context::fixedsize_stack allocator;
 };
 

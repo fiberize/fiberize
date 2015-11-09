@@ -10,6 +10,8 @@ CachedFixedSizeStackPool::CachedFixedSizeStackPool()
 CachedFixedSizeStackPool::~CachedFixedSizeStackPool() {
     for (auto stack : pool)
         allocator.deallocate(stack);
+    if (delayed.sp != nullptr)
+        allocator.deallocate(delayed);
 }
 
 boost::context::stack_context CachedFixedSizeStackPool::allocate() {
@@ -31,12 +33,11 @@ void CachedFixedSizeStackPool::deallocate(boost::context::stack_context stack) {
 }
 
 void CachedFixedSizeStackPool::delayedDeallocate(boost::context::stack_context stack) {
-    if (pool.size() == maxSize) {
-        allocator.deallocate(pool.front());
-        pool.pop_front();
+    if (delayed.sp != nullptr) {
+        deallocate(delayed);
     }
-    
-    pool.push_back(stack);
+
+    delayed = stack;
 }
 
 } // namespace detail
