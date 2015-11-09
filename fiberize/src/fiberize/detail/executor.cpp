@@ -9,13 +9,13 @@ namespace fiberize {
 namespace detail {
 
 Executor::Executor(fiberize::System* system, uint64_t seed, uint32_t myIndex)
-    : runQueue(1024)
-    , system(system)
+    : system(system)
+    , runQueue(1024)
+    , previousControlBlock_(nullptr)
+    , currentControlBlock_(nullptr)
     , randomEngine(seed)
     , myIndex(myIndex)
     , stackPool(new detail::CachedFixedSizeStackPool)
-    , currentControlBlock_(nullptr)
-    , previousControlBlock_(nullptr)
     , emergencyStop(false)
     {}
 
@@ -40,13 +40,25 @@ std::shared_ptr<ControlBlock> Executor::currentControlBlock() {
 }
 
 void Executor::suspend() {
+    currentControlBlock_->status = detail::Suspended;
+
     /**
      * Switch to the next fiber.
      */
     switchFromRunning();
 }
 
-void Executor::terminate() {
+void Executor::suspendAndReschedule() {
+    currentControlBlock_->status = detail::Scheduled;
+    runQueue.enqueue(currentControlBlock_);
+
+    /**
+     * Switch to the next fiber.
+     */
+    switchFromRunning();
+}
+
+Void Executor::terminate() {
     /**
      * Destroy the control block.
      */
@@ -59,7 +71,7 @@ void Executor::terminate() {
     /**
      * Switch to the next fiber.
      */
-    switchFromTerminated();
+    return switchFromTerminated();
 }
 
 void Executor::idle() {
@@ -92,8 +104,8 @@ void Executor::idle() {
                 jumpToFiber(&idleContext, std::move(controlBlock));
                 afterJump();
             } else {
-                using namespace std::literals;
-                std::this_thread::sleep_for(1ns);
+                // TODO: conditions?
+                pthread_yield();
             }
         }
     }
@@ -124,7 +136,7 @@ void Executor::switchFromRunning() {
     }
 }
 
-void Executor::switchFromTerminated() {
+Void Executor::switchFromTerminated() {
     std::shared_ptr<ControlBlock> controlBlock;
 
     if (runQueue.try_dequeue(controlBlock)) {
@@ -136,16 +148,17 @@ void Executor::switchFromTerminated() {
          */
         jumpToFiber(&dummyContext, std::move(controlBlock));
 
-        /**
-          * The jump cannot return.
-          */
-        __builtin_unreachable();
     } else {
         /**
          * Jump to the idle context.
          */
         jumpToIdle(&dummyContext);
     }
+
+    /**
+     * Both jumps cannot return.
+     */
+    __builtin_unreachable();
 }
 
 void Executor::jumpToIdle(boost::context::fcontext_t* stash) {
@@ -174,9 +187,8 @@ void Executor::afterJump() {
          * We jumped from a fiber and are holding the mutex on it.
          * Suspend that fiber and drop the reference.
          */
-        previousControlBlock_->status = detail::Suspended;
-        previousControlBlock_->executor = nullptr;
         previousControlBlock_->mutex.unlock();
+        previousControlBlock_->executor = nullptr;
         previousControlBlock_ = nullptr;
     }
 

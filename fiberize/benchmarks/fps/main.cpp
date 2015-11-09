@@ -3,16 +3,30 @@
 
 using namespace fiberize;
 
+const size_t fibers = 1000 * 1000;
+const size_t spawners = 8;
+
 struct Noop : public Fiber<Unit> {
-    Unit run() {}
+    Unit run() { return {}; }
+};
+
+struct Spawner : public Fiber<Unit> {
+    Unit run() {
+        for (size_t i = 1; i <= fibers / spawners; ++i) {
+            system()->run<Noop>();
+            if (i % 100 == 0) {
+                yield();
+            }
+        }
+        return {};
+    }
 };
 
 int main() {
     System system;
 
-    for (int i = 0; i < 10000000; ++i) {
-        system.run<Noop>();
-        std::cout << i << std::endl;
+    for (size_t i = 0; i < spawners; ++i) {
+        system.run<Spawner>();
     }
 
     system.allFibersFinished().await(system.mainContext());

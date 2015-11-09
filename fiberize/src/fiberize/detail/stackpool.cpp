@@ -5,7 +5,7 @@ namespace detail {
 
 // TODO: get rid of magic numbers and allow configuration
 CachedFixedSizeStackPool::CachedFixedSizeStackPool()
-    : maxSize(100), allocator(), pool(maxSize) {}
+    : maxSize(100), pool(maxSize), allocator() {}
 
 CachedFixedSizeStackPool::~CachedFixedSizeStackPool() {
     for (auto stack : pool)

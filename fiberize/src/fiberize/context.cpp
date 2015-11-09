@@ -5,12 +5,68 @@
 namespace fiberize {
 
 Context::Context(std::shared_ptr<detail::ControlBlock> controlBlock, System* system)
-    : controlBlock_(controlBlock), system(system) {}
+    : system(system), controlBlock_(controlBlock) {}
 
 void Context::yield() {
+    process();
+
+    // Suspend the current thread.
+    if (controlBlock_->executor != nullptr) {
+        controlBlock_->mutex.lock();
+
+        /**
+            * It's possible that someone queued a message before we locked the mutex.
+            * Check if this is the case.
+            */
+        PendingEvent event;
+        if (controlBlock_->mailbox->dequeue(event)) {
+            /**
+             * Too bad, now we have to process it and start again.
+             */
+            controlBlock_->mutex.unlock();
+
+            try {
+                handleEvent(event);
+            } catch (...) {
+                event.freeData(event.data);
+                throw;
+            }
+            event.freeData(event.data);
+
+            /**
+             * Try again.
+             */
+            yield();
+        } else {
+            /**
+            * No new events, we can suspend the thread.
+            */
+            controlBlock_->executor->suspendAndReschedule();
+        }
+    } else {
+        pthread_yield();
+    }
+}
+
+void Context::process()
+{
+    PendingEvent event;
+    while (controlBlock_->mailbox->dequeue(event)) {
+        try {
+            handleEvent(event);
+        } catch (...) {
+            event.freeData(event.data);
+            throw;
+        }
+        event.freeData(event.data);
+    }
+}
+
+Void Context::processForever()
+{
     while (true) {
         process();
-        
+
         // Suspend the current thread.
         if (controlBlock_->executor != nullptr) {
             controlBlock_->mutex.lock();
@@ -42,24 +98,8 @@ void Context::yield() {
              */
             controlBlock_->executor->suspend();
         } else {
-            // TODO: change this to conditions.
-            using namespace std::literals;
-            std::this_thread::sleep_for(1ms);
+            pthread_yield();
         }
-    }
-}
-
-void Context::process()
-{
-    PendingEvent event;
-    while (controlBlock_->mailbox->dequeue(event)) {
-        try {
-            handleEvent(event);
-        } catch (...) {
-            event.freeData(event.data);
-            throw;
-        }
-        event.freeData(event.data);
     }
 }
 
@@ -143,6 +183,10 @@ HandlerRef Context::bind(const Path& path, fiberize::detail::Handler* handler) {
 
     block->stackedHandlers.emplace_back(handler);        
     return HandlerRef(handler);
+}
+
+std::shared_ptr<detail::ControlBlock> Context::controlBlock() {
+    return controlBlock_;
 }
  
 }

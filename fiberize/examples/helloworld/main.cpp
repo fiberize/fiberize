@@ -8,6 +8,7 @@ struct Printer : public Fiber<Unit> {
     
     virtual Unit run() {
         std::cout << "Hello from fiber #" << n << std::endl;
+        return {};
     }
 
     int n;

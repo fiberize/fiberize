@@ -65,17 +65,24 @@ protected:
     }
 
     /**
-     * Yields control to the event loop.
+     * Processes all pending events, then suspends and reschedules this fiber.
      */
     void yield() {
         context()->yield();
     }
-    
+
     /**
      * Processes all pending events.
      */
     void process() {
         context()->process();
+    }
+
+    /**
+     * Processes events in a loop, forever.
+     */
+    Void processForever() {
+        return context()->processForever();
     }
 
     /**

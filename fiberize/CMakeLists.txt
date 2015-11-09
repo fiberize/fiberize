@@ -24,8 +24,8 @@ file(GLOB_RECURSE FIBERIZE_HDRS "${CMAKE_SOURCE_DIR}/include/*.hpp")
 find_package(Boost 1.59.0 COMPONENTS context thread system REQUIRED)
 add_definitions(-DBOOST_THREAD_VERSION=3)
 
-# Enable C++1y
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y")
+# Enable C++1y and warnings
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Wextra")
 
 # Make the include directory visible in all projects.
 include_directories("${CMAKE_SOURCE_DIR}/include" ${Boost_INCLUDE_DIRS})

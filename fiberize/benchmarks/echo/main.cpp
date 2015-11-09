@@ -42,6 +42,8 @@ struct Emitter : public Fiber<Unit> {
                 sent += 1;
             }
         }
+        
+        return {};
     }
 };
 

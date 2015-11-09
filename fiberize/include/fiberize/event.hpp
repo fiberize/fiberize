@@ -87,7 +87,7 @@ public:
         });
         
         try {
-            context->yield();
+            return context->processForever().absurd<A>();
         } catch (const EventFired& eventFired) {
             return eventFired.value;
         }

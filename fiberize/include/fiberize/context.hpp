@@ -48,7 +48,7 @@ public:
     Context(std::shared_ptr<detail::ControlBlock> controlBlock, System* system);
     
     /**
-     * Yields control to the event loop.
+     * Processes all pending events, then suspends and reschedules this fiber.
      */
     void yield();
     
@@ -56,6 +56,11 @@ public:
      * Processes all pending events.
      */
     void process();
+
+    /**
+     * Processes events in a loop, forever.
+     */
+    Void processForever();
 
     /**
      * Executes the next handler in a stack.

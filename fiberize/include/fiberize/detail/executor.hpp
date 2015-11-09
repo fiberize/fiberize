@@ -49,11 +49,18 @@ public:
     void suspend();
 
     /**
+     * Suspends and reschedules this fiber.
+     *
+     * You must hold the control block mutex.
+     */
+    void suspendAndReschedule();
+
+    /**
      * Terminate this fiber.
      *
      * You must hold the control block mutex.
      */
-    void terminate();
+    Void terminate();
 
     ////
     
@@ -77,7 +84,7 @@ private:
     /**
      * Switches to the next fiber.
      */
-    void switchFromTerminated();
+    Void switchFromTerminated();
 
     /**
      * Jumps to the idle loop.

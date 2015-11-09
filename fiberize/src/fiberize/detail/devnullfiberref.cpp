@@ -7,7 +7,7 @@ Locality DevNullFiberRef::locality() const {
     return DevNull;
 }
 
-void DevNullFiberRef::emit(const PendingEvent& pendingEvent) {
+void DevNullFiberRef::emit(const PendingEvent&) {
     // Noop.
 }
 

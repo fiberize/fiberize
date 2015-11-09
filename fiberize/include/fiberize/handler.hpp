@@ -74,12 +74,12 @@ public:
             handler->grab();
     }
     
-    HandlerRef(const HandlerRef& ref): handler(handler) {
+    HandlerRef(const HandlerRef& ref): handler(ref.handler) {
         if (handler != nullptr)
             handler->grab();
     }
     
-    HandlerRef(HandlerRef&& ref): handler(handler) {
+    HandlerRef(HandlerRef&& ref): handler(ref.handler) {
         ref.handler = nullptr;
     }
     

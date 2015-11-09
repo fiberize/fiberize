@@ -1,6 +1,8 @@
 #ifndef FIBERIZE_TYPES_HPP
 #define FIBERIZE_TYPES_HPP
 
+#include <cstdlib>
+
 namespace fiberize {
   
 /**
@@ -9,6 +11,15 @@ namespace fiberize {
 struct Void {
 private:
     Void() {};
+
+public:
+    /**
+     * Ex Falso Quodlibet.
+     */
+    template <typename A>
+    A absurd() {
+        abort();
+    }
 };
 
 /**
