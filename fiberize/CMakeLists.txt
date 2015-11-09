@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.8)
 option(VALGRIND "enable valgrind support" ON)
 
 if(VALGRIND)
-  add_definitions(-DFIBERIZE_VALGRIND)
+  add_definitions(-DFIBERIZE_VALGRIND -DBOOST_USE_VALGRIND)
 endif(VALGRIND)
 
 option(SEGMENTED_STACKS "enable segmented stacks [work in progress]" OFF)
