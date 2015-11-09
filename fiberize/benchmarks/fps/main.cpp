@@ -24,7 +24,7 @@ struct Spawner : public Fiber<Unit> {
 
 int main() {
     System system;
-    FiberRef self = system.fiberize();
+    AnyFiberRef self = system.fiberize();
     system.subscribe(self);
 
     for (size_t i = 0; i < spawners; ++i) {

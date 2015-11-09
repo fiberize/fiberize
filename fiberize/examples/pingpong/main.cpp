@@ -3,7 +3,7 @@
 
 using namespace fiberize;
 
-Event<FiberRef> init("init");
+Event<AnyFiberRef> init("init");
 Event<Unit> ready("ready");
 
 Event<Unit> ping("ping");
@@ -22,8 +22,8 @@ struct Ping : public Fiber<Unit> {
 };
 
 struct Pong : public Fiber<Unit> {
-    Pong(FiberRef mainFiber) : mainFiber(mainFiber) {}
-    FiberRef mainFiber;
+    Pong(AnyFiberRef mainFiber) : mainFiber(mainFiber) {}
+    AnyFiberRef mainFiber;
 
     virtual Unit run() {
         auto peer = init.await();
@@ -39,7 +39,7 @@ struct Pong : public Fiber<Unit> {
 
 int main() {
     System system;
-    FiberRef self = system.fiberize();
+    AnyFiberRef self = system.fiberize();
     
     auto ping = system.run<Ping>();
     auto pong = system.run<Pong>(self);

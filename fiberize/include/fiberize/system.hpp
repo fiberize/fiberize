@@ -14,42 +14,6 @@
 
 namespace fiberize {
 
-/**
- * Bundles the reference to a fiber and it's "finished" and "crashed" events.
- */
-template <typename A>
-class FiberResult {
-public:
-    FiberResult(const FiberRef &ref, const Event<A> &finished, const Event<Unit>& crashed)
-        : ref_(ref), finished_(finished), crashed_(crashed) {}
-    
-    /**
-     * Returns the reference to the fiber.
-     */
-    FiberRef ref() const {
-        return ref_;
-    }
-    
-    /**
-     * An event which fires when the fiber successfully finishes.
-     */
-    Event<A> finished() const {
-        return finished_;
-    }
-    
-    /**
-     * An event which fires when an uncaugh exception escapes the fiber run function.
-     */
-    Event<Unit> crashed() const {
-        return crashed_;
-    }
-    
-private:
-    FiberRef ref_;
-    Event<A> finished_;
-    Event<Unit> crashed_;
-};
-
 class System {
 public:
     /**
@@ -78,7 +42,7 @@ public:
         typename Result = decltype(std::declval<FiberImpl>().run()),
         typename ...Args
         >
-    FiberRef run(Args&& ...args) {
+    FiberRef<Result> run(Args&& ...args) {
         return runImpl<MailboxImpl>(uniqueIdentGenerator.generate(), [&] () {
             return new FiberImpl(std::forward<Args>(args)...);
         });
@@ -95,7 +59,7 @@ public:
         typename Result = decltype(std::declval<FiberImpl>().run()),
         typename ...Args
         >
-    FiberRef runNamed(const std::string& name, Args&& ...args) {
+    FiberRef<Result> runNamed(const std::string& name, Args&& ...args) {
         Event<Result> finished = newEvent<Result>();
         Event<Unit> crashed = newEvent<Unit>();
         return runImpl<MailboxImpl>(NamedIdent(name), [&] () {
@@ -133,16 +97,16 @@ public:
      * TODO: unfiberizing?
      */
     template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
-    FiberRef fiberize() {
+    AnyFiberRef fiberize() {
         std::shared_ptr<detail::ControlBlock> controlBlock = createUnmanagedBlock<MailboxImpl>();
         (new FiberContext(this, controlBlock))->makeCurrent();
-        return FiberRef(std::make_shared<detail::LocalFiberRef>(this, controlBlock));
+        return AnyFiberRef(std::make_shared<detail::LocalFiberRef>(this, controlBlock));
     }
 
     /**
      * Subscribes to events. TODO: refactor
      */
-    void subscribe(FiberRef ref);
+    void subscribe(AnyFiberRef ref);
 
 private:
 
@@ -165,7 +129,7 @@ private:
         typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type,
         typename Result = decltype(std::declval<FiberImpl>().run())
         >
-    FiberRef runImpl(const Ident& ident, const FiberFactory& fiberFactory) {
+    FiberRef<Result> runImpl(const Ident& ident, const FiberFactory& fiberFactory) {
         std::shared_ptr<detail::FiberRefImpl> impl;
         if (!shuttingDown) {
             FiberImpl* fiber = fiberFactory();
@@ -194,7 +158,7 @@ private:
             // System is shutting down, do not create new fibers.
             impl = std::make_shared<detail::DevNullFiberRef>();
         }
-        return FiberRef(impl);
+        return FiberRef<Result>(impl);
     }
 
     /**
@@ -242,7 +206,7 @@ private:
 
     // Events, TODO: refactor
     std::mutex subscribersMutex;
-    std::vector<FiberRef> subscribers;
+    std::vector<AnyFiberRef> subscribers;
     Event<Unit> allFibersFinished_;
     
     friend detail::Executor;

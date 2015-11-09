@@ -3,6 +3,6 @@
 
 namespace fiberize {
 
-FiberRef::FiberRef() : impl_(new detail::DevNullFiberRef) {}
+AnyFiberRef::AnyFiberRef() : impl_(new detail::DevNullFiberRef) {}
     
 } // namespace fiberize

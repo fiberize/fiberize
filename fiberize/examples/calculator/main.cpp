@@ -8,7 +8,7 @@ struct InvalidSyntax {};
 struct Calculator : public Fiber<Void> {
     static Event<std::string> feed;
     static Event<uint> result;
-    static Event<FiberRef> subscribe;
+    static Event<AnyFiberRef> subscribe;
 
     // Lexer
     std::stringstream input;
@@ -91,10 +91,10 @@ struct Calculator : public Fiber<Void> {
     
     // Driver
     
-    std::vector<FiberRef> subscribers;
+    std::vector<AnyFiberRef> subscribers;
     
     Void run() {
-        auto _handleSubscription = subscribe.bind([this] (const FiberRef& fiber) {
+        auto _handleSubscription = subscribe.bind([this] (const AnyFiberRef& fiber) {
             subscribers.push_back(fiber);
         });
         
@@ -118,13 +118,13 @@ struct Calculator : public Fiber<Void> {
 
 Event<std::string> Calculator::feed("Calculator::feed");
 Event<uint> Calculator::result("Calculator::result");
-Event<FiberRef> Calculator::subscribe("Calculator::subscribe");
+Event<AnyFiberRef> Calculator::subscribe("Calculator::subscribe");
 
 int main() {
     System fiberSystem;
     
-    FiberRef self = fiberSystem.fiberize();
-    FiberRef calc = fiberSystem.run<Calculator>();
+    AnyFiberRef self = fiberSystem.fiberize();
+    AnyFiberRef calc = fiberSystem.run<Calculator>();
     calc.send(Calculator::subscribe, self);
     
     auto _printResults = Calculator::result.bind([] (uint value) {

@@ -14,6 +14,16 @@ void DevNullFiberRef::send(const PendingEvent&) {
 Path DevNullFiberRef::path() const {
     return DevNullPath();
 }
+
+Path DevNullFiberRef::finishedEventPath() const {
+    return DevNullPath();
+}
+
+Path DevNullFiberRef::crashedEventPath() const {
+    return DevNullPath();
+}
+
+void DevNullFiberRef::watch(const AnyFiberRef&) {}
     
 } // namespace detail    
 } // namespace fiberize

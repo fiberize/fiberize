@@ -67,7 +67,7 @@ void System::schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock,
     executors[i % executors.size()]->schedule(controlBlock, std::move(lock));
 }
 
-void System::subscribe(FiberRef ref) {
+void System::subscribe(AnyFiberRef ref) {
     std::lock_guard<std::mutex> lock(subscribersMutex);
     subscribers.push_back(ref);
 }
@@ -76,7 +76,7 @@ void System::fiberFinished() {
     if (std::atomic_fetch_sub_explicit(&running, 1lu, std::memory_order_release) == 1) {
         std::atomic_thread_fence(std::memory_order_acquire);
         std::lock_guard<std::mutex> lock(subscribersMutex);
-        for (FiberRef ref : subscribers)
+        for (AnyFiberRef ref : subscribers)
             ref.send(allFibersFinished_);
     }
 }

@@ -14,6 +14,9 @@ public:
     virtual Locality locality() const;
     virtual Path path() const;
     virtual void send(const PendingEvent& pendingEvent);
+    virtual Path finishedEventPath() const;
+    virtual Path crashedEventPath() const;
+    virtual void watch(const AnyFiberRef& watcher);
 
     System* const system;
     std::shared_ptr<ControlBlock> const block;

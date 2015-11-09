@@ -26,7 +26,7 @@ public:
  * Unit is a type with exactly one value.
  */
 struct Unit {};
-    
+
     
 } // namespace fiberize
 

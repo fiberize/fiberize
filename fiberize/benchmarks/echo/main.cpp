@@ -3,24 +3,24 @@
 
 using namespace fiberize;
 
-Event<FiberRef> ping("ping");
+Event<AnyFiberRef> ping("ping");
 Event<Unit> pong("pong");
 
 struct Echo : public Fiber<Void> {
     Void run() {
         while (true) {
-            FiberRef sender = ping.await();
+            AnyFiberRef sender = ping.await();
             sender.send(pong);
         }
     }
 };
 
 struct Emitter : public Fiber<Unit> {
-    Emitter(const FiberRef& echo, int initialMessages, int repeat)
+    Emitter(const AnyFiberRef& echo, int initialMessages, int repeat)
         : echo(echo), initialMessages(initialMessages), repeat(repeat), sent(0), received(0)
         {}
     
-    FiberRef echo;
+    AnyFiberRef echo;
     const int initialMessages;
     const int repeat;
     
@@ -51,6 +51,7 @@ int main() {
     System system;
     system.fiberize();
     auto echo = system.run<Echo>();
-    auto sendter = system.run<Emitter>(echo, 100, 1000000);
-    return 0;
+    auto emitter = system.run<Emitter>(echo, 100, 1000000);
+    emitter.finished().await();
+    exit(0);
 }

@@ -16,7 +16,7 @@ struct Printer : public Fiber<Unit> {
 
 int main() {
     System system;
-    FiberRef self = system.fiberize();
+    AnyFiberRef self = system.fiberize();
     system.subscribe(self);
     
     for (int i = 0; i < 1000000; ++i) {

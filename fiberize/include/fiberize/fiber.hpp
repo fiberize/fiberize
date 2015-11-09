@@ -24,18 +24,20 @@ struct Fiber: public detail::FiberBase {
         FiberContext context(detail::Executor::current()->system, controlBlock);
         context.makeCurrent();
 
-        self_ = FiberRef(std::make_shared<detail::LocalFiberRef>(context.system, controlBlock));
+        self_ = FiberRef<A>(std::make_shared<detail::LocalFiberRef>(context.system, controlBlock));
 
         try {
             auto finished = Event<A>::fromPath(controlBlock->finishedEventPath);
             A result = run();
-            for (FiberRef& watcher : controlBlock->watchers)
+            std::lock_guard<std::mutex> lock(controlBlock->watchersMutex);
+            for (AnyFiberRef& watcher : controlBlock->watchers)
                 watcher.send(finished, result);
         } catch (...) {
             // TODO: proper logging
             std::cerr << "fiber crashed" << std::endl;
+            std::lock_guard<std::mutex> lock(controlBlock->watchersMutex);
             auto crashed = Event<Unit>::fromPath(controlBlock->crashedEventPath);
-            for (FiberRef& watcher : controlBlock->watchers)
+            for (AnyFiberRef& watcher : controlBlock->watchers)
                 watcher.send(crashed);
         }
     }
@@ -45,7 +47,7 @@ protected:
     /**
      * Returns the reference to the current fiber.
      */
-    FiberRef self() const {
+    FiberRef<A> self() const {
         return self_;
     }
 
@@ -92,7 +94,7 @@ protected:
     }
     
 private:
-    FiberRef self_;
+    FiberRef<A> self_;
 };
 
 } // namespace fiberize

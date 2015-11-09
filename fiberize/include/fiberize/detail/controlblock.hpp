@@ -69,9 +69,9 @@ struct ControlBlock {
     
     /**
      * Fibers watching this fiber.
-     * TODO: figure out concurrent acccess
      */
-    std::vector<FiberRef> watchers;
+    std::vector<AnyFiberRef> watchers;
+    std::mutex watchersMutex;
 
     /**
      * Status of this fiber.
@@ -87,7 +87,7 @@ struct ControlBlock {
      * Fiber context attached to this block.
      */
     FiberContext* fiberContext;
-    
+
     /**
      * Whether a block should be rescheduled after a jump.
      */
