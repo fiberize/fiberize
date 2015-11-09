@@ -118,16 +118,26 @@ void Executor::switchFromRunning() {
         assert(controlBlock->status == Scheduled);
 
         /**
-         * Switch the current control block to the next fiber and make the jump
-         * saving our current state to the control block.
+         * Make sure we don't context switch into the same context.
          */
-        jumpToFiber(&currentControlBlock_->context, std::move(controlBlock));
+        if (controlBlock == currentControlBlock_) {
+            controlBlock->executor = this;
+            controlBlock->status = Running;
+            controlBlock->mutex.unlock();
+            return;
+        } else {
+            /**
+             * Switch the current control block to the next fiber and make the jump
+             * saving our current state to the control block.
+             */
+            jumpToFiber(&currentControlBlock_->context, std::move(controlBlock));
 
-        /**
-         * We returned from the jump, this means another fiber switched to us.
-         * The current control block was restored by the fiber making the jump.
-         */
-        afterJump();
+            /**
+             * We returned from the jump, this means another fiber switched to us.
+             * The current control block was restored by the fiber making the jump.
+             */
+            afterJump();
+        }
     } else {
         /**
          * Jump to the idle context.
