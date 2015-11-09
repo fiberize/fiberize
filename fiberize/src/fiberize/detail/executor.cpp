@@ -16,6 +16,7 @@ Executor::Executor(fiberize::System* system, uint64_t seed, uint32_t myIndex)
     , randomEngine(seed)
     , myIndex(myIndex)
     , stackPool(new detail::CachedFixedSizeStackPool)
+    , reschedule(false)
     , emergencyStop(false)
     {}
 
@@ -40,7 +41,7 @@ std::shared_ptr<ControlBlock> Executor::currentControlBlock() {
 }
 
 void Executor::suspend() {
-    currentControlBlock_->status = detail::Suspended;
+    reschedule = false;
 
     /**
      * Switch to the next fiber.
@@ -49,8 +50,7 @@ void Executor::suspend() {
 }
 
 void Executor::suspendAndReschedule() {
-    currentControlBlock_->status = detail::Scheduled;
-    runQueue.enqueue(currentControlBlock_);
+    reschedule = false;
 
     /**
      * Switch to the next fiber.
@@ -121,7 +121,6 @@ void Executor::switchFromRunning() {
          * Make sure we don't context switch into the same context.
          */
         if (controlBlock == currentControlBlock_) {
-            controlBlock->executor = this;
             controlBlock->status = Running;
             controlBlock->mutex.unlock();
             return;
@@ -197,8 +196,15 @@ void Executor::afterJump() {
          * We jumped from a fiber and are holding the mutex on it.
          * Suspend that fiber and drop the reference.
          */
-        previousControlBlock_->mutex.unlock();
+        previousControlBlock_->status = Suspended;
         previousControlBlock_->executor = nullptr;
+
+        if (reschedule) {
+            system->schedule(previousControlBlock_);
+        } else {
+            previousControlBlock_->mutex.unlock();
+        }
+
         previousControlBlock_ = nullptr;
     }
 

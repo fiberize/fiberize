@@ -161,6 +161,11 @@ private:
      */
     std::unique_ptr<detail::StackPool> stackPool;
 
+    /**
+     * Whether a block should be rescheduled after a jump.
+     */
+    bool reschedule;
+
     bool emergencyStop;
 };
     
