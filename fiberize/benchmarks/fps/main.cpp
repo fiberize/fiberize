@@ -12,7 +12,7 @@ struct Noop : public Fiber<Unit> {
 
 struct Spawner : public Fiber<Unit> {
     Unit run() {
-        for (size_t i = 1; i <= fibers / spawners; ++i) {
+        for (size_t i = 1; i <= fibers; ++i) {
             system()->run<Noop>();
             if (i % 100 == 0) {
                 yield();

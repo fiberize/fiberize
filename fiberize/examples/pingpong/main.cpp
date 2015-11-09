@@ -4,6 +4,8 @@
 using namespace fiberize;
 
 Event<FiberRef> init("init");
+Event<Unit> ready("ready");
+
 Event<Unit> ping("ping");
 Event<Unit> pong("pong");
 
@@ -22,6 +24,7 @@ struct Ping : public Fiber<Unit> {
 struct Pong : public Fiber<Unit> {
     virtual Unit run() {
         auto peer = await(init);
+        system()->mainFiber().emit(ready);
 
         while (true) {
             await(ping);
@@ -37,8 +40,9 @@ int main() {
     auto ping = system.runNamed<Ping>("ping");
     auto pong = system.runNamed<Pong>("pong");
     
-    ping.emit(init, pong);
     pong.emit(init, ping);
+    ready.await(system.mainContext());
+    ping.emit(init, pong);
     
-    system.mainContext()->yield();
+    system.mainContext()->processForever();
 }
