@@ -14,6 +14,9 @@
 #include <boost/thread/shared_mutex.hpp>
 
 namespace fiberize {
+
+class FiberContext;
+
 namespace detail {
 
 class FiberBase;
@@ -81,9 +84,14 @@ struct ControlBlock {
     ControlBlockMutex mutex;
 
     /**
-     * Executor executing this fiber.
+     * Fiber context attached to this block.
      */
-    Executor* executor;
+    FiberContext* fiberContext;
+    
+    /**
+     * Whether a block should be rescheduled after a jump.
+     */
+    bool reschedule;
 };
  
 } // namespace detail

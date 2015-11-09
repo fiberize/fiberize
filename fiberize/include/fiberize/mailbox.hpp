@@ -8,9 +8,9 @@
 
 #include <boost/circular_buffer.hpp>
 #include <boost/lockfree/queue.hpp>
-#include <moodycamel/concurrentqueue.h>
 
 #include <fiberize/path.hpp>
+#include <moodycamel/concurrentqueue.h>
 
 namespace fiberize {
 

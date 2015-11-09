@@ -6,6 +6,7 @@
 #include <boost/context/all.hpp>
 
 #include <fiberize/fiberref.hpp>
+#include <fiberize/fibercontext.hpp>
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/detail/executor.hpp>
 #include <fiberize/detail/localfiberref.hpp>
@@ -124,16 +125,24 @@ public:
      * Returns the UUID of this system.
      */
     boost::uuids::uuid uuid() const;
-    
-    /**
-     * Returns the fiber reference of the main thread.
-     */
-    FiberRef mainFiber();
 
     /**
-     * Returns the context attached to the main thread.
+     * Fiberize the current thread, enabling it to receive events.
+     *
+     * A thread once fiberized cannot be unfiberized. This makes the function leak some memory.
+     * TODO: unfiberizing?
      */
-    Context* mainContext();
+    template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
+    FiberRef fiberize() {
+        std::shared_ptr<detail::ControlBlock> controlBlock = createUnmanagedBlock<MailboxImpl>();
+        (new FiberContext(this, controlBlock))->makeCurrent();
+        return FiberRef(std::make_shared<detail::LocalFiberRef>(this, controlBlock));
+    }
+
+    /**
+     * Subscribes to events. TODO: refactor
+     */
+    void subscribe(FiberRef ref);
 
 private:
 
@@ -171,7 +180,7 @@ private:
             block->finishedEventPath = finished.path();
             block->crashedEventPath = crashed.path();
             block->status = detail::Suspended;
-            block->executor = nullptr;
+            block->reschedule = false;
 
             // Increment fiber counter.
             std::atomic_fetch_add(&running, 1ul);
@@ -200,7 +209,7 @@ private:
         block->finishedEventPath = DevNullPath();
         block->crashedEventPath = DevNullPath();
         block->status = detail::Running;
-        block->executor = nullptr;
+        block->reschedule = false;
         return block;
     }
     
@@ -209,16 +218,6 @@ private:
      */
     std::vector<detail::Executor*> executors;
     
-    /**
-     * Unmanaaged control block of the main thread.
-     */
-    std::shared_ptr<detail::ControlBlock> mainControlBlock;
-    
-    /**
-     * Context of the main thread.
-     */
-    Context* mainContext_;
-
     /**
      * The prefix of this actor system.
      */
@@ -241,6 +240,9 @@ private:
 
     bool shuttingDown;
 
+    // Events, TODO: refactor
+    std::mutex subscribersMutex;
+    std::vector<FiberRef> subscribers;
     Event<Unit> allFibersFinished_;
     
     friend detail::Executor;

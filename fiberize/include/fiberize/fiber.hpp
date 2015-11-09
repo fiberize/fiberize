@@ -4,7 +4,7 @@
 #include <fiberize/detail/fiberbase.hpp>
 #include <fiberize/detail/executor.hpp>
 #include <fiberize/fiberref.hpp>
-#include <fiberize/context.hpp>
+#include <fiberize/fibercontext.hpp>
 #include <fiberize/event.hpp>
 #include <fiberize/system.hpp>
 
@@ -12,8 +12,6 @@ namespace fiberize {
     
 template <typename A>
 struct Fiber: public detail::FiberBase {
-    Fiber() : context_(nullptr) {}
-
     /**
      * Executes the fiber.
      */
@@ -23,9 +21,10 @@ struct Fiber: public detail::FiberBase {
      * Called internally to start the fiber and take care of the result value and exceptions.
      */
     virtual void _execute(std::shared_ptr<detail::ControlBlock> controlBlock) {
-        Context scopedContext(controlBlock, controlBlock->executor->system);
-        context_ = &scopedContext;
-        self_ = FiberRef(std::make_shared<detail::LocalFiberRef>(controlBlock->executor->system, controlBlock));
+        FiberContext context(detail::Executor::current()->system, controlBlock);
+        context.makeCurrent();
+
+        self_ = FiberRef(std::make_shared<detail::LocalFiberRef>(context.system, controlBlock));
 
         try {
             auto finished = Event<A>::fromPath(controlBlock->finishedEventPath);
@@ -54,14 +53,14 @@ protected:
      * Returns the fiber system.
      */
     System* system() {
-        return context_->system;
+        return FiberContext::current()->system;
     }
 
     /**
      * Returns the context attached to this fiber.
      */
-    Context* context() {
-        return context_;
+    FiberContext* context() {
+        return FiberContext::current();
     }
 
     /**
@@ -91,17 +90,8 @@ protected:
     void super() {
         context()->super();
     }
-
-    /**
-     * Awaits on the giben awaitable using this fiber's context.
-     */
-    template <typename Awaitable>
-    auto await(Awaitable& awaitable) {
-        return awaitable.await(context());
-    }
     
 private:
-    Context* context_;
     FiberRef self_;
 };
 

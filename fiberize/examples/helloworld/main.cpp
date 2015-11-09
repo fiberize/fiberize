@@ -16,11 +16,13 @@ struct Printer : public Fiber<Unit> {
 
 int main() {
     System system;
+    FiberRef self = system.fiberize();
+    system.subscribe(self);
     
     for (int i = 0; i < 1000000; ++i) {
         system.run<Printer>(i);
     }
 
-    system.allFibersFinished().await(system.mainContext());
+    system.allFibersFinished().await();
     return 0;
 }

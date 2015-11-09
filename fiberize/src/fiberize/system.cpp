@@ -1,6 +1,6 @@
 #include <fiberize/system.hpp>
 #include <fiberize/detail/fiberbase.hpp>
-#include <fiberize/context.hpp>
+#include <fiberize/fibercontext.hpp>
 
 #include <thread>
 #include <chrono>
@@ -33,8 +33,6 @@ System::System(uint32_t macrothreads) {
     uuid_ = uuidGenerator();
 
     allFibersFinished_ = newEvent<Unit>();
-    mainControlBlock = createUnmanagedBlock();
-    mainContext_ = new Context(mainControlBlock, this);
 
     // Spawn the executors.
     for (uint32_t i = 0; i < macrothreads; ++i) {
@@ -53,15 +51,6 @@ System::~System() {
     for (detail::Executor* executor : executors) {
         delete executor;
     }
-    delete mainContext_;
-}
-
-FiberRef System::mainFiber() {
-    return FiberRef(std::make_shared<detail::LocalFiberRef>(this, mainControlBlock));
-}
-
-Context* System::mainContext() {
-    return mainContext_;
 }
 
 void System::shutdown() {
@@ -78,11 +67,17 @@ void System::schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock,
     executors[i % executors.size()]->schedule(controlBlock, std::move(lock));
 }
 
+void System::subscribe(FiberRef ref) {
+    std::lock_guard<std::mutex> lock(subscribersMutex);
+    subscribers.push_back(ref);
+}
+
 void System::fiberFinished() {
     if (std::atomic_fetch_sub_explicit(&running, 1lu, std::memory_order_release) == 1) {
-         std::atomic_thread_fence(std::memory_order_acquire);
-         // TODO: subscription
-         mainFiber().emit(allFibersFinished_);
+        std::atomic_thread_fence(std::memory_order_acquire);
+        std::lock_guard<std::mutex> lock(subscribersMutex);
+        for (FiberRef ref : subscribers)
+            ref.emit(allFibersFinished_);
     }
 }
 

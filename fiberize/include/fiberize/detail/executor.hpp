@@ -71,6 +71,11 @@ public:
      * The fiber system this executor is attached to.
      */
     System* const system;
+
+    /**
+     * Returns the current executor.
+     */
+    static Executor* current();
     
 private:
     
@@ -164,12 +169,9 @@ private:
      */
     std::unique_ptr<detail::StackPool> stackPool;
 
-    /**
-     * Whether a block should be rescheduled after a jump.
-     */
-    bool reschedule;
-
     bool emergencyStop;
+
+    static thread_local Executor* current_;
 };
     
 } // namespace detail

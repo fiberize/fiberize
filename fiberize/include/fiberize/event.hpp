@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include <fiberize/context.hpp>
+#include <fiberize/fibercontext.hpp>
 #include <fiberize/path.hpp>
 
 namespace fiberize {
@@ -80,14 +80,14 @@ public:
     /**
      * Waits until an event occurs and returns its value.
      */
-    A await(Context* context) const {
-        auto handler = bind(context, [context] (const A& value) {
-            context->super();
+    A await() const {
+        auto handler = bind([] (const A& value) {
+            FiberContext::current()->super();
             throw EventFired{value};
         });
         
         try {
-            return context->processForever().absurd<A>();
+            return FiberContext::current()->processForever().absurd<A>();
         } catch (const EventFired& eventFired) {
             return eventFired.value;
         }
@@ -96,17 +96,17 @@ public:
     /**
      * Binds an event to a handler.
      */
-    HandlerRef bind(Context* context, const std::function<void (const A&)>& function) const {
+    HandlerRef bind(const std::function<void (const A&)>& function) const {
         detail::Handler* handler = new detail::TypedHandler<A>(function);
-        return context->bind(path(), handler);
+        return FiberContext::current()->bind(path(), handler);
     }
     
     /**
      * Binds an event to a handler.
      */
-    HandlerRef bind(Context* context, std::function<void (const A&)>&& function) const {
+    HandlerRef bind(std::function<void (const A&)>&& function) const {
         detail::Handler* handler = new detail::TypedHandler<A>(std::move(function));
-        return context->bind(path(), handler);
+        return FiberContext::current()->bind(path(), handler);
     }
 
 private:

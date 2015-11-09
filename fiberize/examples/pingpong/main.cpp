@@ -11,23 +11,26 @@ Event<Unit> pong("pong");
 
 struct Ping : public Fiber<Unit> {
     virtual Unit run() {
-        auto peer = await(init);
+        auto peer = init.await();
         
         while (true) {
             std::cout << "Ping" << std::endl;
             peer.emit(ping);
-            await(pong);
+            pong.await();
         }
     }
 };
 
 struct Pong : public Fiber<Unit> {
+    Pong(FiberRef mainFiber) : mainFiber(mainFiber) {}
+    FiberRef mainFiber;
+
     virtual Unit run() {
-        auto peer = await(init);
-        system()->mainFiber().emit(ready);
+        auto peer = init.await();
+        mainFiber.emit(ready);
 
         while (true) {
-            await(ping);
+            ping.await();
             std::cout << "Pong" << std::endl;
             peer.emit(pong);
         }
@@ -36,13 +39,14 @@ struct Pong : public Fiber<Unit> {
 
 int main() {
     System system;
+    FiberRef self = system.fiberize();
     
-    auto ping = system.runNamed<Ping>("ping");
-    auto pong = system.runNamed<Pong>("pong");
+    auto ping = system.run<Ping>();
+    auto pong = system.run<Pong>(self);
     
     pong.emit(init, ping);
-    ready.await(system.mainContext());
+    ready.await();
     ping.emit(init, pong);
     
-    system.mainContext()->processForever();
+    FiberContext::current()->processForever();
 }

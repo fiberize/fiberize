@@ -1,17 +1,20 @@
-#include <fiberize/context.hpp>
+#include <fiberize/fibercontext.hpp>
 #include <fiberize/detail/executor.hpp>
 #include <fiberize/detail/controlblock.hpp>
 
 namespace fiberize {
 
-Context::Context(std::shared_ptr<detail::ControlBlock> controlBlock, System* system)
-    : system(system), controlBlock_(controlBlock) {}
+FiberContext::FiberContext(System* system, std::shared_ptr<detail::ControlBlock> controlBlock)
+    : system(system), controlBlock_(std::move(controlBlock)) {
+    controlBlock_->fiberContext = this;
+}
 
-void Context::yield() {
+void FiberContext::yield() {
     process();
 
     // Suspend the current thread.
-    if (controlBlock_->executor != nullptr) {
+    detail::Executor* executor = detail::Executor::current();
+    if (executor != nullptr) {
         boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
 
         /**
@@ -41,14 +44,14 @@ void Context::yield() {
             /**
             * No new events, we can suspend the thread.
             */
-            controlBlock_->executor->suspendAndReschedule(std::move(lock));
+            executor->suspendAndReschedule(std::move(lock));
         }
     } else {
         pthread_yield();
     }
 }
 
-void Context::process()
+void FiberContext::process()
 {
     PendingEvent event;
     while (controlBlock_->mailbox->dequeue(event)) {
@@ -62,13 +65,14 @@ void Context::process()
     }
 }
 
-Void Context::processForever()
+Void FiberContext::processForever()
 {
     while (true) {
         process();
 
         // Suspend the current thread.
-        if (controlBlock_->executor != nullptr) {
+        detail::Executor* executor = detail::Executor::current();
+        if (executor != nullptr) {
             boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
 
             /**
@@ -96,14 +100,14 @@ Void Context::processForever()
             /**
              * No new events, we can suspend the thread.
              */
-            controlBlock_->executor->suspend(std::move(lock));
+            executor->suspend(std::move(lock));
         } else {
             pthread_yield();
         }
     }
 }
 
-void Context::super() {
+void FiberContext::super() {
     /**
      * Check if we executed all handlers.
      */
@@ -139,7 +143,7 @@ void Context::super() {
     (*it)->execute(handlerContext->data);
 }
 
-void Context::handleEvent(const PendingEvent& event) {
+void FiberContext::handleEvent(const PendingEvent& event) {
     /**
      * Find a handler block.
      */
@@ -171,7 +175,7 @@ void Context::handleEvent(const PendingEvent& event) {
     handlerContext.reset();
 }
 
-HandlerRef Context::bind(const Path& path, fiberize::detail::Handler* handler) {
+HandlerRef FiberContext::bind(const Path& path, fiberize::detail::Handler* handler) {
     detail::HandlerBlock* block;
     auto it = handlerBlocks.find(path);
     if (it == handlerBlocks.end()) {
@@ -185,8 +189,18 @@ HandlerRef Context::bind(const Path& path, fiberize::detail::Handler* handler) {
     return HandlerRef(handler);
 }
 
-std::shared_ptr<detail::ControlBlock> Context::controlBlock() {
+std::shared_ptr<detail::ControlBlock> FiberContext::controlBlock() {
     return controlBlock_;
 }
+
+void FiberContext::makeCurrent() {
+    current_ = this;
+}
+
+FiberContext* FiberContext::current() {
+    return current_;
+}
+
+thread_local FiberContext* FiberContext::current_ = nullptr;
  
 }

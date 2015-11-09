@@ -1,5 +1,5 @@
-#ifndef FIBERIZE_CONTEXT_HPP
-#define FIBERIZE_CONTEXT_HPP
+#ifndef FIBERIZE_FIBERCONTEXT_HPP
+#define FIBERIZE_FIBERCONTEXT_HPP
 
 #include <unordered_map>
 #include <list>
@@ -13,6 +13,7 @@
 namespace fiberize {
 
 class System;
+class FiberContext;
 
 namespace detail {
 
@@ -40,12 +41,12 @@ struct ControlBlock;
 template <typename A>
 class Event;
 
-class Context {
+class FiberContext {
 public:
     /**
      * Creates a new context attached to the given control block.
      */
-    Context(std::shared_ptr<detail::ControlBlock> controlBlock, System* system);
+    FiberContext(fiberize::System* system, std::shared_ptr<fiberize::detail::ControlBlock> controlBlock);
     
     /**
      * Processes all pending events, then suspends and reschedules this fiber.
@@ -86,8 +87,25 @@ public:
      * The control block of this fiber.
      */
     std::shared_ptr<detail::ControlBlock> controlBlock();
-    
+
+    /**
+     * Makes this context a current context.
+     *
+     * You shoudn't really call this function, but I guess it might be useful if you
+     * are making something really hacky.
+     */
+    void makeCurrent();
+
+    /**
+     * Returns the current fiber context.
+     *
+     * Calling it from a thread that is not fiberized is undefined behaviour.
+     */
+    static FiberContext* current();
+
 private:
+    static thread_local FiberContext* current_;
+
     // TODO: cache hashes
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
     std::unique_ptr<detail::HandlerContext> handlerContext;
@@ -95,7 +113,8 @@ private:
     
     friend detail::HandlerContext;
 };
+
     
 } // namespace fiberize
 
-#endif // FIBERIZE_CONTEXT_HPP
+#endif // FIBERIZE_FIBERCONTEXT_HPP
