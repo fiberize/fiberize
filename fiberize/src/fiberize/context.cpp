@@ -69,7 +69,7 @@ Void Context::processForever()
 
         // Suspend the current thread.
         if (controlBlock_->executor != nullptr) {
-        boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
+            boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
 
             /**
              * It's possible that someone queued a message before we locked the mutex.
@@ -80,7 +80,7 @@ Void Context::processForever()
                 /**
                  * Too bad, now we have to process it and start again.
                  */
-                controlBlock_->mutex.unlock();
+                lock.unlock();
 
                 try {
                     handleEvent(event);
