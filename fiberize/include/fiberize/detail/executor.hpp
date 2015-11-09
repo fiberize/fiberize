@@ -39,26 +39,24 @@ public:
      *
      * You must hold the control block mutex.
      */
-    void schedule(const std::shared_ptr<ControlBlock>& controlBlock);
+    void schedule(const std::shared_ptr<ControlBlock>& controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock);
 
     /**
      * Suspend this fiber.
      *
      * You must hold the control block mutex.
      */
-    void suspend();
+    void suspend(boost::unique_lock<detail::ControlBlockMutex>&& lock);
 
     /**
      * Suspends and reschedules this fiber.
      *
      * You must hold the control block mutex.
      */
-    void suspendAndReschedule();
+    void suspendAndReschedule(boost::unique_lock<detail::ControlBlockMutex>&& lock);
 
     /**
      * Terminate this fiber.
-     *
-     * You must hold the control block mutex.
      */
     Void terminate();
 
@@ -79,7 +77,7 @@ private:
     /**
      * Switches to the next fiber from a fiber. You must hold the control block mutex.
      */
-    void switchFromRunning();
+    void switchFromRunning(boost::unique_lock<detail::ControlBlockMutex>&& lock);
 
     /**
      * Switches to the next fiber.
@@ -140,6 +138,11 @@ private:
      * Previously executing fiber.
      */
     std::shared_ptr<ControlBlock> previousControlBlock_;
+
+    /**
+     * Variable used to transport the lock during a context switch.
+     */
+    boost::unique_lock<detail::ControlBlockMutex> previousControlBlockLock;
 
     /**
      * The currently executing control block.

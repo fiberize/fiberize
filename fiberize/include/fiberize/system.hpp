@@ -140,7 +140,7 @@ private:
     /**
      * Reschedule the fiber. It must be locked for writing.
      */
-    void schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock);
+    void schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock);
 
     void fiberFinished();
 
@@ -177,8 +177,7 @@ private:
             std::atomic_fetch_add(&running, 1ul);
 
             // Schedule the block.
-            block->mutex.lock();
-            schedule(block);
+            schedule(block, boost::unique_lock<detail::ControlBlockMutex>(block->mutex));
 
             // Create a local reference.
             impl = std::make_shared<detail::LocalFiberRef>(this, block);

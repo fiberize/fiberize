@@ -12,18 +12,18 @@ void Context::yield() {
 
     // Suspend the current thread.
     if (controlBlock_->executor != nullptr) {
-        controlBlock_->mutex.lock();
+        boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
 
         /**
-            * It's possible that someone queued a message before we locked the mutex.
-            * Check if this is the case.
-            */
+         * It's possible that someone queued a message before we locked the mutex.
+         * Check if this is the case.
+         */
         PendingEvent event;
         if (controlBlock_->mailbox->dequeue(event)) {
             /**
              * Too bad, now we have to process it and start again.
              */
-            controlBlock_->mutex.unlock();
+            lock.unlock();
 
             try {
                 handleEvent(event);
@@ -41,7 +41,7 @@ void Context::yield() {
             /**
             * No new events, we can suspend the thread.
             */
-            controlBlock_->executor->suspendAndReschedule();
+            controlBlock_->executor->suspendAndReschedule(std::move(lock));
         }
     } else {
         pthread_yield();
@@ -69,7 +69,7 @@ Void Context::processForever()
 
         // Suspend the current thread.
         if (controlBlock_->executor != nullptr) {
-            controlBlock_->mutex.lock();
+        boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
 
             /**
              * It's possible that someone queued a message before we locked the mutex.
@@ -96,7 +96,7 @@ Void Context::processForever()
             /**
              * No new events, we can suspend the thread.
              */
-            controlBlock_->executor->suspend();
+            controlBlock_->executor->suspend(std::move(lock));
         } else {
             pthread_yield();
         }

@@ -72,10 +72,10 @@ Event<Unit> System::allFibersFinished() {
     return allFibersFinished_;
 }
 
-void System::schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock) {
+void System::schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock) {
     // TODO: optimize memory order
     uint64_t i = std::atomic_fetch_add(&roundRobinCounter, 1lu);
-    executors[i % executors.size()]->schedule(controlBlock);
+    executors[i % executors.size()]->schedule(controlBlock, std::move(lock));
 }
 
 void System::fiberFinished() {

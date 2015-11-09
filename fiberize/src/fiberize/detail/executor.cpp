@@ -29,10 +29,13 @@ void Executor::stop() {
     thread.join();
 }
 
-void Executor::schedule(const std::shared_ptr<ControlBlock>& controlBlock) {
+void Executor::schedule(
+    const std::shared_ptr< fiberize::detail::ControlBlock >& controlBlock,
+    boost::unique_lock< fiberize::detail::ControlBlockMutex >&& lock) {
+    assert(lock.owns_lock());
     assert(controlBlock->status == detail::Suspended);
     controlBlock->status = detail::Scheduled;
-    controlBlock->mutex.unlock();
+    lock.unlock();
     runQueue.enqueue(controlBlock);
 }
 
@@ -40,22 +43,24 @@ std::shared_ptr<ControlBlock> Executor::currentControlBlock() {
     return currentControlBlock_;
 }
 
-void Executor::suspend() {
+void Executor::suspend(boost::unique_lock<detail::ControlBlockMutex>&& lock) {
+    assert(lock.owns_lock());
     reschedule = false;
 
     /**
      * Switch to the next fiber.
      */
-    switchFromRunning();
+    switchFromRunning(std::move(lock));
 }
 
-void Executor::suspendAndReschedule() {
+void Executor::suspendAndReschedule(boost::unique_lock<detail::ControlBlockMutex>&& lock) {
+    assert(lock.owns_lock());
     reschedule = false;
 
     /**
      * Switch to the next fiber.
      */
-    switchFromRunning();
+    switchFromRunning(std::move(lock));
 }
 
 Void Executor::terminate() {
@@ -63,7 +68,6 @@ Void Executor::terminate() {
      * Destroy the control block.
      */
     currentControlBlock_->status = detail::Dead;
-    currentControlBlock_->mutex.unlock();
     stackPool->delayedDeallocate(currentControlBlock_->stack);
     currentControlBlock_->fiber.reset();
     currentControlBlock_ = nullptr;
@@ -71,7 +75,12 @@ Void Executor::terminate() {
     /**
      * Switch to the next fiber.
      */
-    return switchFromTerminated();
+    switchFromTerminated();
+
+    /**
+     * The jump doesn't return.
+     */
+    __builtin_unreachable();
 }
 
 void Executor::idle() {
@@ -111,7 +120,8 @@ void Executor::idle() {
     }
 }
 
-void Executor::switchFromRunning() {
+void Executor::switchFromRunning(boost::unique_lock<detail::ControlBlockMutex>&& lock) {
+    assert(lock.owns_lock());
     std::shared_ptr<ControlBlock> controlBlock;
 
     if (runQueue.try_dequeue(controlBlock)) {
@@ -122,9 +132,10 @@ void Executor::switchFromRunning() {
          */
         if (controlBlock == currentControlBlock_) {
             controlBlock->status = Running;
-            controlBlock->mutex.unlock();
             return;
         } else {
+            previousControlBlockLock = std::move(lock);
+
             /**
              * Switch the current control block to the next fiber and make the jump
              * saving our current state to the control block.
@@ -138,6 +149,8 @@ void Executor::switchFromRunning() {
             afterJump();
         }
     } else {
+        previousControlBlockLock = std::move(lock);
+
         /**
          * Jump to the idle context.
          */
@@ -181,6 +194,10 @@ void Executor::jumpToFiber(boost::context::fcontext_t* stash, std::shared_ptr<Co
     previousControlBlock_ = currentControlBlock_;
     currentControlBlock_ = std::move(controlBlock);
 
+    if (previousControlBlock_ != nullptr) {
+        assert(previousControlBlockLock.owns_lock());
+    }
+
     if (currentControlBlock_->stack.sp == nullptr) {
         currentControlBlock_->stack = stackPool->allocate();
         currentControlBlock_->context = boost::context::make_fcontext(currentControlBlock_->stack.sp, currentControlBlock_->stack.size, &Executor::fiberRunner);
@@ -196,23 +213,31 @@ void Executor::afterJump() {
          * We jumped from a fiber and are holding the mutex on it.
          * Suspend that fiber and drop the reference.
          */
+        assert(previousControlBlockLock.owns_lock());
         previousControlBlock_->status = Suspended;
         previousControlBlock_->executor = nullptr;
 
         if (reschedule) {
-            system->schedule(previousControlBlock_);
+            system->schedule(previousControlBlock_, std::move(previousControlBlockLock));
         } else {
-            previousControlBlock_->mutex.unlock();
+            previousControlBlockLock.unlock();
         }
 
+        assert(!previousControlBlockLock.owns_lock());
         previousControlBlock_ = nullptr;
+    } else {
+        assert(!previousControlBlockLock.owns_lock());
     }
 
     if (currentControlBlock_ != nullptr) {
         /**
-         * We jumped to a fiber. Set its status to running.
+         * We jumped to a fiber. Set its status to running. We can get away with not locking
+         * the mutex here, because the whole locking mechanism is only used to ensure two things:
+         *   - that only one thread reschedules a suspended thread,
+         *   - that we only reschedule a thread after we stop using its stack.
+         * After the thread is scheduled, we can change its status without locking.
          */
-        boost::unique_lock<boost::shared_mutex> lock(currentControlBlock_->mutex);
+        assert(currentControlBlock_->status == detail::Scheduled);
         currentControlBlock_->status = detail::Running;
     }
 }
@@ -239,7 +264,6 @@ void Executor::fiberRunner(intptr_t executorPtr) {
      * Terminate the fiber.
      */
     controlBlock->executor->system->fiberFinished();
-    controlBlock->mutex.lock();
     controlBlock->executor->terminate();
 }
 

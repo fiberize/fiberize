@@ -26,6 +26,8 @@ enum LifeStatus : uint8_t {
     Dead
 };
 
+typedef boost::upgrade_mutex ControlBlockMutex;
+
 struct ControlBlock {
     /**
      * The stack of this fiber.
@@ -76,7 +78,7 @@ struct ControlBlock {
     /**
      * Lock used during status change.
      */
-    boost::upgrade_mutex mutex;
+    ControlBlockMutex mutex;
 
     /**
      * Executor executing this fiber.
