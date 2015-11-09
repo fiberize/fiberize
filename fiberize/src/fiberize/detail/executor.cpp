@@ -28,15 +28,14 @@ void Executor::stop() {
     thread.join();
 }
 
-void Executor::schedule(ControlBlock* controlBlock) {
+void Executor::schedule(const std::shared_ptr<ControlBlock>& controlBlock) {
     assert(controlBlock->status == detail::Suspended);
     controlBlock->status = detail::Scheduled;
     controlBlock->mutex.unlock();
-    controlBlock->grab();
-    runQueue.push(controlBlock);
+    runQueue.enqueue(controlBlock);
 }
 
-ControlBlock* Executor::currentControlBlock() {
+std::shared_ptr<ControlBlock> Executor::currentControlBlock() {
     return currentControlBlock_;
 }
 
@@ -55,7 +54,6 @@ void Executor::terminate() {
     currentControlBlock_->mutex.unlock();
     stackPool->delayedDeallocate(currentControlBlock_->stack);
     currentControlBlock_->fiber.reset();
-    currentControlBlock_->drop();
     currentControlBlock_ = nullptr;
 
     /**
@@ -68,13 +66,13 @@ void Executor::idle() {
     /**
      * Idle loop.
      */
-    ControlBlock* controlBlock;
+    std::shared_ptr<ControlBlock> controlBlock;
     std::uniform_int_distribution<uint32_t> randomExecutor(0, system->executors.size() - 2);
 
     while (!emergencyStop) {
-        while (runQueue.pop(controlBlock)) {
+        while (runQueue.try_dequeue(controlBlock)) {
             assert(controlBlock->status == Scheduled);
-            jumpToFiber(&idleContext, controlBlock);
+            jumpToFiber(&idleContext, std::move(controlBlock));
             afterJump();
         }
 
@@ -89,9 +87,9 @@ void Executor::idle() {
             /**
              * Try to take his job.
              */
-            if (system->executors[i]->runQueue.pop(controlBlock)) {
+            if (system->executors[i]->runQueue.try_dequeue(controlBlock)) {
                 assert(controlBlock->status == Scheduled);
-                jumpToFiber(&idleContext, controlBlock);
+                jumpToFiber(&idleContext, std::move(controlBlock));
                 afterJump();
             } else {
                 using namespace std::literals;
@@ -102,16 +100,16 @@ void Executor::idle() {
 }
 
 void Executor::switchFromRunning() {
-    ControlBlock* controlBlock;
+    std::shared_ptr<ControlBlock> controlBlock;
 
-    if (runQueue.pop(controlBlock)) {
+    if (runQueue.try_dequeue(controlBlock)) {
         assert(controlBlock->status == Scheduled);
 
         /**
          * Switch the current control block to the next fiber and make the jump
          * saving our current state to the control block.
          */
-        jumpToFiber(&currentControlBlock_->context, controlBlock);
+        jumpToFiber(&currentControlBlock_->context, std::move(controlBlock));
 
         /**
          * We returned from the jump, this means another fiber switched to us.
@@ -127,16 +125,16 @@ void Executor::switchFromRunning() {
 }
 
 void Executor::switchFromTerminated() {
-    ControlBlock* controlBlock;
+    std::shared_ptr<ControlBlock> controlBlock;
 
-    if (runQueue.pop(controlBlock)) {
+    if (runQueue.try_dequeue(controlBlock)) {
         assert(controlBlock->status == Scheduled);
 
         /**
          * Switch the current control block to the next fiber and make the jump
          * saving our current state to the control block.
          */
-        jumpToFiber(&dummyContext, controlBlock);
+        jumpToFiber(&dummyContext, std::move(controlBlock));
 
         /**
           * The jump cannot return.
@@ -157,17 +155,17 @@ void Executor::jumpToIdle(boost::context::fcontext_t* stash) {
     boost::context::jump_fcontext(stash, idleContext, 0);
 }
 
-void Executor::jumpToFiber(boost::context::fcontext_t* stash, ControlBlock* controlBlock) {
+void Executor::jumpToFiber(boost::context::fcontext_t* stash, std::shared_ptr<ControlBlock>&& controlBlock) {
     previousControlBlock_ = currentControlBlock_;
-    currentControlBlock_ = controlBlock;
+    currentControlBlock_ = std::move(controlBlock);
 
-    if (controlBlock->stack.sp == nullptr) {
-        controlBlock->stack = stackPool->allocate();
-        controlBlock->context = boost::context::make_fcontext(controlBlock->stack.sp, controlBlock->stack.size, &Executor::fiberRunner);
+    if (currentControlBlock_->stack.sp == nullptr) {
+        currentControlBlock_->stack = stackPool->allocate();
+        currentControlBlock_->context = boost::context::make_fcontext(currentControlBlock_->stack.sp, currentControlBlock_->stack.size, &Executor::fiberRunner);
     }
 
-    controlBlock->executor = this;
-    boost::context::jump_fcontext(stash, controlBlock->context, reinterpret_cast<intptr_t>(controlBlock));
+    currentControlBlock_->executor = this;
+    boost::context::jump_fcontext(stash, currentControlBlock_->context, reinterpret_cast<intptr_t>(this));
 }
 
 void Executor::afterJump() {
@@ -179,7 +177,6 @@ void Executor::afterJump() {
         previousControlBlock_->status = detail::Suspended;
         previousControlBlock_->executor = nullptr;
         previousControlBlock_->mutex.unlock();
-        previousControlBlock_->drop();
         previousControlBlock_ = nullptr;
     }
 
@@ -192,9 +189,13 @@ void Executor::afterJump() {
     }
 }
 
-void Executor::fiberRunner(intptr_t controlBlockPtr) {
-    ControlBlock* controlBlock = reinterpret_cast<ControlBlock*>(controlBlockPtr);
-    controlBlock->grab();
+void Executor::fiberRunner(intptr_t executorPtr) {
+    /**
+     * We grab the control block from the current executor. Note that the executor can change every
+     * time we suspend the fiber, due to work stealing.
+     */
+    Executor* initialExecutor = reinterpret_cast<Executor*>(executorPtr);
+    ControlBlock* controlBlock = initialExecutor->currentControlBlock_.get();
 
     /**
      * Change the status to Running.
@@ -204,7 +205,7 @@ void Executor::fiberRunner(intptr_t controlBlockPtr) {
     /**
      * Execute the fiber.
      */
-    controlBlock->fiber->_execute(controlBlock);
+    controlBlock->fiber->_execute(initialExecutor->currentControlBlock_);
 
     /**
      * Terminate the fiber.

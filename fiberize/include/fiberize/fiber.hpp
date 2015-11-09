@@ -22,7 +22,7 @@ struct Fiber: public detail::FiberBase {
     /**
      * Called internally to start the fiber and take care of the result value and exceptions.
      */
-    virtual void _execute(detail::ControlBlock* controlBlock) {
+    virtual void _execute(std::shared_ptr<detail::ControlBlock> controlBlock) {
         Context scopedContext(controlBlock, controlBlock->executor->system);
         context_ = &scopedContext;
         self_ = FiberRef(std::make_shared<detail::LocalFiberRef>(controlBlock->executor->system, controlBlock));

@@ -14,13 +14,8 @@ Path LocalFiberRef::path() const {
     return block->path;
 }
 
-LocalFiberRef::LocalFiberRef(System* system, ControlBlock* block): system(system), block(block) {
-    block->grab();
-}
-
-LocalFiberRef::~LocalFiberRef() {
-    block->drop();
-}
+LocalFiberRef::LocalFiberRef(System* system, const std::shared_ptr<ControlBlock>& block)
+    : system(system), block(block) {}
 
 void LocalFiberRef::emit(const PendingEvent& pendingEvent) {
     block->mutex.lock_shared();

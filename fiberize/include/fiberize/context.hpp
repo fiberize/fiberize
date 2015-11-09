@@ -20,7 +20,19 @@ struct HandlerBlock {
     std::list<std::unique_ptr<detail::Handler>> stackedHandlers;
 };
 
-class HandlerContext;
+class HandlerContext {
+public:
+    inline HandlerContext(HandlerBlock* handlerBlock, const void* data)
+        : handlerBlock(handlerBlock)
+        , handler(handlerBlock->stackedHandlers.end())
+        , data(data) {
+    };
+
+    HandlerBlock* handlerBlock;
+    std::list<std::unique_ptr<Handler>>::iterator handler;
+    const void* data;
+};
+
 struct ControlBlock;
 
 } // namespace detail
@@ -33,12 +45,7 @@ public:
     /**
      * Creates a new context attached to the given control block.
      */
-    Context(detail::ControlBlock* controlBlock, System* system);
-    
-    /**
-     * Destroys the context.
-     */
-    ~Context();
+    Context(std::shared_ptr<detail::ControlBlock> controlBlock, System* system);
     
     /**
      * Yields control to the event loop.
@@ -73,12 +80,13 @@ public:
     /**
      * The control block of this fiber.
      */
-    detail::ControlBlock* const controlBlock;
+    std::shared_ptr<detail::ControlBlock> controlBlock();
     
 private:
     // TODO: cache hashes
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
     std::unique_ptr<detail::HandlerContext> handlerContext;
+    std::shared_ptr<detail::ControlBlock> controlBlock_;
     
     friend detail::HandlerContext;
 };

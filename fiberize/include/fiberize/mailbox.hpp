@@ -8,6 +8,7 @@
 
 #include <boost/circular_buffer.hpp>
 #include <boost/lockfree/queue.hpp>
+#include <moodycamel/concurrentqueue.h>
 
 #include <fiberize/path.hpp>
 
@@ -48,15 +49,25 @@ private:
     boost::circular_buffer<PendingEvent> pendingEvents;
 };
 
-class LockfreeQueueMailbox : public Mailbox {
+class BoostLockfreeQueueMailbox : public Mailbox {
 public:
-    LockfreeQueueMailbox();
-    virtual ~LockfreeQueueMailbox();
+    BoostLockfreeQueueMailbox();
+    virtual ~BoostLockfreeQueueMailbox();
     virtual bool dequeue(PendingEvent& event);
     virtual void enqueue(const PendingEvent& event);    
     
 private:
     boost::lockfree::queue<PendingEvent*> pendingEvents;
+};
+
+class MoodyCamelConcurrentQueueMailbox : public Mailbox {
+public:
+    virtual ~MoodyCamelConcurrentQueueMailbox();
+    virtual bool dequeue(PendingEvent& event);
+    virtual void enqueue(const PendingEvent& event);
+
+private:
+    moodycamel::ConcurrentQueue<PendingEvent> pendingEvents;
 };
 
 } // namespace fiberize

@@ -3,60 +3,28 @@
 #include <fiberize/detail/controlblock.hpp>
 
 namespace fiberize {
-namespace detail {
 
-class HandlerContext {
-public:
-    HandlerContext(HandlerBlock* handlerBlock, const void* data)
-        : handlerBlock(handlerBlock)
-        , handler(handlerBlock->stackedHandlers.end())
-        , data(data) {
-    };
-    
-    const void* data;
-    HandlerBlock* handlerBlock;
-    std::list<std::unique_ptr<Handler>>::iterator handler;
-    
-    static HandlerContext* current() {
-        return current_;
-    }
-    
-private:
-    static thread_local HandlerContext* current_;
-
-    Context* stashedContext;
-};
-    
-thread_local HandlerContext* HandlerContext::current_ = nullptr;
-    
-} // namespace detail
-
-Context::Context(detail::ControlBlock* controlBlock, System* system): controlBlock(controlBlock), system(system) {
-    controlBlock->grab();
-}
-
-Context::~Context() {
-    controlBlock->drop();
-}
+Context::Context(std::shared_ptr<detail::ControlBlock> controlBlock, System* system)
+    : controlBlock_(controlBlock), system(system) {}
 
 void Context::yield() {
     while (true) {
         process();
         
         // Suspend the current thread.
-        if (controlBlock->executor != nullptr) {
-            controlBlock->mutex.lock();
+        if (controlBlock_->executor != nullptr) {
+            controlBlock_->mutex.lock();
 
             /**
              * It's possible that someone queued a message before we locked the mutex.
              * Check if this is the case.
              */
             PendingEvent event;
-            if (controlBlock->mailbox->dequeue(event)) {
+            if (controlBlock_->mailbox->dequeue(event)) {
                 /**
                  * Too bad, now we have to process it and start again.
                  */
-                controlBlock->mutex.unlock();
+                controlBlock_->mutex.unlock();
 
                 try {
                     handleEvent(event);
@@ -72,7 +40,7 @@ void Context::yield() {
             /**
              * No new events, we can suspend the thread.
              */
-            controlBlock->executor->suspend();
+            controlBlock_->executor->suspend();
         } else {
             // TODO: change this to conditions.
             using namespace std::literals;
@@ -84,7 +52,7 @@ void Context::yield() {
 void Context::process()
 {
     PendingEvent event;
-    while (controlBlock->mailbox->dequeue(event)) {
+    while (controlBlock_->mailbox->dequeue(event)) {
         try {
             handleEvent(event);
         } catch (...) {

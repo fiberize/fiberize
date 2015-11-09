@@ -3,11 +3,11 @@
 
 #include <thread>
 
-#include <boost/lockfree/queue.hpp>
 #include <boost/context/all.hpp>
 
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/detail/stackpool.hpp>
+#include <moodycamel/concurrentqueue.h>
 
 namespace fiberize {
 
@@ -39,7 +39,7 @@ public:
      *
      * You must hold the control block mutex.
      */
-    void schedule(ControlBlock* controlBlock);
+    void schedule(const std::shared_ptr<ControlBlock>& controlBlock);
 
     /**
      * Suspend this fiber.
@@ -60,7 +60,7 @@ public:
     /**
      * Returns the currently executing control block,
      */
-    ControlBlock* currentControlBlock();
+    std::shared_ptr<ControlBlock> currentControlBlock();
     
     /**
      * The fiber system this executor is attached to.
@@ -87,7 +87,7 @@ private:
     /**
      * Jumps to the given fiber.
      */
-    void jumpToFiber(boost::context::fcontext_t* stash, ControlBlock* controlBlock);
+    void jumpToFiber(boost::context::fcontext_t* stash, std::shared_ptr<ControlBlock>&& controlBlock);
 
     /**
      * Performs cleanup after a jump.
@@ -117,7 +117,7 @@ private:
     /**
      * Scheduled control blocks waiting to be executed.
      */
-    boost::lockfree::queue<ControlBlock*> runQueue;
+    moodycamel::ConcurrentQueue<std::shared_ptr<ControlBlock>> runQueue;
 
     /**
      * Context executed when we have nothing to do.
@@ -132,12 +132,12 @@ private:
     /**
      * Previously executing fiber.
      */
-    ControlBlock* previousControlBlock_;
+    std::shared_ptr<ControlBlock> previousControlBlock_;
 
     /**
      * The currently executing control block.
      */
-    ControlBlock* currentControlBlock_;
+    std::shared_ptr<ControlBlock> currentControlBlock_;
 
     /**
      * Random engine used for work stealing.

@@ -34,7 +34,6 @@ System::System(uint32_t macrothreads) {
 
     allFibersFinished_ = newEvent<Unit>();
     mainControlBlock = createUnmanagedBlock();
-    mainControlBlock->grab();
     mainContext_ = new Context(mainControlBlock, this);
 
     // Spawn the executors.
@@ -55,7 +54,6 @@ System::~System() {
         delete executor;
     }
     delete mainContext_;
-    mainControlBlock->drop();
 }
 
 FiberRef System::mainFiber() {
@@ -74,7 +72,7 @@ Event<Unit> System::allFibersFinished() {
     return allFibersFinished_;
 }
 
-void System::schedule(detail::ControlBlock* controlBlock) {
+void System::schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock) {
     // TODO: optimize memory order
     uint64_t i = std::atomic_fetch_add(&roundRobinCounter, 1lu);
     executors[i % executors.size()]->schedule(controlBlock);

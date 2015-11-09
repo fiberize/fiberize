@@ -73,7 +73,7 @@ public:
      */
     template <
         typename FiberImpl, 
-        typename MailboxImpl = LockfreeQueueMailbox,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
         typename Result = decltype(std::declval<FiberImpl>().run()),
         typename ...Args
         >
@@ -90,7 +90,7 @@ public:
      */
     template <
         typename FiberImpl,
-        typename MailboxImpl = LockfreeQueueMailbox,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
         typename Result = decltype(std::declval<FiberImpl>().run()),
         typename ...Args
         >
@@ -140,7 +140,7 @@ private:
     /**
      * Reschedule the fiber. It must be locked for writing.
      */
-    void schedule(detail::ControlBlock* controlBlock);
+    void schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock);
 
     void fiberFinished();
 
@@ -151,7 +151,7 @@ private:
      * fiber and two events: one when the fiber finishes and the second when the fiber crashes.
      */
     template <
-        typename MailboxImpl = LockfreeQueueMailbox,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
         typename FiberFactory,
         typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type,
         typename Result = decltype(std::declval<FiberImpl>().run())
@@ -164,14 +164,13 @@ private:
             Event<Unit> crashed = newEvent<Unit>();
 
             // Create the control block.
-            detail::ControlBlock* block = new detail::ControlBlock();
+            auto block = std::make_shared<detail::ControlBlock>();
             block->path = PrefixedPath(uuid(), ident);
             block->mailbox.reset(new MailboxImpl());
             block->fiber.reset(fiber);
             block->finishedEventPath = finished.path();
             block->crashedEventPath = crashed.path();
             block->status = detail::Suspended;
-            block->refCount = 0;
             block->executor = nullptr;
 
             // Increment fiber counter.
@@ -193,16 +192,15 @@ private:
     /**
      * Creates a block for a thread that is not running an executor.
      */
-    template <typename MailboxImpl = LockfreeQueueMailbox>
-    detail::ControlBlock* createUnmanagedBlock() {
-        detail::ControlBlock* block = new detail::ControlBlock();
+    template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
+    std::shared_ptr<detail::ControlBlock> createUnmanagedBlock() {
+        auto block = std::make_shared<detail::ControlBlock>();
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
         block->mailbox.reset(new MailboxImpl());
         block->fiber.reset();
         block->finishedEventPath = DevNullPath();
         block->crashedEventPath = DevNullPath();
         block->status = detail::Running;
-        block->refCount = 0;
         block->executor = nullptr;
         return block;
     }
@@ -215,7 +213,7 @@ private:
     /**
      * Unmanaaged control block of the main thread.
      */
-    detail::ControlBlock* mainControlBlock;
+    std::shared_ptr<detail::ControlBlock> mainControlBlock;
     
     /**
      * Context of the main thread.

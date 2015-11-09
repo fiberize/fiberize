@@ -29,10 +29,10 @@ bool BlockingCircularBufferMailbox::dequeue(PendingEvent& event) {
     }
 }
 
-LockfreeQueueMailbox::LockfreeQueueMailbox(): pendingEvents(0) {
+BoostLockfreeQueueMailbox::BoostLockfreeQueueMailbox(): pendingEvents(0) {
 }
 
-LockfreeQueueMailbox::~LockfreeQueueMailbox() {
+BoostLockfreeQueueMailbox::~BoostLockfreeQueueMailbox() {
     PendingEvent* event;
     while (pendingEvents.unsynchronized_pop(event)) {        
         if (event->freeData)
@@ -41,12 +41,12 @@ LockfreeQueueMailbox::~LockfreeQueueMailbox() {
     }
 }
 
-void LockfreeQueueMailbox::enqueue(const PendingEvent& event) {
+void BoostLockfreeQueueMailbox::enqueue(const PendingEvent& event) {
     PendingEvent* ptr = new PendingEvent(event);
     pendingEvents.push(ptr);
 }
 
-bool LockfreeQueueMailbox::dequeue(PendingEvent& event) {
+bool BoostLockfreeQueueMailbox::dequeue(PendingEvent& event) {
     PendingEvent* ptr;
     if (pendingEvents.pop(ptr)) {
         event = *ptr;
@@ -56,5 +56,22 @@ bool LockfreeQueueMailbox::dequeue(PendingEvent& event) {
         return false;
     }
 }
+
+MoodyCamelConcurrentQueueMailbox::~MoodyCamelConcurrentQueueMailbox() {
+    PendingEvent event;
+    while (pendingEvents.try_dequeue(event)) {
+        if (event.freeData != nullptr)
+            event.freeData(event.data);
+    }
+}
+
+void MoodyCamelConcurrentQueueMailbox::enqueue(const PendingEvent& event) {
+    pendingEvents.enqueue(event);
+}
+
+bool MoodyCamelConcurrentQueueMailbox::dequeue(PendingEvent& event) {
+    return pendingEvents.try_dequeue(event);
+}
+
 
 } // namespace fiberize

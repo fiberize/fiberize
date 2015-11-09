@@ -67,11 +67,6 @@ struct ControlBlock {
      * TODO: figure out concurrent acccess
      */
     std::vector<FiberRef> watchers;
-    
-    /**
-     * The number of fiber references pointing to this block.
-     */
-    std::atomic<std::size_t> refCount;
 
     /**
      * Status of this fiber.
@@ -87,16 +82,6 @@ struct ControlBlock {
      * Executor executing this fiber.
      */
     Executor* executor;
-
-    /**
-     * Grabs a reference.
-     */
-    void grab();
-
-    /**
-     * Drops a reference. Returns whether the object was destroyed.
-     */
-    bool drop();
 };
  
 } // namespace detail
