@@ -63,7 +63,7 @@ struct ControlBlock {
     Path finishedEventPath;
     
     /**
-     * Path to the event emitted when the fiber throws an uncaught exception.
+     * Path to the event sendted when the fiber throws an uncaught exception.
      */
     Path crashedEventPath;
     

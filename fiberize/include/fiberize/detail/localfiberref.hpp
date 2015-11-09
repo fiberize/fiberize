@@ -13,7 +13,7 @@ public:
     // FiberRefImpl
     virtual Locality locality() const;
     virtual Path path() const;
-    virtual void emit(const PendingEvent& pendingEvent);
+    virtual void send(const PendingEvent& pendingEvent);
 
     System* const system;
     std::shared_ptr<ControlBlock> const block;

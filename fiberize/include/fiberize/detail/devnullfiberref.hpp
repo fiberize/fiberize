@@ -8,7 +8,7 @@ namespace detail {
 
 class DevNullFiberRef : public FiberRefImpl {
     virtual Locality locality() const;
-    virtual void emit(const PendingEvent& pendingEvent);
+    virtual void send(const PendingEvent& pendingEvent);
     virtual Path path() const;
 };
 

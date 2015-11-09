@@ -106,7 +106,7 @@ struct Calculator : public Fiber<Void> {
                 
                 process();
                 for (auto fiber : subscribers) {
-                    fiber.emit(result, value);
+                    fiber.send(result, value);
                 }
             } catch (const InvalidSyntax&) {
                 // Consume a character and try again.
@@ -125,7 +125,7 @@ int main() {
     
     FiberRef self = fiberSystem.fiberize();
     FiberRef calc = fiberSystem.run<Calculator>();
-    calc.emit(Calculator::subscribe, self);
+    calc.send(Calculator::subscribe, self);
     
     auto _printResults = Calculator::result.bind([] (uint value) {
         std::cout << value << std::endl;
@@ -135,7 +135,7 @@ int main() {
     while (true) {
         std::cout << "> ";
         std::getline(std::cin, line);
-        calc.emit(Calculator::feed, line);
+        calc.send(Calculator::feed, line);
         FiberContext::current()->process();
     }
 }

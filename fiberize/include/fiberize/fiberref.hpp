@@ -30,7 +30,7 @@ public:
     /**
      * Emits an event for an appropriatly stored value.
      */
-    virtual void emit(const PendingEvent& pendingEvent) = 0;
+    virtual void send(const PendingEvent& pendingEvent) = 0;
     
 };
     
@@ -79,13 +79,13 @@ public:
      * Emits an event.
      */
     template<typename A, typename... Args>
-    void emit(const Event<A>& event, Args&&... args) {
+    void send(const Event<A>& event, Args&&... args) {
         if (impl_->locality() != DevNull && event.path() != Path(DevNullPath{})) {
             PendingEvent pendingEvent;
             pendingEvent.path = event.path();
             pendingEvent.data = new A(std::forward<Args>(args)...);
             pendingEvent.freeData = [] (void* data) { delete reinterpret_cast<A*>(data); };
-            impl_->emit(pendingEvent);
+            impl_->send(pendingEvent);
         }
     }
     

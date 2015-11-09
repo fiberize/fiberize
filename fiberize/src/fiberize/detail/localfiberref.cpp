@@ -17,7 +17,7 @@ Path LocalFiberRef::path() const {
 LocalFiberRef::LocalFiberRef(System* system, const std::shared_ptr<ControlBlock>& block)
     : system(system), block(block) {}
 
-void LocalFiberRef::emit(const PendingEvent& pendingEvent) {
+void LocalFiberRef::send(const PendingEvent& pendingEvent) {
     boost::shared_lock<boost::upgrade_mutex> shared_lock(block->mutex);
     block->mailbox->enqueue(pendingEvent);
 

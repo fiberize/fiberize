@@ -10,7 +10,7 @@ struct Echo : public Fiber<Void> {
     Void run() {
         while (true) {
             FiberRef sender = ping.await();
-            sender.emit(pong);
+            sender.send(pong);
         }
     }
 };
@@ -29,7 +29,7 @@ struct Emitter : public Fiber<Unit> {
     
     Unit run() {
         while (sent < initialMessages) {
-            echo.emit(ping, self());
+            echo.send(ping, self());
             sent += 1;
         }
         
@@ -38,7 +38,7 @@ struct Emitter : public Fiber<Unit> {
             received += 1;
             
             if (sent < repeat) {
-                echo.emit(ping, self());
+                echo.send(ping, self());
                 sent += 1;
             }
         }
@@ -51,6 +51,6 @@ int main() {
     System system;
     system.fiberize();
     auto echo = system.run<Echo>();
-    auto emitter = system.run<Emitter>(echo, 100, 1000000);
+    auto sendter = system.run<Emitter>(echo, 100, 1000000);
     return 0;
 }

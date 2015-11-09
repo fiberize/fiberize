@@ -30,13 +30,13 @@ struct Fiber: public detail::FiberBase {
             auto finished = Event<A>::fromPath(controlBlock->finishedEventPath);
             A result = run();
             for (FiberRef& watcher : controlBlock->watchers)
-                watcher.emit(finished, result);
+                watcher.send(finished, result);
         } catch (...) {
             // TODO: proper logging
             std::cerr << "fiber crashed" << std::endl;
             auto crashed = Event<Unit>::fromPath(controlBlock->crashedEventPath);
             for (FiberRef& watcher : controlBlock->watchers)
-                watcher.emit(crashed);
+                watcher.send(crashed);
         }
     }
     

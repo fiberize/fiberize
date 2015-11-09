@@ -77,7 +77,7 @@ void System::fiberFinished() {
         std::atomic_thread_fence(std::memory_order_acquire);
         std::lock_guard<std::mutex> lock(subscribersMutex);
         for (FiberRef ref : subscribers)
-            ref.emit(allFibersFinished_);
+            ref.send(allFibersFinished_);
     }
 }
 

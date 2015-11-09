@@ -15,7 +15,7 @@ struct Ping : public Fiber<Unit> {
         
         while (true) {
             std::cout << "Ping" << std::endl;
-            peer.emit(ping);
+            peer.send(ping);
             pong.await();
         }
     }
@@ -27,12 +27,12 @@ struct Pong : public Fiber<Unit> {
 
     virtual Unit run() {
         auto peer = init.await();
-        mainFiber.emit(ready);
+        mainFiber.send(ready);
 
         while (true) {
             ping.await();
             std::cout << "Pong" << std::endl;
-            peer.emit(pong);
+            peer.send(pong);
         }
     }
 };
@@ -44,9 +44,9 @@ int main() {
     auto ping = system.run<Ping>();
     auto pong = system.run<Pong>(self);
     
-    pong.emit(init, ping);
+    pong.send(init, ping);
     ready.await();
-    ping.emit(init, pong);
+    ping.send(init, pong);
     
     FiberContext::current()->processForever();
 }
