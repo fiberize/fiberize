@@ -50,9 +50,9 @@ protected:
 template <typename A>
 class TypedHandler : public Handler {
 public:    
-    TypedHandler(const std::function<void (const A&)>& handler) : handler(handler) {}
-    TypedHandler(std::function<void (const A&)>&& handler) : handler(std::move(handler)) {}
-    
+    template <typename... Args>
+    TypedHandler(Args&&... args) : handler(std::forward<Args...>(args...)) {}
+
     virtual void execute(const void* data) {
         handler(*reinterpret_cast<const A*>(data));
     }

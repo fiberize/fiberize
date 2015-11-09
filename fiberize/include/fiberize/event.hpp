@@ -30,8 +30,8 @@ public:
     /**
      * Creates an event with the given path.
      */
-    static Event<A> fromPath(const Path& path) {
-        return Event<A>(FromPath{}, path);
+    static Event fromPath(const Path& path) {
+        return Event(FromPath{}, path);
     }
 
     Event(const Event&) = default;
@@ -96,16 +96,9 @@ public:
     /**
      * Binds an event to a handler.
      */
-    HandlerRef bind(const std::function<void (const A&)>& function) const {
-        detail::Handler* handler = new detail::TypedHandler<A>(function);
-        return FiberContext::current()->bind(path(), handler);
-    }
-    
-    /**
-     * Binds an event to a handler.
-     */
-    HandlerRef bind(std::function<void (const A&)>&& function) const {
-        detail::Handler* handler = new detail::TypedHandler<A>(std::move(function));
+    template <typename... Args>
+    HandlerRef bind(Args&&... args) const {
+        detail::Handler* handler = new detail::TypedHandler<A>(std::forward<Args...>(args...));
         return FiberContext::current()->bind(path(), handler);
     }
 
