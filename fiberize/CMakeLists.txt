@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 2.8)
 
-# User options.
-option(VALGRIND "enable valgrind support" ON)
+################################################################################
+### User options.
+################################################################################
+
+option(VALGRIND "enable valgrind support" OFF)
 
 if(VALGRIND)
   add_definitions(-DFIBERIZE_VALGRIND -DBOOST_USE_VALGRIND)
@@ -14,29 +17,56 @@ if(SEGMENTED_STACKS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsplit-stack")
 endif(SEGMENTED_STACKS)
 
-# Project files.
+################################################################################
+### Project files.
+################################################################################
+
 project(fiberize)
 
 file(GLOB_RECURSE FIBERIZE_SRCS "${CMAKE_SOURCE_DIR}/src/*.cpp")
 file(GLOB_RECURSE FIBERIZE_HDRS "${CMAKE_SOURCE_DIR}/include/*.hpp")
 
-# Dependencies.
-find_package(Boost 1.59.0 COMPONENTS context thread system REQUIRED)
-add_definitions(-DBOOST_THREAD_VERSION=3)
+################################################################################
+### Testing
+################################################################################
 
-# Enable C++1y and warnings
+enable_testing()
+
+################################################################################
+### Dependencies.
+################################################################################
+
+# Boost
+find_package(Boost 1.51.0 COMPONENTS context thread system REQUIRED)
+add_definitions(-DBOOST_THREAD_VERSION=3)
+include_directories(${Boost_INCLUDE_DIRS})
+
+# Google test
+find_package(GTest 1.0 REQUIRED)
+include_directories(${GTEST_INCLUDE_DIRS})
+
+################################################################################
+### Enable C++1y and warnings
+################################################################################
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Wextra")
 
-# Make the include directory visible in all projects.
-include_directories("${CMAKE_SOURCE_DIR}/include" ${Boost_INCLUDE_DIRS})
+################################################################################
+### Make the include directory visible in all projects.
+################################################################################
+include_directories("${CMAKE_SOURCE_DIR}/include")
 
-# Add the library.
+################################################################################
+### fiberize library
+################################################################################
+
 add_library(fiberize ${FIBERIZE_SRCS})
 target_link_libraries(fiberize ${Boost_LIBRARIES} pthread)
 
-# Install the library.
 install(TARGETS fiberize RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
 install(FILES ${FIBERIZE_HDRS} DESTINATION include)
 
+################################################################################
+### Examples and benchmarks
+################################################################################
 add_subdirectory(examples)
 add_subdirectory(benchmarks)
