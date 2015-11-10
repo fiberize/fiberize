@@ -7,7 +7,7 @@ Event<AnyFiberRef> ping("ping");
 Event<Unit> pong("pong");
 
 struct Echo : public Fiber<Void> {
-    Void run() {
+    Void run() override {
         while (true) {
             AnyFiberRef sender = ping.await();
             sender.send(pong);
@@ -27,7 +27,7 @@ struct Emitter : public Fiber<Unit> {
     int sent;
     int received;
     
-    Unit run() {
+    Unit run() override {
         while (sent < initialMessages) {
             echo.send(ping, self());
             sent += 1;

@@ -6,11 +6,11 @@ using namespace fiberize;
 struct Printer : public Fiber<Unit> {
     Printer(int n): n(n) {}
     
-    virtual Unit run() {
+    Unit run() override {
         std::cout << "Hello from fiber #" << n << std::endl;
         return {};
     }
-
+    
     int n;
 };
 

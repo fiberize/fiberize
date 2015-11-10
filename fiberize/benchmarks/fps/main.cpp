@@ -7,11 +7,11 @@ const size_t fibers = 1000 * 1000;
 const size_t spawners = 8;
 
 struct Noop : public Fiber<Unit> {
-    Unit run() { return {}; }
+    Unit run() override { return {}; }
 };
 
 struct Spawner : public Fiber<Unit> {
-    Unit run() {
+    Unit run() override {
         for (size_t i = 1; i <= fibers; ++i) {
             system()->run<Noop>();
             if (i % 100 == 0) {

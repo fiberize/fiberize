@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.1)
 
 ################################################################################
 ### User options.
@@ -41,6 +41,10 @@ find_package(Boost 1.51.0 COMPONENTS context thread system REQUIRED)
 add_definitions(-DBOOST_THREAD_VERSION=3)
 include_directories(${Boost_INCLUDE_DIRS})
 
+# pthread
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 # Google test
 find_package(GTest 1.0 REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -60,7 +64,7 @@ include_directories("${CMAKE_SOURCE_DIR}/include")
 ################################################################################
 
 add_library(fiberize ${FIBERIZE_SRCS})
-target_link_libraries(fiberize ${Boost_LIBRARIES} pthread)
+target_link_libraries(fiberize ${Boost_LIBRARIES} Threads::Threads)
 
 install(TARGETS fiberize RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
 install(FILES ${FIBERIZE_HDRS} DESTINATION include)
@@ -70,3 +74,4 @@ install(FILES ${FIBERIZE_HDRS} DESTINATION include)
 ################################################################################
 add_subdirectory(examples)
 add_subdirectory(benchmarks)
+add_subdirectory(test)

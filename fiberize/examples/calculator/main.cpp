@@ -93,7 +93,7 @@ struct Calculator : public Fiber<Void> {
     
     std::vector<AnyFiberRef> subscribers;
     
-    Void run() {
+    Void run() override {
         auto _handleSubscription = subscribe.bind([this] (const AnyFiberRef& fiber) {
             subscribers.push_back(fiber);
         });
