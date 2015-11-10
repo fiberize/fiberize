@@ -121,7 +121,7 @@ Event<uint> Calculator::result("Calculator::result");
 Event<AnyFiberRef> Calculator::subscribe("Calculator::subscribe");
 
 int main() {
-    System fiberSystem;
+    FiberSystem fiberSystem;
     
     AnyFiberRef self = fiberSystem.fiberize();
     AnyFiberRef calc = fiberSystem.run<Calculator>();

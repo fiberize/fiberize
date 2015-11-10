@@ -12,7 +12,7 @@
 
 namespace fiberize {
 
-class System;
+class FiberSystem;
 class FiberContext;
 
 namespace detail {
@@ -46,7 +46,7 @@ public:
     /**
      * Creates a new context attached to the given control block.
      */
-    FiberContext(fiberize::System* system, std::shared_ptr<fiberize::detail::ControlBlock> controlBlock);
+    FiberContext(fiberize::FiberSystem* system, std::shared_ptr<fiberize::detail::ControlBlock> controlBlock);
     
     /**
      * Processes all pending events, then suspends and reschedules this fiber.
@@ -81,7 +81,7 @@ public:
     /**
      * The system this context is attached to.
      */
-    System* const system;
+    FiberSystem* const system;
 
     /**
      * The control block of this fiber.

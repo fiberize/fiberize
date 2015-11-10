@@ -1,6 +1,6 @@
-#include <fiberize/system.hpp>
-#include <fiberize/detail/fiberbase.hpp>
+#include <fiberize/fibersystem.hpp>
 #include <fiberize/fibercontext.hpp>
+#include <fiberize/detail/fiberbase.hpp>
 
 #include <thread>
 #include <chrono>
@@ -9,9 +9,9 @@
 
 namespace fiberize {
 
-System::System() : System(std::thread::hardware_concurrency()) {}
+FiberSystem::FiberSystem() : FiberSystem(std::thread::hardware_concurrency()) {}
 
-System::System(uint32_t macrothreads) {
+FiberSystem::FiberSystem(uint32_t macrothreads) {
     shuttingDown = false;
     running = 0;
     roundRobinCounter = 0;
@@ -44,7 +44,7 @@ System::System(uint32_t macrothreads) {
     }
 }
 
-System::~System() {
+FiberSystem::~FiberSystem() {
     for (detail::Executor* executor : executors) {
         executor->stop();
     }
@@ -53,26 +53,26 @@ System::~System() {
     }
 }
 
-void System::shutdown() {
+void FiberSystem::shutdown() {
     shuttingDown = true;
 }
 
-Event<Unit> System::allFibersFinished() {
+Event<Unit> FiberSystem::allFibersFinished() {
     return allFibersFinished_;
 }
 
-void System::schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock) {
+void FiberSystem::schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock) {
     // TODO: optimize memory order
     uint64_t i = std::atomic_fetch_add(&roundRobinCounter, 1lu);
     executors[i % executors.size()]->schedule(controlBlock, std::move(lock));
 }
 
-void System::subscribe(AnyFiberRef ref) {
+void FiberSystem::subscribe(AnyFiberRef ref) {
     std::lock_guard<std::mutex> lock(subscribersMutex);
     subscribers.push_back(ref);
 }
 
-void System::fiberFinished() {
+void FiberSystem::fiberFinished() {
     if (std::atomic_fetch_sub_explicit(&running, 1lu, std::memory_order_release) == 1) {
         std::atomic_thread_fence(std::memory_order_acquire);
         std::lock_guard<std::mutex> lock(subscribersMutex);
@@ -81,7 +81,7 @@ void System::fiberFinished() {
     }
 }
 
-boost::uuids::uuid System::uuid() const {
+boost::uuids::uuid FiberSystem::uuid() const {
     return uuid_;
 }
     

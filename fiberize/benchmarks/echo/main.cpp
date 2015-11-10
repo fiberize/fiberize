@@ -48,7 +48,7 @@ struct Emitter : public Fiber<Unit> {
 };
 
 int main() {
-    System system;
+    FiberSystem system;
     system.fiberize();
     auto echo = system.run<Echo>();
     auto emitter = system.run<Emitter>(echo, 100, 1000000);

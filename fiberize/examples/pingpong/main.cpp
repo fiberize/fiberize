@@ -38,7 +38,7 @@ struct Pong : public Fiber<Unit> {
 };
 
 int main() {
-    System system;
+    FiberSystem system;
     AnyFiberRef self = system.fiberize();
     
     auto ping = system.run<Ping>();

@@ -8,7 +8,7 @@
 #include <fiberize/mailbox.hpp>
 #include <fiberize/handler.hpp>
 #include <fiberize/fiber.hpp>
-#include <fiberize/system.hpp>
+#include <fiberize/fibersystem.hpp>
 #include <fiberize/fibercontext.hpp>
 
 #endif // FIBERIZE_FIBERIZE_HPP

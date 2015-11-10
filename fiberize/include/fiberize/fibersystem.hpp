@@ -1,5 +1,5 @@
-#ifndef FIBERIZE_SYSTEM_HPP
-#define FIBERIZE_SYSTEM_HPP
+#ifndef FIBERIZE_FIBERSYSTEM_HPP
+#define FIBERIZE_FIBERSYSTEM_HPP
 
 #include <utility>
 
@@ -14,22 +14,22 @@
 
 namespace fiberize {
 
-class System {
+class FiberSystem {
 public:
     /**
      * Starts the system with a number of macrothreads based on the number of cores.
      */
-    System();
+    FiberSystem();
     
     /**
      * Starts the system with the given number of macrothreads.
      */
-    System(uint32_t macrothreads);
+    FiberSystem(uint32_t macrothreads);
     
     /**
      * Cleans up the main fiber.
      */
-    ~System();
+    ~FiberSystem();
     
     /**
      * Starts a new unnamed fiber.
@@ -215,4 +215,4 @@ private:
     
 } // namespace fiberize
 
-#endif // FIBERIZE_SYSTEM_HPP
+#endif // FIBERIZE_FIBERSYSTEM_HPP

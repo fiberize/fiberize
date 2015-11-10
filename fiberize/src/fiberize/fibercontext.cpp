@@ -4,7 +4,7 @@
 
 namespace fiberize {
 
-FiberContext::FiberContext(System* system, std::shared_ptr<detail::ControlBlock> controlBlock)
+FiberContext::FiberContext(FiberSystem* system, std::shared_ptr<detail::ControlBlock> controlBlock)
     : system(system), controlBlock_(std::move(controlBlock)) {
     controlBlock_->fiberContext = this;
 }

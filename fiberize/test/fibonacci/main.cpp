@@ -28,7 +28,7 @@ uint64_t fibonacci(uint64_t n) {
 }
 
 TEST(Fibonacci, ComputesFibonacciSequence) {
-    System system;
+    FiberSystem system;
     system.fiberize();
     
     for (uint64_t n = 0; n < 10; ++n) {

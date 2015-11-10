@@ -1,6 +1,6 @@
 #include <fiberize/detail/executor.hpp>
 #include <fiberize/detail/fiberbase.hpp>
-#include <fiberize/system.hpp>
+#include <fiberize/fibersystem.hpp>
 
 #include <thread>
 #include <chrono>
@@ -8,7 +8,7 @@
 namespace fiberize {
 namespace detail {
 
-Executor::Executor(fiberize::System* system, uint64_t seed, uint32_t myIndex)
+Executor::Executor(fiberize::FiberSystem* system, uint64_t seed, uint32_t myIndex)
     : system(system)
     , runQueue(1024)
     , previousControlBlock_(nullptr)

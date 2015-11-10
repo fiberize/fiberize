@@ -8,7 +8,7 @@ namespace detail {
 
 class LocalFiberRef : public FiberRefImpl {
 public:
-    LocalFiberRef(System* system, const std::shared_ptr<ControlBlock>& block);
+    LocalFiberRef(FiberSystem* system, const std::shared_ptr<ControlBlock>& block);
     
     // FiberRefImpl
     virtual Locality locality() const;
@@ -18,7 +18,7 @@ public:
     virtual Path crashedEventPath() const;
     virtual void watch(const AnyFiberRef& watcher);
 
-    System* const system;
+    FiberSystem* const system;
     std::shared_ptr<ControlBlock> const block;
 };
     

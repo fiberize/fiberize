@@ -11,7 +11,7 @@
 
 namespace fiberize {
 
-class System;    
+class FiberSystem;    
 
 namespace detail {
     
@@ -20,7 +20,7 @@ public:
     /**
      * Creates a new executor.
      */
-    Executor(System* system, uint64_t seed, uint32_t myIndex);
+    Executor(FiberSystem* system, uint64_t seed, uint32_t myIndex);
 
     /**
      * Starts the executor.
@@ -70,7 +70,7 @@ public:
     /**
      * The fiber system this executor is attached to.
      */
-    System* const system;
+    FiberSystem* const system;
 
     /**
      * Returns the current executor.

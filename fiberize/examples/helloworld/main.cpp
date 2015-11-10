@@ -15,7 +15,7 @@ struct Printer : public Fiber<Unit> {
 };
 
 int main() {
-    System system;
+    FiberSystem system;
     AnyFiberRef self = system.fiberize();
     system.subscribe(self);
     

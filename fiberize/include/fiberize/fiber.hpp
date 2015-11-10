@@ -1,17 +1,17 @@
 #ifndef FIBERIZE_FIBER_HPP
 #define FIBERIZE_FIBER_HPP
 
-#include <fiberize/detail/fiberbase.hpp>
-#include <fiberize/detail/executor.hpp>
+#include <fiberize/event.hpp>
 #include <fiberize/fiberref.hpp>
 #include <fiberize/fibercontext.hpp>
-#include <fiberize/event.hpp>
-#include <fiberize/system.hpp>
+#include <fiberize/fibersystem.hpp>
+#include <fiberize/detail/fiberbase.hpp>
+#include <fiberize/detail/executor.hpp>
 
 namespace fiberize {
     
 template <typename A>
-struct Fiber: public detail::FiberBase {
+struct Fiber : public detail::FiberBase {
     /**
      * Executes the fiber.
      */
@@ -54,7 +54,7 @@ protected:
     /**
      * Returns the fiber system.
      */
-    System* system() {
+    FiberSystem* system() {
         return FiberContext::current()->system;
     }
 

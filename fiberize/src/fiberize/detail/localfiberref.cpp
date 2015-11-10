@@ -1,6 +1,6 @@
 #include <fiberize/detail/localfiberref.hpp>
 #include <fiberize/detail/controlblock.hpp>
-#include <fiberize/system.hpp>
+#include <fiberize/fibersystem.hpp>
 #include <iostream>
 
 namespace fiberize {
@@ -14,7 +14,7 @@ Path LocalFiberRef::path() const {
     return block->path;
 }
 
-LocalFiberRef::LocalFiberRef(System* system, const std::shared_ptr<ControlBlock>& block)
+LocalFiberRef::LocalFiberRef(FiberSystem* system, const std::shared_ptr<ControlBlock>& block)
     : system(system), block(block) {}
 
 void LocalFiberRef::send(const PendingEvent& pendingEvent) {

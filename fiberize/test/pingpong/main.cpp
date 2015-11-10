@@ -42,7 +42,7 @@ struct Pong : public Fiber<Unit> {
 };
 
 TEST(PingPong, PingPong) {
-    System system;
+    FiberSystem system;
     AnyFiberRef self = system.fiberize();
     system.subscribe(self);
     
