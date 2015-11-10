@@ -5,7 +5,7 @@ MAINTAINER Paweł Nowak pawel@livetalk.lol
 RUN apt-get update
 
 # Install build tools.
-RUN apt-get install -y wget build-essential g++ git cmake valgrind libbz2-dev
+RUN apt-get install -y build-essential g++ git cmake
 
 # Install boost.
 RUN apt-get install -y libboost-dev libboost-context-dev libboost-thread-dev libboost-system-dev
