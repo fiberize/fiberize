@@ -1,6 +1,4 @@
-sudo: required
-
-language: cpp
+language: generic
 
 services:
   - docker
