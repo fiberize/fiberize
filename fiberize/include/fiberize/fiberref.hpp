@@ -6,53 +6,12 @@
 #include <fiberize/event.hpp>
 #include <fiberize/mailbox.hpp>
 #include <fiberize/locality.hpp>
+#include <fiberize/detail/fiberrefimpl.hpp>
 
 namespace fiberize {
 
-class AnyFiberRef;
-
-namespace detail {
- 
-/**
- * Interface of an fiber reference implementation.
- */
-class FiberRefImpl {
-public:
-    virtual ~FiberRefImpl() {};
-    
-    /**
-     * The locality of this fiber.
-     */
-    virtual Locality locality() const = 0;
-    
-    /**
-     * Path of this fiber.
-     */
-    virtual Path path() const = 0;
-    
-    /**
-     * Path of the event triggered when the fiber finishes.
-     */
-    virtual Path finishedEventPath() const = 0;
-
-    /**
-     * Path of the event triggered when the fiber crashes.
-     */
-    virtual Path crashedEventPath() const = 0;
-
-    /**
-     * Starts watching events of this fiber.
-     */
-    virtual void watch(const AnyFiberRef& watcher) = 0;
-
-    /**
-     * Emits an event for an appropriatly stored value.
-     */
-    virtual void send(const PendingEvent& pendingEvent) = 0;
-    
-};
-    
-} // namespace detail
+template <typename A>
+class Promise;
 
 class AnyFiberRef {
 public:
@@ -91,20 +50,6 @@ public:
      */
     inline Path path() const {
         return impl_->path();
-    }
-
-    /**
-     * Returns the event triggered when the fiber crashes.
-     */
-    inline Event<Unit> crashed() const {
-        return Event<Unit>::fromPath(impl_->crashedEventPath());
-    }
-
-    /**
-     * Starts watching events of this fiber.
-     */
-    inline void watch(const AnyFiberRef& watcher) {
-        impl_->watch(watcher);
     }
 
     /**
@@ -166,10 +111,10 @@ public:
     FiberRef& operator = (FiberRef&& ref) = default;
     
     /**
-     * Returns the event triggered when the fiber finishes.
+     * Returns the result of the fiber.
      */
-    inline Event<A> finished() const {
-        return Event<A>::fromPath(impl_->finishedEventPath());
+    Promise<A>* result() {
+        return dynamic_cast<Promise<A>*>(impl_->result());
     }
 };
 

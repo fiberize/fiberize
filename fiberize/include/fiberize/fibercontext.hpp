@@ -9,6 +9,7 @@
 #include <fiberize/mailbox.hpp>
 #include <fiberize/path.hpp>
 #include <fiberize/handler.hpp>
+#include <fiberize/fiberref.hpp>
 
 namespace fiberize {
 
@@ -89,6 +90,11 @@ public:
     std::shared_ptr<detail::ControlBlock> controlBlock();
 
     /**
+     * The current fiber reference.
+     */
+    AnyFiberRef fiberRef();
+
+    /**
      * Makes this context a current context.
      *
      * You shoudn't really call this function, but I guess it might be useful if you
@@ -110,6 +116,7 @@ private:
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
     std::unique_ptr<detail::HandlerContext> handlerContext;
     std::shared_ptr<detail::ControlBlock> controlBlock_;
+    AnyFiberRef fiberRef_;
     
     friend detail::HandlerContext;
 };

@@ -27,18 +27,9 @@ struct Fiber : public detail::FiberBase {
         self_ = FiberRef<A>(std::make_shared<detail::LocalFiberRef>(context.system, controlBlock));
 
         try {
-            auto finished = Event<A>::fromPath(controlBlock->finishedEventPath);
-            A result = run();
-            std::lock_guard<std::mutex> lock(controlBlock->watchersMutex);
-            for (AnyFiberRef& watcher : controlBlock->watchers)
-                watcher.send(finished, result);
+            self_.result()->tryToComplete(run());
         } catch (...) {
-            // TODO: proper logging
-            std::cerr << "fiber crashed" << std::endl;
-            std::lock_guard<std::mutex> lock(controlBlock->watchersMutex);
-            auto crashed = Event<Unit>::fromPath(controlBlock->crashedEventPath);
-            for (AnyFiberRef& watcher : controlBlock->watchers)
-                watcher.send(crashed);
+            self_.result()->tryToFail(std::current_exception());
         }
     }
     

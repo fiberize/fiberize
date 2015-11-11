@@ -21,6 +21,7 @@ namespace detail {
 
 class FiberBase;
 class Executor;
+class SomePromise;
 
 enum LifeStatus : uint8_t {
     Suspended,
@@ -58,20 +59,9 @@ struct ControlBlock {
     std::unique_ptr<FiberBase> fiber;
     
     /**
-     * Path to the event emmitted when the fiber successfully finishes.
+     * Promise that will contain the result of this fiber.
      */
-    Path finishedEventPath;
-    
-    /**
-     * Path to the event sendted when the fiber throws an uncaught exception.
-     */
-    Path crashedEventPath;
-    
-    /**
-     * Fibers watching this fiber.
-     */
-    std::vector<AnyFiberRef> watchers;
-    std::mutex watchersMutex;
+    std::unique_ptr<SomePromise> result;
 
     /**
      * Status of this fiber.

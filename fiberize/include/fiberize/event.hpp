@@ -3,8 +3,8 @@
 
 #include <string>
 
-#include <fiberize/fibercontext.hpp>
 #include <fiberize/path.hpp>
+#include <fiberize/handler.hpp>
 
 namespace fiberize {
     
@@ -80,27 +80,13 @@ public:
     /**
      * Waits until an event occurs and returns its value.
      */
-    A await() const {
-        auto handler = bind([] (const A& value) {
-            FiberContext::current()->super();
-            throw EventFired{value};
-        });
-        
-        try {
-            return FiberContext::current()->processForever().absurd<A>();
-        } catch (const EventFired& eventFired) {
-            return eventFired.value;
-        }
-    }
+    A await() const;
     
     /**
      * Binds an event to a handler.
      */
     template <typename... Args>
-    HandlerRef bind(Args&&... args) const {
-        detail::Handler* handler = new detail::TypedHandler<A>(std::forward<Args>(args...)...);
-        return FiberContext::current()->bind(path(), handler);
-    }
+    HandlerRef bind(Args&&... args) const;
 
 private:
     Path path_;

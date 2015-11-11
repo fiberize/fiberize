@@ -12,9 +12,9 @@ struct Fibonacci : public Fiber<uint64_t> {
         if (n <= 1) {
             return 1;
         } else {
-            auto x = system()->run<Fibonacci>(n-2); x.watch(self());
-            auto y = system()->run<Fibonacci>(n-1); y.watch(self());
-            return x.finished().await() + y.finished().await();
+            auto x = system()->run<Fibonacci>(n-2);
+            auto y = system()->run<Fibonacci>(n-1);
+            return x.result()->await() + y.result()->await();
         }
     }
 };
@@ -31,7 +31,7 @@ TEST(Fibonacci, ComputesFibonacciSequence) {
     FiberSystem system;
     system.fiberize();
     
-    for (uint64_t n = 0; n < 10; ++n) {
-        EXPECT_EQ(fibonacci(n), system.run<Fibonacci>(n).finished().await());
+    for (uint64_t n = 0; n < 20; ++n) {
+        EXPECT_EQ(fibonacci(n), system.run<Fibonacci>(n).result()->await());
     }
 }

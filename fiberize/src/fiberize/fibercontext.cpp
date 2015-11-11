@@ -1,11 +1,12 @@
 #include <fiberize/fibercontext.hpp>
 #include <fiberize/detail/executor.hpp>
 #include <fiberize/detail/controlblock.hpp>
+#include <fiberize/detail/localfiberref.hpp>
 
 namespace fiberize {
 
 FiberContext::FiberContext(FiberSystem* system, std::shared_ptr<detail::ControlBlock> controlBlock)
-    : system(system), controlBlock_(std::move(controlBlock)) {
+    : system(system), controlBlock_(std::move(controlBlock)), fiberRef_(std::make_shared<detail::LocalFiberRef>(system, controlBlock_)) {
     controlBlock_->fiberContext = this;
 }
 
@@ -199,6 +200,10 @@ void FiberContext::makeCurrent() {
 
 FiberContext* FiberContext::current() {
     return current_;
+}
+
+AnyFiberRef FiberContext::fiberRef() {
+    return fiberRef_;
 }
 
 thread_local FiberContext* FiberContext::current_ = nullptr;

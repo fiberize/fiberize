@@ -52,6 +52,6 @@ int main() {
     system.fiberize();
     auto echo = system.run<Echo>();
     auto emitter = system.run<Emitter>(echo, 100, 1000000);
-    emitter.finished().await();
+    emitter.result()->await();
     exit(0);
 }

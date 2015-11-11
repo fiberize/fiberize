@@ -5,6 +5,7 @@
 
 #include <boost/context/all.hpp>
 
+#include <fiberize/promise.hpp>
 #include <fiberize/fiberref.hpp>
 #include <fiberize/fibercontext.hpp>
 #include <fiberize/detail/controlblock.hpp>
@@ -141,8 +142,7 @@ private:
             block->path = PrefixedPath(uuid(), ident);
             block->mailbox.reset(new MailboxImpl());
             block->fiber.reset(fiber);
-            block->finishedEventPath = finished.path();
-            block->crashedEventPath = crashed.path();
+            block->result.reset(new Promise<Result>(newEvent<Unit>()));
             block->status = detail::Suspended;
             block->reschedule = false;
 
@@ -170,8 +170,7 @@ private:
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
         block->mailbox.reset(new MailboxImpl());
         block->fiber.reset();
-        block->finishedEventPath = DevNullPath();
-        block->crashedEventPath = DevNullPath();
+        block->result.reset(new Promise<Void>(newEvent<Unit>()));
         block->status = detail::Running;
         block->reschedule = false;
         return block;

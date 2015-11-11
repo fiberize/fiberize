@@ -30,17 +30,8 @@ void LocalFiberRef::send(const PendingEvent& pendingEvent) {
     }
 }
 
-Path LocalFiberRef::finishedEventPath() const {
-    return block->finishedEventPath;
-}
-
-Path LocalFiberRef::crashedEventPath() const {
-    return block->crashedEventPath;
-}
-
-void LocalFiberRef::watch(const AnyFiberRef& watcher) {
-    std::lock_guard<std::mutex> lock(block->watchersMutex);
-    block->watchers.push_back(watcher);
+SomePromise* LocalFiberRef::result() {
+    return block->result.get();
 }
 
 } // namespace detail

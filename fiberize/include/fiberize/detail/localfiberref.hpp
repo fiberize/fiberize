@@ -4,7 +4,12 @@
 #include <fiberize/fiberref.hpp>
 
 namespace fiberize {
-namespace detail {    
+
+class FiberSystem;
+
+namespace detail {
+
+class ControlBlock;
 
 class LocalFiberRef : public FiberRefImpl {
 public:
@@ -14,9 +19,7 @@ public:
     virtual Locality locality() const;
     virtual Path path() const;
     virtual void send(const PendingEvent& pendingEvent);
-    virtual Path finishedEventPath() const;
-    virtual Path crashedEventPath() const;
-    virtual void watch(const AnyFiberRef& watcher);
+    virtual SomePromise* result();
 
     FiberSystem* const system;
     std::shared_ptr<ControlBlock> const block;
