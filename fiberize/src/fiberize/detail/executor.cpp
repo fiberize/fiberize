@@ -256,7 +256,7 @@ void Executor::fiberRunner(intptr_t) {
     /**
       * Execute the fiber.
       */
-    controlBlock->fiber->_execute(std::move(controlBlock));\
+    controlBlock->fiber->_execute(std::move(controlBlock));
 
     /**
      * Terminate the fiber.
