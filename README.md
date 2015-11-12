@@ -3,4 +3,110 @@ fiberize
 
 ![Build status](https://travis-ci.org/fiberize/fiberize.svg?branch=master)
 
-Super early stage (a few days old) implementation of a framework for high performance parallel and distributed computing. Fiberize is based on a microthread model, where fibers can send events to each other, await events or bind events to handlers.
+Fiberize is a C++ framework for parallel (and in the future distributed) computing. It implements an M:N threading model, where the basic unit of parallelism is a very light thread, called a fiber. A large number of fibers is executed on a small number of OS threads, usually equal to the number of physical cores.
+
+Fibers in fiberize can communicate by sending and receiving events. When a fiber waits for an event it doesn't block the OS thread it was running on - instead the execution switches to another fiber. This means that you can write asynchronous and nonblocking code as easly as you would write a synchronous version.
+
+Example
+=======
+
+The following example (examples/pingpong/main.cpp) starts two fibers that play ping pong with events.
+
+``` C++
+#include <fiberize/fiberize.hpp>
+#include <iostream>
+
+using namespace fiberize;
+
+// First we declare some events. Each event needs a unique name.
+// Events can have attached values. "Unit" is an empty structure and 
+// means that the event doesn't have any attached value.
+Event<AnyFiberRef> init("init"); // Initializes the fiber, giving it a reference to its peer.
+Event<Unit> ready("ready");      // Reports back to the main thread that we are ready and waiting for the first ping.
+
+Event<Unit> ping("ping");
+Event<Unit> pong("pong");
+
+// To create a fiber we derive from the Fiber class and implement the run function.
+// The type parameter specifies the type of the result. In this case the fiber runs
+// an infinite loop and never completes, so we could choose any result type.
+struct Ping : public Fiber<Unit> {
+    Unit run() override {
+        // init.await() will "block" until the current fiber receives an init message and
+        // then return the value attached to this event.
+        auto peer = init.await(); 
+
+        while (true) {
+            std::cout << "Ping" << std::endl;
+            // peer.send(event, attachedValue) sends an event to the fiber referenced by "peer"
+            peer.send(ping);
+            pong.await();
+        }
+    }
+};
+
+struct Pong : public Fiber<Unit> {
+    Pong(AnyFiberRef mainFiber) : mainFiber(mainFiber) {}
+    AnyFiberRef mainFiber;
+
+    Unit run() override {
+        auto peer = init.await();
+        mainFiber.send(ready);
+
+        while (true) {
+            ping.await();
+            std::cout << "Pong" << std::endl;
+            peer.send(pong);
+        }
+    }
+};
+
+int main() {
+    // The FiberSystem (akka was an inspiration :) by default will create an OS thread for each CPU core we have.
+    // After initializing the system, we fiberize the current thread. This means it will
+    // be able to communicate with real fibers.
+    FiberSystem system;
+    AnyFiberRef self = system.fiberize();
+    
+    // We create the fibers. Any parameters passed to run will be forwarded to the constructor.
+    FiberRef<Unit> ping = system.run<Ping>();
+    FiberRef<Unit> pong = system.run<Pong>(self);
+    
+    // Exchange the fiber refs.
+    pong.send(init, ping);
+    ready.await(); // Awaiting in a fiberized thread (and not a real fiber) *blocks* the OS thread.
+    ping.send(init, pong);
+    
+    // Enter an infinite loop processing events.
+    FiberContext::current()->processForever();
+}
+```
+
+Building
+========
+
+The easiest way to build the library is to use docker:
+```bash
+> docker build github.com/fiberize/fiberize.git
+```
+
+Dependencies you need if you're not using docker are boost, google test and cmake. Once you have them run:
+```bash
+> git clone github.com/fiberize/fiberize.git
+> mkdir fiberize/build
+> cd fiberize/build
+> cmake .. && make
+optionally> sudo make install
+```
+
+To link with the library add -lfiberize to c++ compiler options.
+
+TODO list
+=========
+
+The project is pretty new and has a long and ambitious todo list :)
+
+* epoll and nonblocking IO - the plan is to integrate an async IO mechanism into a scheduler and provide a nonblocking and callbackless IO library.
+* remoting tunnels - the first step to cluster support is to establish a tunnel between two systems, that allows them to lookup remote fibers and send events. It should be possible to link two tunnels, creating a relay node. Of course this requires serialization: protocol buffers and JSON/BSON are what I'm currently looking at.
+* clustering - the idea is to use existing p2p and DHT implementations to create a cluster management layer. The job of the management layer is to maintain a mapping from system UUIDs to lists of IP addresses/ports, global fiber paths to system UUIDs, a list of relay nodes, etc. Using this information remoting tunnels can be established, possibly routing around NATs using a technique like [ICE](https://tools.ietf.org/html/rfc5245) and the relay nodes.
+* depth/breadth executors - the current executor uses a FIFO queue. This guarantees that no task will be starved, but also means that we start a lot of work without finishing it, which means we have to allocate a lot of memory for the stacks. The extreme opposite is to use a FILO queue, however this could possibly starve some fibers. A hybrid approach would attach a generation number to each fiber, starting with 0 for a fiberized OS thread. A fiber spawned by an n-th generation fiber starts at generation (n+1) and each time a fiber is suspended (or awaits) we increase its generation by 1. Depth-first executors prioritize fibers with higher generation, while bredth-first executors do the opposite. The ratio of depth/breadth can be adjusted to the workload.
