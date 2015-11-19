@@ -70,6 +70,15 @@ install(TARGETS fiberize RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
 install(FILES ${FIBERIZE_HDRS} DESTINATION include)
 
 ################################################################################
+### tcmalloc
+################################################################################
+
+target_link_libraries(fiberize tcmalloc)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
+        -fno-builtin-malloc -fno-builtin-calloc\
+        -fno-builtin-realloc -fno-builtin-free")
+
+################################################################################
 ### Examples and benchmarks
 ################################################################################
 add_subdirectory(examples)
