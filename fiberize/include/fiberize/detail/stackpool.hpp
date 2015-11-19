@@ -29,7 +29,7 @@ public:
     virtual void delayedDeallocate(boost::context::stack_context stack);
     
 private:
-    const uint32_t maxSize;
+    size_t inUse;
     boost::circular_buffer<boost::context::stack_context> pool;
     boost::context::stack_context delayed;
     boost::context::fixedsize_stack allocator;

@@ -3,9 +3,11 @@
 namespace fiberize {
 namespace detail {
 
+constexpr size_t minCached = 32;
+
 // TODO: get rid of magic numbers and allow configuration
 CachedFixedSizeStackPool::CachedFixedSizeStackPool()
-    : maxSize(100), pool(maxSize), allocator() {}
+    : inUse(0), pool(minCached), allocator() {}
 
 CachedFixedSizeStackPool::~CachedFixedSizeStackPool() {
     for (auto stack : pool)
@@ -15,6 +17,7 @@ CachedFixedSizeStackPool::~CachedFixedSizeStackPool() {
 }
 
 boost::context::stack_context CachedFixedSizeStackPool::allocate() {
+    inUse += 1;
     if (pool.empty()) {
         return allocator.allocate();
     } else {
@@ -25,7 +28,9 @@ boost::context::stack_context CachedFixedSizeStackPool::allocate() {
 }
 
 void CachedFixedSizeStackPool::deallocate(boost::context::stack_context stack) {
-    if (pool.size() < maxSize) {
+    inUse -= 1;
+
+    if (pool.size() < minCached + inUse / 2) {
         pool.push_back(stack);
     } else {
         allocator.deallocate(stack);

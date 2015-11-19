@@ -3,7 +3,7 @@
 
 using namespace fiberize;
 
-const size_t fibers = 1000 * 1000 * 10;
+const size_t fibers = 1000 * 1000 * 3;
 const size_t spawners = 8;
 
 struct Noop : public Fiber<Unit> {
