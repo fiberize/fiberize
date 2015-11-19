@@ -14,7 +14,7 @@ RUN apt-get install -y libboost-dev libboost-context-dev libboost-thread-dev lib
 RUN apt-get install -y libgtest-dev && cd /usr/src/gtest && cmake . && make && cp lib*.a /usr/lib
 
 # Install tlmalloc.
-RUN apt-get install libgoogle-perftools-dev
+RUN apt-get install -y libgoogle-perftools-dev
 
 # Build and install fiberize.
 COPY fiberize/ /usr/src/fiberize/
