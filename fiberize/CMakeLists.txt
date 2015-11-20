@@ -17,6 +17,12 @@ if(SEGMENTED_STACKS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsplit-stack")
 endif(SEGMENTED_STACKS)
 
+option(PROFILING "enable profiling" OFF)
+
+if(PROFILING)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+endif(PROFILING)
+
 ################################################################################
 ### Project files.
 ################################################################################
