@@ -284,12 +284,12 @@ private:
     /**
      * Counter used implement round robin task balancing.
      */
-    std::atomic<uint64_t> roundRobinCounter;
+    static thread_local uint64_t roundRobinCounter;
     
     /**
      * Generator used for event and fiber ids.
      */
-    UniqueIdentGenerator uniqueIdentGenerator;
+    static thread_local UniqueIdentGenerator uniqueIdentGenerator;
 
     static boost::fast_pool_allocator<detail::ControlBlock> controlBlockAllocator;
 

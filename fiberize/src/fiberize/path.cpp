@@ -2,12 +2,17 @@
 
 namespace fiberize {
     
-UniqueIdentGenerator::UniqueIdentGenerator(): nextToken(0) {
-}
+namespace detail {
+std::atomic<uint64_t> generators(0);
+} // namespace detail
+
+UniqueIdentGenerator::UniqueIdentGenerator()
+    : generatorId(std::atomic_fetch_add(&detail::generators, 1ul))
+    , nextToken(0)
+    {}
 
 UniqueIdent UniqueIdentGenerator::generate() {
-    uint64_t token = std::atomic_fetch_add_explicit(&nextToken, 1lu, std::memory_order_relaxed);
-    return UniqueIdent(token);
+    return UniqueIdent(nextToken++ & (generatorId << 48));
 }
 
 } // namespace fiberize

@@ -62,9 +62,8 @@ Event<Unit> FiberSystem::allFibersFinished() {
 }
 
 void FiberSystem::schedule(detail::ControlBlock* controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock) {
-    // TODO: optimize memory order
-    uint64_t i = std::atomic_fetch_add(&roundRobinCounter, 1lu);
-    executors[i % executors.size()]->schedule(std::move(controlBlock), std::move(lock));
+    uint64_t i = roundRobinCounter++;
+    executors[i % executors.size()]->schedule(controlBlock, std::move(lock));
 }
 
 void FiberSystem::subscribe(AnyFiberRef ref) {
@@ -84,6 +83,10 @@ void FiberSystem::fiberFinished() {
 boost::uuids::uuid FiberSystem::uuid() const {
     return uuid_;
 }
+
+thread_local uint64_t FiberSystem::roundRobinCounter = 0;
+
+thread_local UniqueIdentGenerator FiberSystem::uniqueIdentGenerator;
 
 boost::fast_pool_allocator<detail::ControlBlock> FiberSystem::controlBlockAllocator;
     
