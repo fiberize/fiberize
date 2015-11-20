@@ -51,7 +51,7 @@ struct ControlBlock {
     /**
      * Mailbox attached to this control block.
      */
-    std::unique_ptr<Mailbox> mailbox;
+    std::unique_ptr<Mailbox, MailboxDeleter> mailbox;
     
     /**
      * The fiber implementation.

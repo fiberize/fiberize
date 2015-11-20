@@ -6,11 +6,7 @@ Mailbox::~Mailbox() {
 }
 
 BlockingCircularBufferMailbox::~BlockingCircularBufferMailbox() {
-    std::lock_guard<std::mutex> lock(mutex);
-    for (PendingEvent& event : pendingEvents) {
-        if (event.freeData != nullptr)
-            event.freeData(event.data);
-    }
+    clear();
 }
 
 void BlockingCircularBufferMailbox::enqueue(const PendingEvent& event) {
@@ -29,16 +25,19 @@ bool BlockingCircularBufferMailbox::dequeue(PendingEvent& event) {
     }
 }
 
+void BlockingCircularBufferMailbox::clear() {
+    std::lock_guard<std::mutex> lock(mutex);
+    for (PendingEvent& event : pendingEvents) {
+        if (event.freeData != nullptr)
+            event.freeData(event.data);
+    }
+}
+
 BoostLockfreeQueueMailbox::BoostLockfreeQueueMailbox(): pendingEvents(0) {
 }
 
 BoostLockfreeQueueMailbox::~BoostLockfreeQueueMailbox() {
-    PendingEvent* event;
-    while (pendingEvents.unsynchronized_pop(event)) {        
-        if (event->freeData)
-            event->freeData(event->data);
-        delete event;
-    }
+    clear();
 }
 
 void BoostLockfreeQueueMailbox::enqueue(const PendingEvent& event) {
@@ -57,12 +56,17 @@ bool BoostLockfreeQueueMailbox::dequeue(PendingEvent& event) {
     }
 }
 
-MoodyCamelConcurrentQueueMailbox::~MoodyCamelConcurrentQueueMailbox() {
-    PendingEvent event;
-    while (pendingEvents.try_dequeue(event)) {
-        if (event.freeData != nullptr)
-            event.freeData(event.data);
+void BoostLockfreeQueueMailbox::clear() {
+    PendingEvent* event;
+    while (pendingEvents.unsynchronized_pop(event)) {
+        if (event->freeData)
+            event->freeData(event->data);
+        delete event;
     }
+}
+
+MoodyCamelConcurrentQueueMailbox::~MoodyCamelConcurrentQueueMailbox() {
+    clear();
 }
 
 void MoodyCamelConcurrentQueueMailbox::enqueue(const PendingEvent& event) {
@@ -73,5 +77,16 @@ bool MoodyCamelConcurrentQueueMailbox::dequeue(PendingEvent& event) {
     return pendingEvents.try_dequeue(event);
 }
 
+void MoodyCamelConcurrentQueueMailbox::clear() {
+    PendingEvent event;
+    while (pendingEvents.try_dequeue(event)) {
+        if (event.freeData != nullptr)
+            event.freeData(event.data);
+    }
+}
+
+template class MailboxPool<BlockingCircularBufferMailbox>;
+template class MailboxPool<BoostLockfreeQueueMailbox>;
+template class MailboxPool<MoodyCamelConcurrentQueueMailbox>;
 
 } // namespace fiberize

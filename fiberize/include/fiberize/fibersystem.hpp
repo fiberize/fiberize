@@ -140,7 +140,7 @@ private:
             // Create the control block.
             auto block = std::make_shared<detail::ControlBlock>();
             block->path = PrefixedPath(uuid(), ident);
-            block->mailbox.reset(new MailboxImpl());
+            block->mailbox = MailboxPool<MailboxImpl>::current.allocate();
             block->fiber.reset(fiber);
             block->result.reset(new Promise<Result>(newEvent<Unit>()));
             block->status = detail::Suspended;
@@ -168,7 +168,7 @@ private:
     std::shared_ptr<detail::ControlBlock> createUnmanagedBlock() {
         auto block = std::make_shared<detail::ControlBlock>();
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
-        block->mailbox.reset(new MailboxImpl());
+        block->mailbox = MailboxPool<MailboxImpl>::current.allocate();
         block->fiber.reset();
         block->result.reset(new Promise<Void>(newEvent<Unit>()));
         block->status = detail::Running;
