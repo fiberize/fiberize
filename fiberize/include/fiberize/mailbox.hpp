@@ -5,6 +5,7 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <iostream>
 
 #include <boost/circular_buffer.hpp>
 #include <boost/lockfree/queue.hpp>

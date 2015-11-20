@@ -2,6 +2,7 @@
 #define FIBERIZE_DETAIL_LOCALACTORREF_HPP
 
 #include <fiberize/fiberref.hpp>
+#include <fiberize/detail/controlblockptr.hpp>
 
 namespace fiberize {
 
@@ -9,11 +10,9 @@ class FiberSystem;
 
 namespace detail {
 
-class ControlBlock;
-
 class LocalFiberRef : public FiberRefImpl {
 public:
-    LocalFiberRef(FiberSystem* system, const std::shared_ptr<ControlBlock>& block);
+    LocalFiberRef(FiberSystem* system, const ControlBlockPtr& block);
     
     // FiberRefImpl
     virtual Locality locality() const;
@@ -22,7 +21,7 @@ public:
     virtual SomePromise* result();
 
     FiberSystem* const system;
-    std::shared_ptr<ControlBlock> const block;
+    ControlBlockPtr block;
 };
     
 } // namespace detail

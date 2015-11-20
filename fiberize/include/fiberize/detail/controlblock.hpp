@@ -6,6 +6,7 @@
 #include <fiberize/mailbox.hpp>
 #include <fiberize/path.hpp>
 #include <fiberize/fiberref.hpp>
+#include <fiberize/promise.hpp>
 #include <fiberize/detail/fiberbase.hpp>
 
 #include <iostream>
@@ -82,6 +83,11 @@ struct ControlBlock {
      * Whether a block should be rescheduled after a jump.
      */
     bool reschedule;
+
+    /**
+     * Reference counter.
+     */
+    std::atomic<std::size_t> refCount;
 };
  
 } // namespace detail

@@ -12,6 +12,7 @@
 #include <fiberize/detail/executor.hpp>
 #include <fiberize/detail/localfiberref.hpp>
 #include <fiberize/detail/devnullfiberref.hpp>
+#include <boost/pool/pool_alloc.hpp>
 
 namespace fiberize {
 
@@ -61,13 +62,45 @@ public:
         typename ...Args
         >
     FiberRef<Result> runNamed(const std::string& name, Args&& ...args) {
-        Event<Result> finished = newEvent<Result>();
-        Event<Unit> crashed = newEvent<Unit>();
         return runImpl<MailboxImpl>(NamedIdent(name), [&] () {
             return new FiberImpl(std::forward<Args>(args)...);
         });
     }
-    
+
+    /**
+     * Starts a new unnamed fiber.
+     *
+     * The fiber is constructed using the given arguments.
+     */
+    template <
+        typename FiberImpl,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename Result = decltype(std::declval<FiberImpl>().run()),
+        typename ...Args
+        >
+    void run_(Args&& ...args) {
+        runImpl_<MailboxImpl>(uniqueIdentGenerator.generate(), [&] () {
+            return new FiberImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new named fiber.
+     *
+     * The fiber is constructed using the given arguments.
+     */
+    template <
+        typename FiberImpl,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename Result = decltype(std::declval<FiberImpl>().run()),
+        typename ...Args
+        >
+    void runNamed_(const std::string& name, Args&& ...args) {
+        runImpl_<MailboxImpl>(NamedIdent(name), [&] () {
+            return new FiberImpl(std::forward<Args>(args)...);
+        });
+    }
+
     /**
      * Creates a new unique event.
      */
@@ -99,7 +132,7 @@ public:
      */
     template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
     AnyFiberRef fiberize() {
-        std::shared_ptr<detail::ControlBlock> controlBlock = createUnmanagedBlock<MailboxImpl>();
+        detail::ControlBlockPtr controlBlock = createUnmanagedBlock<MailboxImpl>();
         (new FiberContext(this, controlBlock))->makeCurrent();
         return AnyFiberRef(std::make_shared<detail::LocalFiberRef>(this, controlBlock));
     }
@@ -114,7 +147,7 @@ private:
     /**
      * Reschedule the fiber. It must be locked for writing.
      */
-    void schedule(const std::shared_ptr<detail::ControlBlock>& controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock);
+    void schedule(detail::ControlBlockPtr controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock);
 
     void fiberFinished();
 
@@ -133,27 +166,17 @@ private:
     FiberRef<Result> runImpl(const Ident& ident, const FiberFactory& fiberFactory) {
         std::shared_ptr<detail::FiberRefImpl> impl;
         if (!shuttingDown) {
-            FiberImpl* fiber = fiberFactory();
-            Event<Result> finished = newEvent<Result>();
-            Event<Unit> crashed = newEvent<Unit>();
-
-            // Create the control block.
-            auto block = std::make_shared<detail::ControlBlock>();
-            block->path = PrefixedPath(uuid(), ident);
-            block->mailbox = MailboxPool<MailboxImpl>::current.allocate();
-            block->fiber.reset(fiber);
-            block->result.reset(new Promise<Result>(newEvent<Unit>()));
-            block->status = detail::Suspended;
-            block->reschedule = false;
+            auto block = createManagedBlock(ident, fiberFactory);
 
             // Increment fiber counter.
             std::atomic_fetch_add(&running, 1ul);
 
             // Schedule the block.
-            schedule(block, boost::unique_lock<detail::ControlBlockMutex>(block->mutex));
+            boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
+            schedule(block, std::move(lock));
 
             // Create a local reference.
-            impl = std::make_shared<detail::LocalFiberRef>(this, block);
+            impl = std::make_shared<detail::LocalFiberRef>(this, std::move(block));
         } else {
             // System is shutting down, do not create new fibers.
             impl = std::make_shared<detail::DevNullFiberRef>();
@@ -162,18 +185,85 @@ private:
     }
 
     /**
+     * Starts a new fiber, without creating a reference.
+     *
+     * This is the most general of the "run" function family. It expects a factory used to create the
+     * fiber and two events: one when the fiber finishes and the second when the fiber crashes.
+     */
+    template <
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename FiberFactory,
+        typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type,
+        typename Result = decltype(std::declval<FiberImpl>().run())
+        >
+    void runImpl_(const Ident& ident, const FiberFactory& fiberFactory) {
+        if (!shuttingDown) {
+            auto block = createManagedBlock(ident, fiberFactory);
+
+            // Increment fiber counter.
+            std::atomic_fetch_add(&running, 1ul);
+
+            // Schedule the block.
+            boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
+            schedule(std::move(block), std::move(lock));
+        } else {
+            // System is shutting down, do not create new fibers.
+        }
+    }
+
+    /**
+     * Creates a new managed block.
+     */
+    template <
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename FiberFactory,
+        typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type,
+        typename Result = decltype(std::declval<FiberImpl>().run())
+        >
+    detail::ControlBlockPtr createManagedBlock(const Ident& ident, const FiberFactory& fiberFactory) {
+        FiberImpl* fiber = fiberFactory();
+        Event<Result> finished = newEvent<Result>();
+        Event<Unit> crashed = newEvent<Unit>();
+
+        // Create the control block.
+        detail::ControlBlock* block = alllocateBlock();
+        block->refCount = 0;
+        block->path = PrefixedPath(uuid(), ident);
+        block->mailbox = MailboxPool<MailboxImpl>::current.allocate();
+        block->fiber.reset(fiber);
+        block->result.reset(new Promise<Result>(newEvent<Unit>()));
+        block->status = detail::Suspended;
+        block->reschedule = false;
+        return detail::ControlBlockPtr(block);
+    }
+
+    detail::ControlBlock* alllocateBlock() {
+        return new detail::ControlBlock();
+/*        auto memory = controlBlockAllocator.allocate(1);
+        new (memory) detail::ControlBlock;
+        return detail::ControlBlockPtr(
+            memory,
+            [] (detail::ControlBlock* ptr) {
+                ptr->~ControlBlock();
+                controlBlockAllocator.deallocate(ptr, 1);
+            }
+        );*/
+    }
+
+    /**
      * Creates a block for a thread that is not running an executor.
      */
     template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
-    std::shared_ptr<detail::ControlBlock> createUnmanagedBlock() {
-        auto block = std::make_shared<detail::ControlBlock>();
+    detail::ControlBlockPtr createUnmanagedBlock() {
+        auto block = alllocateBlock();
+        block->refCount = 0;
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
         block->mailbox = MailboxPool<MailboxImpl>::current.allocate();
         block->fiber.reset();
         block->result.reset(new Promise<Void>(newEvent<Unit>()));
         block->status = detail::Running;
         block->reschedule = false;
-        return block;
+        return detail::ControlBlockPtr(block);
     }
     
     /**
@@ -200,6 +290,8 @@ private:
      * Generator used for event and fiber ids.
      */
     UniqueIdentGenerator uniqueIdentGenerator;
+
+    static boost::fast_pool_allocator<detail::ControlBlock> controlBlockAllocator;
 
     bool shuttingDown;
 

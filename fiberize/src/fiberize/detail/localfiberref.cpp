@@ -14,7 +14,7 @@ Path LocalFiberRef::path() const {
     return block->path;
 }
 
-LocalFiberRef::LocalFiberRef(FiberSystem* system, const std::shared_ptr<ControlBlock>& block)
+LocalFiberRef::LocalFiberRef(FiberSystem* system, const ControlBlockPtr& block)
     : system(system), block(block) {}
 
 void LocalFiberRef::send(const PendingEvent& pendingEvent) {

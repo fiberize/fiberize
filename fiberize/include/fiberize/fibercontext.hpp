@@ -10,6 +10,7 @@
 #include <fiberize/path.hpp>
 #include <fiberize/handler.hpp>
 #include <fiberize/fiberref.hpp>
+#include <fiberize/detail/controlblockptr.hpp>
 
 namespace fiberize {
 
@@ -47,7 +48,7 @@ public:
     /**
      * Creates a new context attached to the given control block.
      */
-    FiberContext(fiberize::FiberSystem* system, std::shared_ptr<fiberize::detail::ControlBlock> controlBlock);
+    FiberContext(fiberize::FiberSystem* system, detail::ControlBlockPtr controlBlock);
     
     /**
      * Processes all pending events, then suspends and reschedules this fiber.
@@ -87,7 +88,7 @@ public:
     /**
      * The control block of this fiber.
      */
-    std::shared_ptr<detail::ControlBlock> controlBlock();
+    detail::ControlBlockPtr controlBlock();
 
     /**
      * The current fiber reference.
@@ -115,7 +116,7 @@ private:
     // TODO: cache hashes
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
     std::unique_ptr<detail::HandlerContext> handlerContext;
-    std::shared_ptr<detail::ControlBlock> controlBlock_;
+    detail::ControlBlockPtr controlBlock_;
     AnyFiberRef fiberRef_;
     
     friend detail::HandlerContext;

@@ -13,7 +13,7 @@ struct Noop : public Fiber<Unit> {
 struct Spawner : public Fiber<Unit> {
     Unit run() override {
         for (size_t i = 1; i <= fibers; ++i) {
-            system()->run<Noop>();
+            system()->run_<Noop>();
             if (i % 100 == 0) {
                 yield();
             }
@@ -28,7 +28,7 @@ int main() {
     system.subscribe(self);
 
     for (size_t i = 0; i < spawners; ++i) {
-        system.run<Spawner>();
+        system.run_<Spawner>();
     }
 
     system.allFibersFinished().await();

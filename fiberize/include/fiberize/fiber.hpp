@@ -20,16 +20,15 @@ struct Fiber : public detail::FiberBase {
     /**
      * Called internally to start the fiber and take care of the result value and exceptions.
      */
-    virtual void _execute(std::shared_ptr<detail::ControlBlock> controlBlock) {
+    virtual void _execute(detail::ControlBlockPtr controlBlock) {
         FiberContext context(detail::Executor::current()->system, controlBlock);
         context.makeCurrent();
 
-        self_ = FiberRef<A>(std::make_shared<detail::LocalFiberRef>(context.system, controlBlock));
-
+        auto result = static_cast<Promise<A>*>(controlBlock->result.get());
         try {
-            self_.result()->tryToComplete(run());
+            result->tryToComplete(run());
         } catch (...) {
-            self_.result()->tryToFail(std::current_exception());
+            result->tryToFail(std::current_exception());
         }
     }
     
@@ -39,6 +38,10 @@ protected:
      * Returns the reference to the current fiber.
      */
     FiberRef<A> self() const {
+        if (self_.path() == Path(DevNullPath{})) {
+            auto context = FiberContext::current();
+            self_ = FiberRef<A>(std::make_shared<detail::LocalFiberRef>(context->system, context->controlBlock()));
+        }
         return self_;
     }
 
@@ -85,7 +88,7 @@ protected:
     }
     
 private:
-    FiberRef<A> self_;
+    mutable FiberRef<A> self_;
 };
 
 } // namespace fiberize
