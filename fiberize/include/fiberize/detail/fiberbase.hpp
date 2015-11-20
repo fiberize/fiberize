@@ -14,7 +14,7 @@ struct FiberBase {
     /**
      * Run the fiber and take care of return value and unhandled exceptions.
      */
-    virtual void _execute(detail::ControlBlockPtr controlBlock) = 0;
+    virtual void _execute() = 0;
 };
     
 } // namespace detail

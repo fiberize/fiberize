@@ -5,8 +5,8 @@
 
 namespace fiberize {
 
-FiberContext::FiberContext(FiberSystem* system, detail::ControlBlockPtr controlBlock)
-    : system(system), controlBlock_(std::move(controlBlock)), fiberRef_(std::make_shared<detail::LocalFiberRef>(system, controlBlock_)) {
+FiberContext::FiberContext(FiberSystem* system, detail::ControlBlock* controlBlock)
+    : system(system), controlBlock_(controlBlock) {
     controlBlock_->fiberContext = this;
 }
 
@@ -190,7 +190,7 @@ HandlerRef FiberContext::bind(const Path& path, fiberize::detail::Handler* handl
     return HandlerRef(handler);
 }
 
-detail::ControlBlockPtr FiberContext::controlBlock() {
+detail::ControlBlock* FiberContext::controlBlock() {
     return controlBlock_;
 }
 
@@ -203,6 +203,9 @@ FiberContext* FiberContext::current() {
 }
 
 AnyFiberRef FiberContext::fiberRef() {
+    if (fiberRef_.path() == Path(DevNullPath{})) {
+        fiberRef_ = AnyFiberRef(std::make_shared<detail::LocalFiberRef>(system, detail::ControlBlockPtr(controlBlock_)));
+    }
     return fiberRef_;
 }
 

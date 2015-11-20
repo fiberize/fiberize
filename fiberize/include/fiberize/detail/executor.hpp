@@ -39,7 +39,7 @@ public:
      *
      * You must hold the control block mutex.
      */
-    void schedule(ControlBlockPtr controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock);
+    void schedule(ControlBlock* controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock);
 
     /**
      * Suspend this fiber.
@@ -65,7 +65,7 @@ public:
     /**
      * Returns the currently executing control block,
      */
-    ControlBlockPtr currentControlBlock();
+    ControlBlock* currentControlBlock();
     
     /**
      * The fiber system this executor is attached to.
@@ -97,7 +97,7 @@ private:
     /**
      * Jumps to the given fiber.
      */
-    void jumpToFiber(boost::context::fcontext_t* stash, ControlBlockPtr&& controlBlock);
+    void jumpToFiber(boost::context::fcontext_t* stash, ControlBlock* controlBlock);
 
     /**
      * Performs cleanup after a jump.
@@ -127,7 +127,7 @@ private:
     /**
      * Scheduled control blocks waiting to be executed.
      */
-    moodycamel::ConcurrentQueue<ControlBlockPtr> runQueue;
+    moodycamel::ConcurrentQueue<ControlBlock*> runQueue;
 
     /**
      * Context executed when we have nothing to do.
@@ -142,7 +142,7 @@ private:
     /**
      * Previously executing fiber.
      */
-    ControlBlockPtr previousControlBlock_;
+    ControlBlock* previousControlBlock_;
 
     /**
      * Variable used to transport the lock during a context switch.
@@ -152,7 +152,7 @@ private:
     /**
      * The currently executing control block.
      */
-    ControlBlockPtr currentControlBlock_;
+    ControlBlock* currentControlBlock_;
 
     /**
      * Random engine used for work stealing.

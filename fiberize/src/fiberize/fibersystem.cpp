@@ -61,7 +61,7 @@ Event<Unit> FiberSystem::allFibersFinished() {
     return allFibersFinished_;
 }
 
-void FiberSystem::schedule(detail::ControlBlockPtr controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock) {
+void FiberSystem::schedule(detail::ControlBlock* controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock) {
     // TODO: optimize memory order
     uint64_t i = std::atomic_fetch_add(&roundRobinCounter, 1lu);
     executors[i % executors.size()]->schedule(std::move(controlBlock), std::move(lock));

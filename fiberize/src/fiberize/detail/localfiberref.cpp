@@ -14,8 +14,8 @@ Path LocalFiberRef::path() const {
     return block->path;
 }
 
-LocalFiberRef::LocalFiberRef(FiberSystem* system, const ControlBlockPtr& block)
-    : system(system), block(block) {}
+LocalFiberRef::LocalFiberRef(FiberSystem* system, ControlBlockPtr block)
+    : system(system), block(std::move(block)) {}
 
 void LocalFiberRef::send(const PendingEvent& pendingEvent) {
     boost::shared_lock<boost::upgrade_mutex> shared_lock(block->mutex);
@@ -25,7 +25,7 @@ void LocalFiberRef::send(const PendingEvent& pendingEvent) {
         boost::upgrade_lock<boost::upgrade_mutex> upgrade_lock(std::move(shared_lock), boost::try_to_lock);
         if (upgrade_lock.owns_lock()) {
             boost::unique_lock<boost::upgrade_mutex> unique_lock(std::move(upgrade_lock));
-            system->schedule(block, std::move(unique_lock));
+            system->schedule(block.get(), std::move(unique_lock));
         }
     }
 }

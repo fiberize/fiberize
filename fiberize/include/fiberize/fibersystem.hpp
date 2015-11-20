@@ -132,9 +132,9 @@ public:
      */
     template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
     AnyFiberRef fiberize() {
-        detail::ControlBlockPtr controlBlock = createUnmanagedBlock<MailboxImpl>();
+        detail::ControlBlock* controlBlock = createUnmanagedBlock<MailboxImpl>();
         (new FiberContext(this, controlBlock))->makeCurrent();
-        return AnyFiberRef(std::make_shared<detail::LocalFiberRef>(this, controlBlock));
+        return AnyFiberRef(std::make_shared<detail::LocalFiberRef>(this, detail::ControlBlockPtr(controlBlock)));
     }
 
     /**
@@ -147,7 +147,7 @@ private:
     /**
      * Reschedule the fiber. It must be locked for writing.
      */
-    void schedule(detail::ControlBlockPtr controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock);
+    void schedule(detail::ControlBlock* controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock);
 
     void fiberFinished();
 
@@ -176,7 +176,7 @@ private:
             schedule(block, std::move(lock));
 
             // Create a local reference.
-            impl = std::make_shared<detail::LocalFiberRef>(this, std::move(block));
+            impl = std::make_shared<detail::LocalFiberRef>(this, detail::ControlBlockPtr(block));
         } else {
             // System is shutting down, do not create new fibers.
             impl = std::make_shared<detail::DevNullFiberRef>();
@@ -220,21 +220,21 @@ private:
         typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type,
         typename Result = decltype(std::declval<FiberImpl>().run())
         >
-    detail::ControlBlockPtr createManagedBlock(const Ident& ident, const FiberFactory& fiberFactory) {
+    detail::ControlBlock* createManagedBlock(const Ident& ident, const FiberFactory& fiberFactory) {
         FiberImpl* fiber = fiberFactory();
         Event<Result> finished = newEvent<Result>();
         Event<Unit> crashed = newEvent<Unit>();
 
         // Create the control block.
         detail::ControlBlock* block = alllocateBlock();
-        block->refCount = 0;
+        block->refCount = 1;
         block->path = PrefixedPath(uuid(), ident);
         block->mailbox = MailboxPool<MailboxImpl>::current.allocate();
         block->fiber.reset(fiber);
         block->result.reset(new Promise<Result>(newEvent<Unit>()));
         block->status = detail::Suspended;
         block->reschedule = false;
-        return detail::ControlBlockPtr(block);
+        return block;
     }
 
     detail::ControlBlock* alllocateBlock() {
@@ -254,16 +254,16 @@ private:
      * Creates a block for a thread that is not running an executor.
      */
     template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
-    detail::ControlBlockPtr createUnmanagedBlock() {
+    detail::ControlBlock* createUnmanagedBlock() {
         auto block = alllocateBlock();
-        block->refCount = 0;
+        block->refCount = 1;
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
         block->mailbox = MailboxPool<MailboxImpl>::current.allocate();
         block->fiber.reset();
         block->result.reset(new Promise<Void>(newEvent<Unit>()));
         block->status = detail::Running;
         block->reschedule = false;
-        return detail::ControlBlockPtr(block);
+        return block;
     }
     
     /**

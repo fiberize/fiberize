@@ -20,7 +20,8 @@ struct Fiber : public detail::FiberBase {
     /**
      * Called internally to start the fiber and take care of the result value and exceptions.
      */
-    virtual void _execute(detail::ControlBlockPtr controlBlock) {
+    virtual void _execute() {
+        detail::ControlBlock* controlBlock = detail::Executor::current()->currentControlBlock();
         FiberContext context(detail::Executor::current()->system, controlBlock);
         context.makeCurrent();
 
@@ -38,57 +39,50 @@ protected:
      * Returns the reference to the current fiber.
      */
     FiberRef<A> self() const {
-        if (self_.path() == Path(DevNullPath{})) {
-            auto context = FiberContext::current();
-            self_ = FiberRef<A>(std::make_shared<detail::LocalFiberRef>(context->system, context->controlBlock()));
-        }
-        return self_;
+        return FiberRef<A>(context()->fiberRef().impl());
     }
 
     /**
      * Returns the fiber system.
      */
-    FiberSystem* system() {
+    FiberSystem* system() const {
         return FiberContext::current()->system;
     }
 
     /**
      * Returns the context attached to this fiber.
      */
-    FiberContext* context() {
+    FiberContext* context() const {
         return FiberContext::current();
     }
 
     /**
      * Processes all pending events, then suspends and reschedules this fiber.
      */
-    void yield() {
+    void yield() const {
         context()->yield();
     }
 
     /**
      * Processes all pending events.
      */
-    void process() {
+    void process() const {
         context()->process();
     }
 
     /**
      * Processes events in a loop, forever.
      */
-    Void processForever() {
+    Void processForever() const {
         return context()->processForever();
     }
 
     /**
      * Executes the next handler in a handler stack.
      */
-    void super() {
+    void super() const {
         context()->super();
     }
-    
-private:
-    mutable FiberRef<A> self_;
 };
 
 } // namespace fiberize

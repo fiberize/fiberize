@@ -84,10 +84,29 @@ struct ControlBlock {
      */
     bool reschedule;
 
+    // Reference counting.
+
     /**
      * Reference counter.
      */
-    std::atomic<std::size_t> refCount;
+    std::atomic<uint32_t> refCount;
+
+    /**
+     * Grabs a reference.
+     */
+    inline void grab() {
+        std::atomic_fetch_add(&refCount, 1u);
+    }
+
+    /**
+     * Drops a reference.
+     */
+    inline void drop() {
+        if (std::atomic_fetch_sub_explicit(&refCount, 1u, std::memory_order_release) == 1u) {
+            std::atomic_thread_fence(std::memory_order_acquire);
+            delete this;
+        }
+    }
 };
  
 } // namespace detail

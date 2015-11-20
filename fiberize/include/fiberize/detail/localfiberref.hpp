@@ -12,7 +12,7 @@ namespace detail {
 
 class LocalFiberRef : public FiberRefImpl {
 public:
-    LocalFiberRef(FiberSystem* system, const ControlBlockPtr& block);
+    LocalFiberRef(FiberSystem* system, ControlBlockPtr block);
     
     // FiberRefImpl
     virtual Locality locality() const;

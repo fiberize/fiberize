@@ -48,7 +48,7 @@ public:
     /**
      * Creates a new context attached to the given control block.
      */
-    FiberContext(fiberize::FiberSystem* system, detail::ControlBlockPtr controlBlock);
+    FiberContext(fiberize::FiberSystem* system, detail::ControlBlock* controlBlock);
     
     /**
      * Processes all pending events, then suspends and reschedules this fiber.
@@ -88,7 +88,7 @@ public:
     /**
      * The control block of this fiber.
      */
-    detail::ControlBlockPtr controlBlock();
+    detail::ControlBlock* controlBlock();
 
     /**
      * The current fiber reference.
@@ -116,7 +116,7 @@ private:
     // TODO: cache hashes
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
     std::unique_ptr<detail::HandlerContext> handlerContext;
-    detail::ControlBlockPtr controlBlock_;
+    detail::ControlBlock* controlBlock_;
     AnyFiberRef fiberRef_;
     
     friend detail::HandlerContext;
