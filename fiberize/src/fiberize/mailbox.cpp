@@ -5,34 +5,6 @@ namespace fiberize {
 Mailbox::~Mailbox() {
 }
 
-BlockingCircularBufferMailbox::~BlockingCircularBufferMailbox() {
-    clear();
-}
-
-void BlockingCircularBufferMailbox::enqueue(const PendingEvent& event) {
-    std::lock_guard<std::mutex> lock(mutex);
-    pendingEvents.push_back(event);
-}
-
-bool BlockingCircularBufferMailbox::dequeue(PendingEvent& event) {
-    std::lock_guard<std::mutex> lock(mutex);
-    if (pendingEvents.empty()) {
-        return false;
-    } else {
-        event = pendingEvents.front();
-        pendingEvents.pop_front();
-        return true;
-    }
-}
-
-void BlockingCircularBufferMailbox::clear() {
-    std::lock_guard<std::mutex> lock(mutex);
-    for (PendingEvent& event : pendingEvents) {
-        if (event.freeData != nullptr)
-            event.freeData(event.data);
-    }
-}
-
 BoostLockfreeQueueMailbox::BoostLockfreeQueueMailbox(): pendingEvents(0) {
 }
 
@@ -85,7 +57,6 @@ void MoodyCamelConcurrentQueueMailbox::clear() {
     }
 }
 
-template class MailboxPool<BlockingCircularBufferMailbox>;
 template class MailboxPool<BoostLockfreeQueueMailbox>;
 template class MailboxPool<MoodyCamelConcurrentQueueMailbox>;
 

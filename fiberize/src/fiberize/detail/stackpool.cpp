@@ -7,7 +7,7 @@ constexpr size_t minCached = 32;
 
 // TODO: get rid of magic numbers and allow configuration
 CachedFixedSizeStackPool::CachedFixedSizeStackPool()
-    : inUse(0), pool(minCached), allocator() {}
+    : inUse(0), pool(), allocator() {}
 
 CachedFixedSizeStackPool::~CachedFixedSizeStackPool() {
     for (auto stack : pool)

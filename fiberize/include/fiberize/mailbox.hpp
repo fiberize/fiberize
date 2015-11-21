@@ -46,18 +46,6 @@ public:
 
 using MailboxDeleter = std::function<void (Mailbox*)>;
 
-class BlockingCircularBufferMailbox : public Mailbox {
-public:
-    virtual ~BlockingCircularBufferMailbox();
-    virtual bool dequeue(PendingEvent& event);
-    virtual void enqueue(const PendingEvent& event);
-    virtual void clear();
-
-private:
-    std::mutex mutex;
-    boost::circular_buffer<PendingEvent> pendingEvents;
-};
-
 class BoostLockfreeQueueMailbox : public Mailbox {
 public:
     BoostLockfreeQueueMailbox();
