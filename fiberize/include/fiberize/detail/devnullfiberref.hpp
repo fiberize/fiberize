@@ -15,6 +15,8 @@ public:
     virtual SomePromise* result();
 };
 
+extern DevNullFiberRef devNullFiberRef;
+
 } // namespace detail    
 } // namespace fiberize
 

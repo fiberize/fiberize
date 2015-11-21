@@ -87,7 +87,5 @@ boost::uuids::uuid FiberSystem::uuid() const {
 thread_local uint64_t FiberSystem::roundRobinCounter = 0;
 
 thread_local UniqueIdentGenerator FiberSystem::uniqueIdentGenerator;
-
-boost::fast_pool_allocator<detail::ControlBlock> FiberSystem::controlBlockAllocator;
     
 } // namespace fiberize

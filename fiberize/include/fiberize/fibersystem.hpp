@@ -226,7 +226,7 @@ private:
         Event<Unit> crashed = newEvent<Unit>();
 
         // Create the control block.
-        detail::ControlBlock* block = alllocateBlock();
+        detail::ControlBlock* block = new detail::ControlBlock;
         block->refCount = 1;
         block->path = PrefixedPath(uuid(), ident);
         block->mailbox = MailboxPool<MailboxImpl>::current.allocate();
@@ -237,25 +237,12 @@ private:
         return block;
     }
 
-    detail::ControlBlock* alllocateBlock() {
-        return new detail::ControlBlock();
-/*        auto memory = controlBlockAllocator.allocate(1);
-        new (memory) detail::ControlBlock;
-        return detail::ControlBlockPtr(
-            memory,
-            [] (detail::ControlBlock* ptr) {
-                ptr->~ControlBlock();
-                controlBlockAllocator.deallocate(ptr, 1);
-            }
-        );*/
-    }
-
     /**
      * Creates a block for a thread that is not running an executor.
      */
     template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
     detail::ControlBlock* createUnmanagedBlock() {
-        auto block = alllocateBlock();
+        detail::ControlBlock* block = new detail::ControlBlock;
         block->refCount = 1;
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
         block->mailbox = MailboxPool<MailboxImpl>::current.allocate();
@@ -290,8 +277,6 @@ private:
      * Generator used for event and fiber ids.
      */
     static thread_local UniqueIdentGenerator uniqueIdentGenerator;
-
-    static boost::fast_pool_allocator<detail::ControlBlock> controlBlockAllocator;
 
     bool shuttingDown;
 

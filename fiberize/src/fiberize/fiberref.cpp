@@ -3,6 +3,6 @@
 
 namespace fiberize {
 
-AnyFiberRef::AnyFiberRef() : impl_(new detail::DevNullFiberRef) {}
+AnyFiberRef::AnyFiberRef() : impl_(std::shared_ptr<detail::FiberRefImpl>(), &detail::devNullFiberRef) {}
     
 } // namespace fiberize
