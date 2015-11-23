@@ -15,12 +15,7 @@ Path DevNullFiberRef::path() const {
     return DevNullPath();
 }
 
-SomePromise* DevNullFiberRef::result() {
-    // TODO: this sucks!
-    return nullptr;
-}
-
 DevNullFiberRef devNullFiberRef;
-    
+
 } // namespace detail    
 } // namespace fiberize

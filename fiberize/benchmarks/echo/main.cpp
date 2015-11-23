@@ -3,24 +3,24 @@
 
 using namespace fiberize;
 
-Event<AnyFiberRef> ping("ping");
+Event<FiberRef> ping("ping");
 Event<Unit> pong("pong");
 
-struct Echo : public Fiber<Void> {
-    Void run() override {
+struct Echo : public Fiber {
+    void run() override {
         while (true) {
-            AnyFiberRef sender = ping.await();
+            FiberRef sender = ping.await();
             sender.send(pong);
         }
     }
 };
 
-struct Emitter : public Fiber<Unit> {
-    Emitter(const AnyFiberRef& echo, int initialMessages, int repeat)
+struct Emitter : public Future<Unit> {
+    Emitter(const FiberRef& echo, int initialMessages, int repeat)
         : echo(echo), initialMessages(initialMessages), repeat(repeat), sent(0), received(0)
         {}
     
-    AnyFiberRef echo;
+    FiberRef echo;
     const int initialMessages;
     const int repeat;
     

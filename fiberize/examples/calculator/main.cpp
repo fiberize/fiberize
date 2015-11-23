@@ -5,10 +5,10 @@ using namespace fiberize;
 
 struct InvalidSyntax {};
 
-struct Calculator : public Fiber<Void> {
+struct Calculator : public Fiber {
     static Event<std::string> feed;
     static Event<uint> result;
-    static Event<AnyFiberRef> subscribe;
+    static Event<FiberRef> subscribe;
 
     // Lexer
     std::stringstream input;
@@ -91,10 +91,10 @@ struct Calculator : public Fiber<Void> {
     
     // Driver
     
-    std::vector<AnyFiberRef> subscribers;
+    std::vector<FiberRef> subscribers;
     
-    Void run() override {
-        auto _handleSubscription = subscribe.bind([this] (const AnyFiberRef& fiber) {
+    void run() override {
+        auto _handleSubscription = subscribe.bind([this] (const FiberRef& fiber) {
             subscribers.push_back(fiber);
         });
         
@@ -118,13 +118,13 @@ struct Calculator : public Fiber<Void> {
 
 Event<std::string> Calculator::feed("Calculator::feed");
 Event<uint> Calculator::result("Calculator::result");
-Event<AnyFiberRef> Calculator::subscribe("Calculator::subscribe");
+Event<FiberRef> Calculator::subscribe("Calculator::subscribe");
 
 int main() {
     FiberSystem fiberSystem;
     
-    AnyFiberRef self = fiberSystem.fiberize();
-    AnyFiberRef calc = fiberSystem.run<Calculator>();
+    FiberRef self = fiberSystem.fiberize();
+    FiberRef calc = fiberSystem.run<Calculator>();
     calc.send(Calculator::subscribe, self);
     
     auto _printResults = Calculator::result.bind([] (uint value) {
@@ -136,6 +136,6 @@ int main() {
         std::cout << "> ";
         std::getline(std::cin, line);
         calc.send(Calculator::feed, line);
-        FiberContext::current()->process();
+        EventContext::current()->process();
     }
 }

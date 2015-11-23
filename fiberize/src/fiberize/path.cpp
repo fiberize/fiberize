@@ -15,4 +15,6 @@ UniqueIdent UniqueIdentGenerator::generate() {
     return UniqueIdent(nextToken++ & (generatorId << 48));
 }
 
+thread_local UniqueIdentGenerator uniqueIdentGenerator;
+
 } // namespace fiberize

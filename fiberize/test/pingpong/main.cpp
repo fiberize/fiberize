@@ -5,30 +5,28 @@ using namespace fiberize;
 
 uint32_t messages = 100000;
 
-Event<AnyFiberRef> init("init");
-Event<Unit> ready("ready");
+Event<FiberRef> init;
+Event<Unit> ready;
 
-Event<Unit> ping("ping");
-Event<Unit> pong("pong");
+Event<Unit> ping;
+Event<Unit> pong;
 
-struct Ping : public Fiber<Unit> {
-    Unit run() override {
+struct Ping : public Fiber {
+    void run() override {
         auto peer = init.await();
         
         for (uint32_t sent = 0; sent < messages; ++sent) {
             peer.send(ping);
             pong.await();
         }
-        
-        return {};
     }
 };
 
-struct Pong : public Fiber<Unit> {
-    Pong(AnyFiberRef mainFiber) : mainFiber(mainFiber) {}
-    AnyFiberRef mainFiber;
+struct Pong : public Fiber {
+    Pong(FiberRef mainFiber) : mainFiber(mainFiber) {}
+    FiberRef mainFiber;
 
-    Unit run() override {
+    void run() override {
         auto peer = init.await();
         mainFiber.send(ready);
 
@@ -36,14 +34,12 @@ struct Pong : public Fiber<Unit> {
             ping.await();
             peer.send(pong);
         }
-
-        return {};
     }
 };
 
 TEST(PingPong, PingPong) {
     FiberSystem system;
-    AnyFiberRef self = system.fiberize();
+    FiberRef self = system.fiberize();
     system.subscribe(self);
     
     auto ping = system.run<Ping>();

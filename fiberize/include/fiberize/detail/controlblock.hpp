@@ -1,28 +1,23 @@
 #ifndef FIBERIZE_DETAIL_CONTROLBLOCK_HPP
 #define FIBERIZE_DETAIL_CONTROLBLOCK_HPP
 
-#include <boost/context/all.hpp>
-
-#include <fiberize/mailbox.hpp>
 #include <fiberize/path.hpp>
+#include <fiberize/mailbox.hpp>
 #include <fiberize/fiberref.hpp>
 #include <fiberize/promise.hpp>
-#include <fiberize/detail/fiberbase.hpp>
 
 #include <iostream>
 #include <limits>
 
-#include <boost/thread/shared_mutex.hpp>
+#include <boost/thread.hpp>
+#include <boost/context/all.hpp>
 
 namespace fiberize {
 
-class FiberContext;
+class Runnable;
+class EventContext;
 
 namespace detail {
-
-class FiberBase;
-class Executor;
-class SomePromise;
 
 enum LifeStatus : uint8_t {
     Suspended,
@@ -33,36 +28,12 @@ enum LifeStatus : uint8_t {
 
 typedef boost::upgrade_mutex ControlBlockMutex;
 
-struct ControlBlock {
-    /**
-     * The stack of this fiber.
-     */
-    boost::context::stack_context stack;
-    
-    /**
-     * The last saved context.
-     */
-    boost::context::fcontext_t context;
-    
-    /**
-     * Path to this fiber.
-     */
-    Path path;
-    
-    /**
-     * Mailbox attached to this control block.
-     */
-    std::unique_ptr<Mailbox, MailboxDeleter> mailbox;
-    
-    /**
-     * The fiber implementation.
-     */
-    std::unique_ptr<FiberBase> fiber;
-    
-    /**
-     * Promise that will contain the result of this fiber.
-     */
-    std::unique_ptr<SomePromise> result;
+class ControlBlock {
+public:
+    virtual ~ControlBlock() {};
+
+    virtual bool isFiber() = 0;
+    virtual bool isThread() = 0;
 
     /**
      * Status of this fiber.
@@ -75,14 +46,19 @@ struct ControlBlock {
     ControlBlockMutex mutex;
 
     /**
-     * Fiber context attached to this block.
+     * Path to this fiber.
      */
-    FiberContext* fiberContext;
-
+    Path path;
+    
     /**
-     * Whether a block should be rescheduled after a jump.
+     * Mailbox attached to this control block.
      */
-    bool reschedule;
+    std::unique_ptr<Mailbox, MailboxDeleter> mailbox;
+    
+    /**
+     * Event context attached to this block.
+     */
+    EventContext* eventContext;
 
     // Reference counting.
 
@@ -108,7 +84,54 @@ struct ControlBlock {
         }
     }
 };
- 
+
+class FiberControlBlock : public ControlBlock {
+public:
+    virtual bool isFiber() { return true; };
+    virtual bool isThread() { return false; };
+
+    /**
+     * The stack of this fiber.
+     */
+    boost::context::stack_context stack;
+
+    /**
+     * The last saved context.
+     */
+    boost::context::fcontext_t context;
+
+    /**
+     * The fiber implementation.
+     */
+    std::unique_ptr<Runnable> runnable;
+
+    /**
+     * Whether a block should be rescheduled after a jump.
+     */
+    bool reschedule;
+};
+
+template <typename A>
+class FutureControlBlock : public FiberControlBlock {
+public:
+    /**
+     * Promise that will contain the result of this fiber.
+     */
+    Promise<A> result;
+};
+
+class ThreadControlBlock : public ControlBlock {
+public:
+    virtual bool isFiber() { return false; };
+    virtual bool isThread() { return true; };
+
+    /**
+     * Condition variable used to wake up the thread when an event arrives.
+     */
+    boost::condition_variable enabled;
+    boost::mutex enabledMutex;
+};
+
 } // namespace detail
 } // namespace fiberize
 

@@ -13,37 +13,37 @@ namespace fiberize {
 template <typename A>
 class Promise;
 
-class AnyFiberRef {
+class FiberRef {
 public:
     /**
      * Creates a fiber reference pointing to /dev/null.
      */
-    AnyFiberRef();
+    FiberRef();
 
     /**
      * Creates a new fiber reference with the given implementation.
      */
-    inline AnyFiberRef(std::shared_ptr<detail::FiberRefImpl> impl): impl_(impl) {}
+    inline FiberRef(std::shared_ptr<detail::FiberRefImpl> impl): impl_(impl) {}
 
     /**
      * Copies a fiber reference.
      */
-    AnyFiberRef(const AnyFiberRef& ref) = default;
+    FiberRef(const FiberRef& ref) = default;
 
     /**
      * Moves a fiber reference.
      */
-    AnyFiberRef(AnyFiberRef&& ref) = default;
+    FiberRef(FiberRef&& ref) = default;
 
     /**
      * Copies a fiber reference.
      */
-    AnyFiberRef& operator = (const AnyFiberRef& ref) = default;
+    FiberRef& operator = (const FiberRef& ref) = default;
 
     /**
      * Moves a fiber reference.
      */
-    AnyFiberRef& operator = (AnyFiberRef&& ref) = default;
+    FiberRef& operator = (FiberRef&& ref) = default;
 
     /**
      * Returns the path to this fiber.
@@ -78,44 +78,43 @@ protected:
 };
 
 template <typename A>
-class FiberRef : public AnyFiberRef {
+class FutureRef : public FiberRef {
 public:
     /**
-     * Creates a fiber reference pointing to /dev/null.
+     * Creates a new future reference with the given implementation.
      */
-    FiberRef() : AnyFiberRef() {};
+    FutureRef(std::shared_ptr<detail::FutureRefImpl<A>> impl)
+        : FiberRef(impl), futureImpl_(impl.get()) {}
 
     /**
-     * Creates a new fiber reference with the given implementation.
+     * Copies a future reference.
      */
-    FiberRef(std::shared_ptr<detail::FiberRefImpl> impl): AnyFiberRef(impl) {}
-
-    /**
-     * Copies a fiber reference.
-     */
-    FiberRef(const FiberRef& ref) = default;
+    FutureRef(const FutureRef& ref) = default;
     
     /**
-     * Moves a fiber reference.
+     * Moves a future reference.
      */
-    FiberRef(FiberRef&& ref) = default;
+    FutureRef(FutureRef&& ref) = default;
     
     /**
-     * Copies a fiber reference.
+     * Copies a future reference.
      */
-    FiberRef& operator = (const FiberRef& ref) = default;
+    FutureRef& operator = (const FutureRef& ref) = default;
     
     /**
-     * Moves a fiber reference.
+     * Moves a future reference.
      */
-    FiberRef& operator = (FiberRef&& ref) = default;
+    FutureRef& operator = (FutureRef&& ref) = default;
     
     /**
      * Returns the result of the fiber.
      */
     Promise<A>* result() {
-        return dynamic_cast<Promise<A>*>(impl_->result());
+        return futureImpl_->result();
     }
+
+private:
+    detail::FutureRefImpl<A>* futureImpl_;
 };
 
 } // namespace fiberize

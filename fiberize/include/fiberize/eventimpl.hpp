@@ -2,7 +2,7 @@
 #define FIBERIZE_EVENTIMPL_HPP
 
 #include <fiberize/event.hpp>
-#include <fiberize/fibercontext.hpp>
+#include <fiberize/eventcontext.hpp>
 
 namespace fiberize {
 
@@ -12,12 +12,12 @@ namespace fiberize {
 template <typename A>
 A Event<A>::await() const {
     auto handler = bind([] (const A& value) {
-        FiberContext::current()->super();
+        EventContext::current()->super();
         throw EventFired{value};
     });
 
     try {
-        return FiberContext::current()->processForever().absurd<A>();
+        EventContext::current()->processForever();
     } catch (const EventFired& eventFired) {
         return eventFired.value;
     }
@@ -30,7 +30,7 @@ template <typename A>
 template <typename... Args>
 HandlerRef Event<A>::bind(Args&&... args) const {
     detail::Handler* handler = new detail::TypedHandler<A>(std::forward<Args>(args...)...);
-    return FiberContext::current()->bind(path(), handler);
+    return EventContext::current()->bind(path(), handler);
 }
 
 } // namespace fiberize

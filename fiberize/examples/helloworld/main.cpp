@@ -3,12 +3,11 @@
 
 using namespace fiberize;
 
-struct Printer : public Fiber<Unit> {
+struct Printer : public Fiber {
     Printer(int n): n(n) {}
     
-    Unit run() override {
+    void run() override {
         std::cout << "Hello from fiber #" << n << std::endl;
-        return {};
     }
     
     int n;
@@ -16,7 +15,7 @@ struct Printer : public Fiber<Unit> {
 
 int main() {
     FiberSystem system;
-    AnyFiberRef self = system.fiberize();
+    FiberRef self = system.fiberize();
     system.subscribe(self);
     
     for (int i = 0; i < 1000000; ++i) {

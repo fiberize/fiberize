@@ -4,7 +4,7 @@
 using namespace fiberize;
 using ::testing::TestWithParam;
 
-struct Fibonacci : public Fiber<uint64_t> {
+struct Fibonacci : public Future<uint64_t> {
     Fibonacci(uint64_t n) : n(n) {}
     uint64_t n;
     

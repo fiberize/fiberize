@@ -1,8 +1,7 @@
-#ifndef FIBERIZE_DETAIL_LOCALACTORREF_HPP
-#define FIBERIZE_DETAIL_LOCALACTORREF_HPP
+#ifndef FIBERIZE_DETAIL_LOCALFIBERREF_HPP
+#define FIBERIZE_DETAIL_LOCALFIBERREF_HPP
 
-#include <fiberize/fiberref.hpp>
-#include <fiberize/detail/controlblockptr.hpp>
+#include <fiberize/detail/fiberrefimpl.hpp>
 
 namespace fiberize {
 
@@ -10,21 +9,38 @@ class FiberSystem;
 
 namespace detail {
 
-class LocalFiberRef : public FiberRefImpl {
+class ControlBlock;
+
+template <typename>
+class FutureControlBlock;
+
+class LocalFiberRef : public virtual FiberRefImpl {
 public:
-    LocalFiberRef(FiberSystem* system, ControlBlockPtr block);
-    
+    LocalFiberRef(FiberSystem* system, ControlBlock* block);
+    virtual ~LocalFiberRef();
+
     // FiberRefImpl
-    virtual Locality locality() const;
-    virtual Path path() const;
-    virtual void send(const PendingEvent& pendingEvent);
-    virtual SomePromise* result();
+    Locality locality() const override;
+    Path path() const override;
+    void send(const PendingEvent& pendingEvent) override;
 
     FiberSystem* const system;
-    ControlBlockPtr block;
+    ControlBlock* block;
 };
-    
+
+template <typename A>
+class LocalFutureRef : public LocalFiberRef, public FutureRefImpl<A> {
+public:
+    LocalFutureRef(FiberSystem* system, FutureControlBlock<A>* block)
+        : LocalFiberRef(system, block) {}
+
+    // FutureRefImpl<A>
+    Promise<A>* result() override {
+        return &static_cast<FutureControlBlock<A>*>(block)->result;
+    }
+};
+
 } // namespace detail
 } // namespace fiberize
 
-#endif // FIBERIZE_DETAIL_LOCALACTORREF_HPP
+#endif // FIBERIZE_DETAIL_LOCALFIBERREF_HPP

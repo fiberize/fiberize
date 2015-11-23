@@ -6,12 +6,12 @@
 
 namespace fiberize {
 
-class AnyFiberRef;
 struct PendingEvent;
 
-namespace detail {
+template <typename A>
+class Promise;
 
-class SomePromise;
+namespace detail {
 
 /**
  * Interface of an fiber reference implementation.
@@ -31,15 +31,18 @@ public:
     virtual Path path() const = 0;
 
     /**
-     * Returns the result of this fiber, as a promise.
-     */
-    virtual SomePromise* result() = 0;
-
-    /**
      * Emits an event for an appropriatly stored value.
      */
     virtual void send(const PendingEvent& pendingEvent) = 0;
+};
 
+template <typename A>
+class FutureRefImpl : public virtual FiberRefImpl {
+public:
+    /**
+     * Returns the result of this fiber, as a promise.
+     */
+    virtual Promise<A>* result() = 0;
 };
 
 } // namespace detail

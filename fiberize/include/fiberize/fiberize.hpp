@@ -10,7 +10,7 @@
 #include <fiberize/handler.hpp>
 #include <fiberize/fiber.hpp>
 #include <fiberize/fibersystem.hpp>
-#include <fiberize/fibercontext.hpp>
+#include <fiberize/eventcontext.hpp>
 #include <fiberize/promise.hpp>
 
 #endif // FIBERIZE_FIBERIZE_HPP

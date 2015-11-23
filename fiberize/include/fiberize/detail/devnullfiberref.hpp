@@ -7,15 +7,26 @@
 namespace fiberize {
 namespace detail {
 
-class DevNullFiberRef : public FiberRefImpl {
+class DevNullFiberRef : public virtual FiberRefImpl {
 public:
-    virtual Locality locality() const;
-    virtual void send(const PendingEvent& pendingEvent);
-    virtual Path path() const;
-    virtual SomePromise* result();
+    Locality locality() const override;
+    void send(const PendingEvent& pendingEvent) override;
+    Path path() const override;
 };
 
 extern DevNullFiberRef devNullFiberRef;
+
+template <typename A>
+class DevNullFutureRef : public DevNullFiberRef, public FutureRefImpl<A> {
+public:
+    Promise<A>* result() override {
+        // TODO: this should return some dummy promise
+        return nullptr;
+    }
+};
+
+template <typename A>
+DevNullFutureRef<A> devNullFutureRef;
 
 } // namespace detail    
 } // namespace fiberize

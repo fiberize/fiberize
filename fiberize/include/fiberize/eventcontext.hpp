@@ -1,5 +1,5 @@
-#ifndef FIBERIZE_FIBERCONTEXT_HPP
-#define FIBERIZE_FIBERCONTEXT_HPP
+#ifndef FIBERIZE_EVENTCONTEXT_HPP
+#define FIBERIZE_EVENTCONTEXT_HPP
 
 #include <unordered_map>
 #include <list>
@@ -10,7 +10,6 @@
 #include <fiberize/path.hpp>
 #include <fiberize/handler.hpp>
 #include <fiberize/fiberref.hpp>
-#include <fiberize/detail/controlblockptr.hpp>
 
 namespace fiberize {
 
@@ -43,17 +42,12 @@ struct ControlBlock;
 template <typename A>
 class Event;
 
-class FiberContext {
+class EventContext {
 public:
     /**
      * Creates a new context attached to the given control block.
      */
-    FiberContext(fiberize::FiberSystem* system, detail::ControlBlock* controlBlock);
-    
-    /**
-     * Processes all pending events, then suspends and reschedules this fiber.
-     */
-    void yield();
+    EventContext(FiberSystem* system, detail::ControlBlock* controlBlock);
     
     /**
      * Processes all pending events.
@@ -63,7 +57,7 @@ public:
     /**
      * Processes events in a loop, forever.
      */
-    Void processForever();
+    [[ noreturn ]] void processForever();
 
     /**
      * Executes the next handler in a stack.
@@ -93,7 +87,7 @@ public:
     /**
      * The current fiber reference.
      */
-    AnyFiberRef fiberRef();
+    FiberRef fiberRef();
 
     /**
      * Makes this context a current context.
@@ -104,20 +98,20 @@ public:
     void makeCurrent();
 
     /**
-     * Returns the current fiber context.
+     * Returns the current event context.
      *
      * Calling it from a thread that is not fiberized is undefined behaviour.
      */
-    static FiberContext* current();
+    static EventContext* current();
 
 private:
-    static thread_local FiberContext* current_;
+    static thread_local EventContext* current_;
 
     // TODO: cache hashes
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
     std::unique_ptr<detail::HandlerContext> handlerContext;
     detail::ControlBlock* controlBlock_;
-    AnyFiberRef fiberRef_;
+    FiberRef fiberRef_;
     
     friend detail::HandlerContext;
 };
@@ -125,4 +119,4 @@ private:
     
 } // namespace fiberize
 
-#endif // FIBERIZE_FIBERCONTEXT_HPP
+#endif // FIBERIZE_EVENTCONTEXT_HPP

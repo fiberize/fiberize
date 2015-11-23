@@ -8,8 +8,8 @@
 #include <boost/variant.hpp>
 
 #include <fiberize/event.hpp>
+#include <fiberize/eventcontext.hpp>
 #include <fiberize/fiberref.hpp>
-#include <fiberize/fibercontext.hpp>
 
 namespace fiberize {
 namespace detail {
@@ -85,6 +85,7 @@ public:
 template <typename A>
 class Promise : public detail::SomePromise {
 public:
+    Promise() = default;
     Promise(const Event<Unit>& condition) : condition(condition) {};
     Promise(const Promise&) = delete;
     Promise(Promise&&) = default;
@@ -140,7 +141,7 @@ public:
                 std::rethrow_exception(result->asFailure()->exception);
             }
         } else {
-            waiting.push_back(FiberContext::current()->fiberRef());
+            waiting.push_back(EventContext::current()->fiberRef());
             lock.unlock();
             condition.await();
             return await();
@@ -149,13 +150,13 @@ public:
     
 private:
     void wakup() {
-        for (AnyFiberRef& ref : waiting)
+        for (FiberRef& ref : waiting)
             ref.send(condition);
-        waiting = std::vector<AnyFiberRef>();
+        waiting = std::vector<FiberRef>();
     }
 
     std::mutex mutex;
-    std::vector<AnyFiberRef> waiting;
+    std::vector<FiberRef> waiting;
     std::unique_ptr<detail::Result<A>> result;
     Event<Unit> condition;
 };

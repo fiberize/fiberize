@@ -12,9 +12,9 @@ template <typename A>
 class Event {
 public:
     /**
-     * Creates a /dev/null event.
+     * Creates an event with a fresh unique global path.
      */
-    Event() {}
+    Event() : path_(GlobalPath(uniqueIdentGenerator.generate())) {}
 
     /**
      * Creates an event with the given name.

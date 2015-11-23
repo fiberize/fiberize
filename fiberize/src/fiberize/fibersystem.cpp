@@ -1,6 +1,6 @@
 #include <fiberize/fibersystem.hpp>
-#include <fiberize/fibercontext.hpp>
-#include <fiberize/detail/fiberbase.hpp>
+#include <fiberize/eventcontext.hpp>
+#include <fiberize/detail/fiberscheduler.hpp>
 
 #include <thread>
 #include <chrono>
@@ -34,22 +34,22 @@ FiberSystem::FiberSystem(uint32_t macrothreads) {
 
     allFibersFinished_ = newEvent<Unit>();
 
-    // Spawn the executors.
+    // Spawn the schedulers.
     for (uint32_t i = 0; i < macrothreads; ++i) {
-        executors.emplace_back(new detail::Executor(this, seedDist(seedGenerator), i));
+        schedulers_.emplace_back(new detail::FiberScheduler(this, seedDist(seedGenerator), i));
     }
 
     for (uint32_t i = 0; i < macrothreads; ++i) {
-        executors[i]->start();
+        schedulers_[i]->start();
     }
 }
 
 FiberSystem::~FiberSystem() {
-    for (detail::Executor* executor : executors) {
-        executor->stop();
+    for (auto scheduler : schedulers_) {
+        scheduler->stop();
     }
-    for (detail::Executor* executor : executors) {
-        delete executor;
+    for (auto scheduler : schedulers_) {
+        delete scheduler;
     }
 }
 
@@ -61,12 +61,7 @@ Event<Unit> FiberSystem::allFibersFinished() {
     return allFibersFinished_;
 }
 
-void FiberSystem::schedule(detail::ControlBlock* controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock) {
-    uint64_t i = roundRobinCounter++;
-    executors[i % executors.size()]->schedule(controlBlock, std::move(lock));
-}
-
-void FiberSystem::subscribe(AnyFiberRef ref) {
+void FiberSystem::subscribe(FiberRef ref) {
     std::lock_guard<std::mutex> lock(subscribersMutex);
     subscribers.push_back(ref);
 }
@@ -75,7 +70,7 @@ void FiberSystem::fiberFinished() {
     if (std::atomic_fetch_sub_explicit(&running, 1lu, std::memory_order_release) == 1) {
         std::atomic_thread_fence(std::memory_order_acquire);
         std::lock_guard<std::mutex> lock(subscribersMutex);
-        for (AnyFiberRef ref : subscribers)
+        for (FiberRef ref : subscribers)
             ref.send(allFibersFinished_);
     }
 }

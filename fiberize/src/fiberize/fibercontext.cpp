@@ -1,58 +1,14 @@
-#include <fiberize/fibercontext.hpp>
-#include <fiberize/detail/executor.hpp>
+#include <fiberize/eventcontext.hpp>
+#include <fiberize/scheduler.hpp>
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/detail/localfiberref.hpp>
 
 namespace fiberize {
 
-FiberContext::FiberContext(FiberSystem* system, detail::ControlBlock* controlBlock)
-    : system(system), controlBlock_(controlBlock) {
-    controlBlock_->fiberContext = this;
-}
+EventContext::EventContext(FiberSystem* system, detail::ControlBlock* controlBlock)
+    : system(system), controlBlock_(controlBlock) {}
 
-void FiberContext::yield() {
-    process();
-
-    // Suspend the current thread.
-    detail::Executor* executor = detail::Executor::current();
-    if (executor != nullptr) {
-        boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
-
-        /**
-         * It's possible that someone queued a message before we locked the mutex.
-         * Check if this is the case.
-         */
-        PendingEvent event;
-        if (controlBlock_->mailbox->dequeue(event)) {
-            /**
-             * Too bad, now we have to process it and start again.
-             */
-            lock.unlock();
-
-            try {
-                handleEvent(event);
-            } catch (...) {
-                event.freeData(event.data);
-                throw;
-            }
-            event.freeData(event.data);
-
-            /**
-             * Try again.
-             */
-            yield();
-        } else {
-            /**
-            * No new events, we can suspend the thread.
-            */
-            executor->suspendAndReschedule(std::move(lock));
-        }
-    } else {
-        pthread_yield();
-    }
-}
-
-void FiberContext::process()
+void EventContext::process()
 {
     PendingEvent event;
     while (controlBlock_->mailbox->dequeue(event)) {
@@ -66,49 +22,53 @@ void FiberContext::process()
     }
 }
 
-Void FiberContext::processForever()
+void EventContext::processForever()
 {
+    PendingEvent event;
     while (true) {
+        /**
+         * First, process all pending events.
+         */
         process();
 
-        // Suspend the current thread.
-        detail::Executor* executor = detail::Executor::current();
-        if (executor != nullptr) {
-            boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
+        /**
+         * Prepare to suspend the thread by locking the control block.
+         */
+        boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
 
+        /**
+         * It's possible that someone queued a message before we locked the mutex.
+         * Check if this is the case.
+         */
+        if (controlBlock_->mailbox->dequeue(event)) {
             /**
-             * It's possible that someone queued a message before we locked the mutex.
-             * Check if this is the case.
+             * Too bad, now we have to process it and start again. Give up the mutex,
+             * as we are not suspending yet.
              */
-            PendingEvent event;
-            if (controlBlock_->mailbox->dequeue(event)) {
-                /**
-                 * Too bad, now we have to process it and start again.
-                 */
-                lock.unlock();
+            lock.unlock();
 
-                try {
-                    handleEvent(event);
-                } catch (...) {
-                    event.freeData(event.data);
-                    throw;
-                }
+            try {
+                handleEvent(event);
+            } catch (...) {
                 event.freeData(event.data);
-
-                continue;
+                throw;
             }
+            event.freeData(event.data);
 
             /**
-             * No new events, we can suspend the thread.
+             * Process remaining events and try to suspend again.
              */
-            executor->suspend(std::move(lock));
-        } else {
-            pthread_yield();
+            continue;
         }
+
+        /**
+         * No new events, we can suspend the thread.
+         */
+        Scheduler::current()->suspend(std::move(lock));
     }
 }
 
-void FiberContext::super() {
+void EventContext::super() {
     /**
      * Check if we executed all handlers.
      */
@@ -144,7 +104,7 @@ void FiberContext::super() {
     (*it)->execute(handlerContext->data);
 }
 
-void FiberContext::handleEvent(const PendingEvent& event) {
+void EventContext::handleEvent(const PendingEvent& event) {
     /**
      * Find a handler block.
      */
@@ -176,7 +136,7 @@ void FiberContext::handleEvent(const PendingEvent& event) {
     handlerContext.reset();
 }
 
-HandlerRef FiberContext::bind(const Path& path, fiberize::detail::Handler* handler) {
+HandlerRef EventContext::bind(const Path& path, fiberize::detail::Handler* handler) {
     detail::HandlerBlock* block;
     auto it = handlerBlocks.find(path);
     if (it == handlerBlocks.end()) {
@@ -190,25 +150,25 @@ HandlerRef FiberContext::bind(const Path& path, fiberize::detail::Handler* handl
     return HandlerRef(handler);
 }
 
-detail::ControlBlock* FiberContext::controlBlock() {
+detail::ControlBlock* EventContext::controlBlock() {
     return controlBlock_;
 }
 
-void FiberContext::makeCurrent() {
+void EventContext::makeCurrent() {
     current_ = this;
 }
 
-FiberContext* FiberContext::current() {
+EventContext* EventContext::current() {
     return current_;
 }
 
-AnyFiberRef FiberContext::fiberRef() {
+FiberRef EventContext::fiberRef() {
     if (fiberRef_.path() == Path(DevNullPath{})) {
-        fiberRef_ = AnyFiberRef(std::make_shared<detail::LocalFiberRef>(system, detail::ControlBlockPtr(controlBlock_)));
+        fiberRef_ = FiberRef(std::make_shared<detail::LocalFiberRef>(system, controlBlock_));
     }
     return fiberRef_;
 }
 
-thread_local FiberContext* FiberContext::current_ = nullptr;
+thread_local EventContext* EventContext::current_ = nullptr;
  
 }

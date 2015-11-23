@@ -193,6 +193,11 @@ private:
     uint64_t nextToken;
 };
 
+/**
+ * Generator used to name new fibers and events.
+ */
+extern thread_local UniqueIdentGenerator uniqueIdentGenerator;
+
 } // nemespace fiberize
 
 #endif // FIBERIZE_PATH_HPP
