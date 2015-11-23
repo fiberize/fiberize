@@ -119,7 +119,7 @@ void FiberScheduler::idle() {
     while (!emergencyStop) {
         while (tryDequeue(controlBlock)) {
             assert(controlBlock->status == Scheduled);
-            jumpToFiber(&idleContext, std::move(controlBlock));
+            jumpToFiber(&idleContext, controlBlock);
         }
 
         if (system()->schedulers().size() > 1) {
@@ -135,7 +135,7 @@ void FiberScheduler::idle() {
              */
             if (system()->schedulers()[i]->tryToStealTask(controlBlock)) {
                 assert(controlBlock->status == Scheduled);
-                jumpToFiber(&idleContext, std::move(controlBlock));
+                jumpToFiber(&idleContext, controlBlock);
             } else {
                 std::this_thread::sleep_for(1ns);
             }
@@ -166,7 +166,7 @@ void FiberScheduler::switchFromRunning(boost::unique_lock<detail::ControlBlockMu
              * Switch the current control block to the next fiber and make the jump
              * saving our current state to the control block.
              */
-            jumpToFiber(&currentControlBlock_->context, std::move(controlBlock));
+            jumpToFiber(&currentControlBlock_->context, controlBlock);
         }
     } else {
         previousControlBlockLock = std::move(lock);
@@ -190,7 +190,7 @@ void FiberScheduler::switchFromTerminated() {
          * Switch the current control block to the next fiber and make the jump
          * saving our current state to the control block.
          */
-        jumpToFiber(&dummyContext, std::move(controlBlock));
+        jumpToFiber(&dummyContext, controlBlock);
 
     } else {
         /**
