@@ -15,7 +15,7 @@
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/detail/localfiberref.hpp>
 #include <fiberize/detail/devnullfiberref.hpp>
-#include <fiberize/detail/osthreadscheduler.hpp>
+#include <fiberize/detail/threadscheduler.hpp>
 
 namespace fiberize {
 
@@ -234,7 +234,7 @@ public:
         controlBlock->eventContext->makeCurrent();
 
         // TODO: real seed
-        auto scheduler = new detail::OSThreadScheduler(this, 123, controlBlock);
+        auto scheduler = new detail::ThreadScheduler(this, 123, controlBlock);
         scheduler->makeCurrent();
 
         return FiberRef(std::make_shared<detail::LocalFiberRef>(this, controlBlock));

@@ -9,10 +9,10 @@
 namespace fiberize {
 namespace detail {
 
-class OSThreadScheduler : public Scheduler {
+class ThreadScheduler : public Scheduler {
 public:
-    OSThreadScheduler(FiberSystem* system, uint64_t seed, ThreadControlBlock* controlBlock);
-    virtual ~OSThreadScheduler();
+    ThreadScheduler(FiberSystem* system, uint64_t seed, ThreadControlBlock* controlBlock);
+    virtual ~ThreadScheduler();
 
     void enableFiber(FiberControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock) override;
     void suspend(boost::unique_lock<ControlBlockMutex>&& lock) override;

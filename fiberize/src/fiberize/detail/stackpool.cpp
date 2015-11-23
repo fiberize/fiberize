@@ -31,7 +31,7 @@ boost::context::stack_context SegmentedStackPool::allocate() {
 void SegmentedStackPool::deallocate(boost::context::stack_context stack) {
     inUse -= 1;
 
-    if (pool.size() < minCached + inUse / 2) {
+    if (pool.size() < minCached) {
         pool.push_back(stack);
     } else {
         allocator.deallocate(stack);
