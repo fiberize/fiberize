@@ -49,7 +49,7 @@ public:
      */
     template <
         typename FiberImpl, 
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename std::enable_if<
              std::is_base_of<Fiber, FiberImpl>{}
             >::type* = nullptr,
@@ -68,7 +68,7 @@ public:
      */
     template <
         typename FutureImpl,
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename Result = decltype(std::declval<FutureImpl>().run()),
         typename std::enable_if<
              std::is_base_of<Future<Result>, FutureImpl>{}
@@ -88,7 +88,7 @@ public:
      */
     template <
         typename FiberImpl,
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename std::enable_if<
              std::is_base_of<Fiber, FiberImpl>{}
             >::type* = nullptr,
@@ -107,7 +107,7 @@ public:
      */
     template <
         typename FutureImpl,
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename Result = decltype(std::declval<FutureImpl>().run()),
         typename std::enable_if<
              std::is_base_of<Future<Result>, FutureImpl>{}
@@ -127,7 +127,7 @@ public:
      */
     template <
         typename FiberImpl,
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename std::enable_if<
              std::is_base_of<Fiber, FiberImpl>{}
             >::type* = nullptr,
@@ -146,7 +146,7 @@ public:
      */
     template <
         typename FutureImpl,
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename Result = decltype(std::declval<FutureImpl>().run()),
         typename std::enable_if<
              std::is_base_of<Future<Result>, FutureImpl>{}
@@ -166,7 +166,7 @@ public:
      */
     template <
         typename FiberImpl,
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename std::enable_if<
              std::is_base_of<Fiber, FiberImpl>{}
             >::type* = nullptr,
@@ -185,7 +185,7 @@ public:
      */
     template <
         typename FutureImpl,
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename Result = decltype(std::declval<FutureImpl>().run()),
         typename std::enable_if<
              std::is_base_of<Future<Result>, FutureImpl>{}
@@ -227,7 +227,7 @@ public:
      * A thread once fiberized cannot be unfiberized. This makes the function leak some memory.
      * TODO: unfiberizing?
      */
-    template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
+    template <typename MailboxImpl = BlockingDequeMailbox>
     FiberRef fiberize() {
         auto controlBlock = createThreadControlBlock<MailboxImpl>();
         controlBlock->eventContext = new EventContext(this, controlBlock);
@@ -258,7 +258,7 @@ private:
      * Starts a new fiber, using a factory to construct it.
      */
     template <
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename FiberFactory,
         typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type
         >
@@ -287,7 +287,7 @@ private:
      * Starts a new fiber, using a factory to construct it. Does not return the reference.
      */
     template <
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename FiberFactory,
         typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type
         >
@@ -310,7 +310,7 @@ private:
      * Starts a new future, using a factory to construct it.
      */
     template <
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename FutureFactory,
         typename FutureImpl = typename std::decay<decltype(*(std::declval<FutureFactory>()()))>::type,
         typename Result = decltype(std::declval<FutureImpl>().run())
@@ -340,7 +340,7 @@ private:
      * Starts a new future, using a factory to construct it. Does not return the reference.
      */
     template <
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename FutureFactory,
         typename FutureImpl = typename std::decay<decltype(*(std::declval<FutureFactory>()()))>::type
         >
@@ -363,7 +363,7 @@ private:
      * Creates a control block for a fiber.
      */
     template <
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename FiberFactory,
         typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type
         >
@@ -385,7 +385,7 @@ private:
      * Creates a control block for a future.
      */
     template <
-        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename MailboxImpl = BlockingDequeMailbox,
         typename FutureFactory,
         typename FutureImpl = typename std::decay<decltype(*(std::declval<FutureFactory>()()))>::type,
         typename Result = decltype(std::declval<FutureImpl>().run())
@@ -407,7 +407,7 @@ private:
     /**
      * Creates a block for a thread that is not running an executor.
      */
-    template <typename MailboxImpl = MoodyCamelConcurrentQueueMailbox>
+    template <typename MailboxImpl = BlockingDequeMailbox>
     detail::ThreadControlBlock* createThreadControlBlock() {
         auto block = new detail::ThreadControlBlock;
         block->refCount = 1;

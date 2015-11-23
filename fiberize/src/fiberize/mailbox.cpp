@@ -88,8 +88,9 @@ void MoodyCamelConcurrentQueueMailbox::clear() {
     }
 }
 
-template class MailboxPool<BlockingDequeMailbox>;
 template class MailboxPool<BoostLockfreeQueueMailbox>;
 template class MailboxPool<MoodyCamelConcurrentQueueMailbox>;
+
+MailboxPool<BlockingDequeMailbox> MailboxPool<BlockingDequeMailbox>::current;
 
 } // namespace fiberize

@@ -102,6 +102,18 @@ private:
     moodycamel::ConcurrentQueue<std::unique_ptr<Mailbox>> pool;
 };
 
+template <>
+class MailboxPool<BlockingDequeMailbox> {
+public:
+    std::unique_ptr<Mailbox, MailboxDeleter> allocate() {
+        return  std::unique_ptr<Mailbox, MailboxDeleter>(new BlockingDequeMailbox(), [] (Mailbox* ptr) {
+            delete ptr;
+        });
+    }
+
+    static MailboxPool current;
+};
+
 template <typename MailboxImpl>
 MailboxPool<MailboxImpl> MailboxPool<MailboxImpl>::current;
 
