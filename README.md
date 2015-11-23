@@ -18,23 +18,22 @@ The following example (examples/pingpong/main.cpp) starts two fibers that play p
 
 using namespace fiberize;
 
-// First we declare some events. Each event needs a unique name.
-// Events can have attached values. "Unit" is an empty structure and 
+// First we declare some events. The default constructor assigns a locally
+// unique id to the event.
+// Events can have attached values. "Unit" is an empty structure and
 // means that the event doesn't have any attached value.
-Event<AnyFiberRef> init("init"); // Initializes the fiber, giving it a reference to its peer.
-Event<Unit> ready("ready");      // Reports back to the main thread that we are ready and waiting for the first ping.
+Event<FiberRef> init; // Initializes the fiber, giving it a reference to its peer.
+Event<Unit> ready;    // Reports back to the main thread that we are ready and waiting for the first ping.
 
-Event<Unit> ping("ping");
-Event<Unit> pong("pong");
+Event<Unit> ping;
+Event<Unit> pong;
 
 // To create a fiber we derive from the Fiber class and implement the run function.
-// The type parameter specifies the type of the result. In this case the fiber runs
-// an infinite loop and never completes, so we could choose any result type.
-struct Ping : public Fiber<Unit> {
-    Unit run() override {
+struct Ping : public Fiber {
+    void run() override {
         // init.await() will "block" until the current fiber receives an init message and
         // then return the value attached to this event.
-        auto peer = init.await(); 
+        auto peer = init.await();
 
         while (true) {
             std::cout << "Ping" << std::endl;
@@ -45,11 +44,11 @@ struct Ping : public Fiber<Unit> {
     }
 };
 
-struct Pong : public Fiber<Unit> {
-    Pong(AnyFiberRef mainFiber) : mainFiber(mainFiber) {}
-    AnyFiberRef mainFiber;
+struct Pong : public Fiber {
+    Pong(FiberRef mainFiber) : mainFiber(mainFiber) {}
+    FiberRef mainFiber;
 
-    Unit run() override {
+    void run() override {
         auto peer = init.await();
         mainFiber.send(ready);
 
@@ -62,23 +61,23 @@ struct Pong : public Fiber<Unit> {
 };
 
 int main() {
-    // The FiberSystem (akka was an inspiration :) by default will create an OS thread for each CPU core we have.
+    // The FiberSystem by default will create an OS thread for each CPU core we have.
     // After initializing the system, we fiberize the current thread. This means it will
     // be able to communicate with real fibers.
     FiberSystem system;
-    AnyFiberRef self = system.fiberize();
-    
+    FiberRef self = system.fiberize();
+
     // We create the fibers. Any parameters passed to run will be forwarded to the constructor.
-    FiberRef<Unit> ping = system.run<Ping>();
-    FiberRef<Unit> pong = system.run<Pong>(self);
-    
+    FiberRef ping = system.run<Ping>();
+    FiberRef pong = system.run<Pong>(self);
+
     // Exchange the fiber refs.
     pong.send(init, ping);
-    ready.await(); // Awaiting in a fiberized thread (and not a real fiber) *blocks* the OS thread.
+    ready.await(); // Awaiting in a fiberized thread (and not a real fiber) *blocks*.
     ping.send(init, pong);
-    
+
     // Enter an infinite loop processing events.
-    FiberContext::current()->processForever();
+    EventContext::current()->processForever();
 }
 ```
 
