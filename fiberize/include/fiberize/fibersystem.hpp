@@ -82,6 +82,123 @@ public:
     }
 
     /**
+     * Starts a new unnamed fiber. This version doesn't return the fiber reference.
+     *
+     * The fiber is constructed using the given arguments.
+     */
+    template <
+        typename FiberImpl,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename std::enable_if<
+             std::is_base_of<Fiber, FiberImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    void run_(Args&& ...args) {
+        runFiber_<MailboxImpl>(uniqueIdentGenerator.generate(), [&] () {
+            return new FiberImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new unnamed future. This version doesn't return the future reference.
+     *
+     * The future is constructed using the given arguments.
+     */
+    template <
+        typename FutureImpl,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename Result = decltype(std::declval<FutureImpl>().run()),
+        typename std::enable_if<
+             std::is_base_of<Future<Result>, FutureImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    void run_(Args&& ...args) {
+        runFuture_<MailboxImpl>(uniqueIdentGenerator.generate(), [&] () {
+            return new FutureImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new named fiber.
+     *
+     * The fiber is constructed using the given arguments.
+     */
+    template <
+        typename FiberImpl,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename std::enable_if<
+             std::is_base_of<Fiber, FiberImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    FiberRef runNamed(const std::string& name, Args&& ...args) {
+        return runFiber<MailboxImpl>(Ident(NamedIdent(name)), [&] () {
+            return new FiberImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new named future.
+     *
+     * The future is constructed using the given arguments.
+     */
+    template <
+        typename FutureImpl,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename Result = decltype(std::declval<FutureImpl>().run()),
+        typename std::enable_if<
+             std::is_base_of<Future<Result>, FutureImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    FutureRef<Result> runNamed(const std::string& name, Args&& ...args) {
+        return runFuture<MailboxImpl>(Ident(NamedIdent(name)), [&] () {
+            return new FutureImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new named fiber. This version doesn't return the fiber reference.
+     *
+     * The fiber is constructed using the given arguments.
+     */
+    template <
+        typename FiberImpl,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename std::enable_if<
+             std::is_base_of<Fiber, FiberImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    void runNamed_(const std::string& name, Args&& ...args) {
+        runFiber_<MailboxImpl>(Ident(NamedIdent(name)), [&] () {
+            return new FiberImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new named future. This version doesn't return the future reference.
+     *
+     * The future is constructed using the given arguments.
+     */
+    template <
+        typename FutureImpl,
+        typename MailboxImpl = MoodyCamelConcurrentQueueMailbox,
+        typename Result = decltype(std::declval<FutureImpl>().run()),
+        typename std::enable_if<
+             std::is_base_of<Future<Result>, FutureImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    void runNamed_(const std::string& name, Args&& ...args) {
+        runFuture_<MailboxImpl>(Ident(NamedIdent(name)), [&] () {
+            return new FutureImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
      * Creates a new unique event.
      */
     template <typename A>
