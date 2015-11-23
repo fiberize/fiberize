@@ -14,11 +14,11 @@ public:
     OSThreadScheduler(FiberSystem* system, uint64_t seed, ThreadControlBlock* controlBlock);
     virtual ~OSThreadScheduler();
 
-    virtual void enableFiber(FiberControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock);
-    virtual void suspend(boost::unique_lock<ControlBlockMutex>&& lock);
-    virtual void yield(boost::unique_lock<ControlBlockMutex>&& lock);
-    virtual void terminate();
-    virtual detail::ControlBlock* currentControlBlock();
+    void enableFiber(FiberControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock) override;
+    void suspend(boost::unique_lock<ControlBlockMutex>&& lock) override;
+    void yield(boost::unique_lock<ControlBlockMutex>&& lock) override;
+    [[ noreturn ]] void terminate() override;
+    detail::ControlBlock* currentControlBlock() override;
 
 private:
     ThreadControlBlock* controlBlock_;

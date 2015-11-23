@@ -157,7 +157,7 @@ void FiberScheduler::switchFromRunning(boost::unique_lock<detail::ControlBlockMu
     assert(EventContext::current() != nullptr);
 }
 
-Void FiberScheduler::switchFromTerminated() {
+void FiberScheduler::switchFromTerminated() {
     FiberControlBlock* controlBlock;
 
     if (runQueue.try_dequeue(controlBlock)) {
