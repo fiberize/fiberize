@@ -6,7 +6,8 @@ namespace fiberize {
 /**
  * Anything that can be run.
  */
-struct Runnable {
+class Runnable {
+public:
     virtual ~Runnable() {};
     virtual void operator () () = 0;
 };

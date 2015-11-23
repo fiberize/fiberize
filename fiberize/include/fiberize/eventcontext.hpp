@@ -35,7 +35,7 @@ public:
     const void* data;
 };
 
-struct ControlBlock;
+class ControlBlock;
 
 } // namespace detail
 
