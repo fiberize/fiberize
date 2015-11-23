@@ -5,6 +5,34 @@ namespace fiberize {
 Mailbox::~Mailbox() {
 }
 
+BlockingDequeMailbox::~BlockingDequeMailbox() {
+    clear();
+}
+
+void BlockingDequeMailbox::enqueue(const PendingEvent& event) {
+    boost::unique_lock<boost::mutex> lock(mutex);
+    pendingEvents.push_back(event);
+}
+
+bool BlockingDequeMailbox::dequeue(PendingEvent& event) {
+    boost::unique_lock<boost::mutex> lock(mutex);
+    if (pendingEvents.empty()) {
+        return false;
+    } else {
+        event = pendingEvents.front();
+        pendingEvents.pop_front();
+        return true;
+    }
+}
+
+void BlockingDequeMailbox::clear() {
+    boost::unique_lock<boost::mutex> lock(mutex);
+    for (auto& event : pendingEvents) {
+        if (event.freeData != nullptr)
+            event.freeData(event.data);
+    }
+}
+
 BoostLockfreeQueueMailbox::BoostLockfreeQueueMailbox(): pendingEvents(0) {
 }
 
@@ -37,6 +65,9 @@ void BoostLockfreeQueueMailbox::clear() {
     }
 }
 
+MoodyCamelConcurrentQueueMailbox::MoodyCamelConcurrentQueueMailbox()
+    : pendingEvents(0) {}
+
 MoodyCamelConcurrentQueueMailbox::~MoodyCamelConcurrentQueueMailbox() {
     clear();
 }
@@ -57,6 +88,7 @@ void MoodyCamelConcurrentQueueMailbox::clear() {
     }
 }
 
+template class MailboxPool<BlockingDequeMailbox>;
 template class MailboxPool<BoostLockfreeQueueMailbox>;
 template class MailboxPool<MoodyCamelConcurrentQueueMailbox>;
 

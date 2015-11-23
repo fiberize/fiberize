@@ -16,7 +16,7 @@ FiberScheduler::FiberScheduler(fiberize::FiberSystem* system, uint64_t seed, uin
     , previousControlBlock_(nullptr)
     , currentControlBlock_(nullptr)
     , myIndex(index)
-    , stackPool(new detail::CachedFixedSizeStackPool)
+    , stackPool(new detail::DefaultStackPool)
     , emergencyStop(false)
     {}
 

@@ -432,16 +432,6 @@ private:
      */
     std::atomic<uint64_t> running;
 
-    /**
-     * Counter used implement round robin task balancing.
-     */
-    static thread_local uint64_t roundRobinCounter;
-    
-    /**
-     * Generator used for event and fiber ids.
-     */
-    static thread_local UniqueIdentGenerator uniqueIdentGenerator;
-
     bool shuttingDown;
 
     // Events, TODO: refactor

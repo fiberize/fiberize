@@ -18,22 +18,49 @@ public:
     virtual void delayedDeallocate(boost::context::stack_context stack) = 0;
 };
 
+#ifdef FIBERIZE_SEGMENTED_STACKS
+
+class SegmentedStackPool : public StackPool {
+public:
+    SegmentedStackPool();
+
+    // StackPool
+    ~SegmentedStackPool() override;
+    boost::context::stack_context allocate() override;
+    void deallocate(boost::context::stack_context stack) override;
+    void delayedDeallocate(boost::context::stack_context stack) override;
+
+private:
+    size_t inUse;
+    std::vector<boost::context::stack_context> pool;
+    boost::context::stack_context delayed;
+    boost::context::segmented_stack allocator;
+};
+
+typedef SegmentedStackPool DefaultStackPool;
+
+#else // if !FIBERIZE_SEGMENTED_STACKS
+
 class CachedFixedSizeStackPool : public StackPool {
 public:
     CachedFixedSizeStackPool();
-    
+
     // StackPool
-    virtual ~CachedFixedSizeStackPool();
-    virtual boost::context::stack_context allocate();
-    virtual void deallocate(boost::context::stack_context stack);
-    virtual void delayedDeallocate(boost::context::stack_context stack);
-    
+    ~CachedFixedSizeStackPool() override;
+    boost::context::stack_context allocate() override;
+    void deallocate(boost::context::stack_context stack) override;
+    void delayedDeallocate(boost::context::stack_context stack) override;
+
 private:
     size_t inUse;
     std::vector<boost::context::stack_context> pool;
     boost::context::stack_context delayed;
     boost::context::fixedsize_stack allocator;
 };
+
+typedef CachedFixedSizeStackPool DefaultStackPool;
+
+#endif // !FIBERIZE_SEGMENTED_STACKS
 
 } // namespace detail
 } // namespace fiberize

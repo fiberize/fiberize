@@ -14,7 +14,6 @@ FiberSystem::FiberSystem() : FiberSystem(std::thread::hardware_concurrency()) {}
 FiberSystem::FiberSystem(uint32_t macrothreads) {
     shuttingDown = false;
     running = 0;
-    roundRobinCounter = 0;
 
     /**
      * Generate the uuid.
@@ -78,9 +77,5 @@ void FiberSystem::fiberFinished() {
 boost::uuids::uuid FiberSystem::uuid() const {
     return uuid_;
 }
-
-thread_local uint64_t FiberSystem::roundRobinCounter = 0;
-
-thread_local UniqueIdentGenerator FiberSystem::uniqueIdentGenerator;
     
 } // namespace fiberize

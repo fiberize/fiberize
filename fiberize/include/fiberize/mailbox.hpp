@@ -3,12 +3,11 @@
 
 #include <atomic>
 #include <vector>
-#include <thread>
-#include <mutex>
 #include <iostream>
 
 #include <boost/circular_buffer.hpp>
 #include <boost/lockfree/queue.hpp>
+#include <boost/thread.hpp>
 
 #include <fiberize/path.hpp>
 #include <moodycamel/concurrentqueue.h>
@@ -46,6 +45,18 @@ public:
 
 using MailboxDeleter = std::function<void (Mailbox*)>;
 
+class BlockingDequeMailbox : public Mailbox {
+public:
+    virtual ~BlockingDequeMailbox();
+    virtual bool dequeue(PendingEvent& event);
+    virtual void enqueue(const PendingEvent& event);
+    virtual void clear();
+
+private:
+    std::deque<PendingEvent> pendingEvents;
+    boost::mutex mutex;
+};
+
 class BoostLockfreeQueueMailbox : public Mailbox {
 public:
     BoostLockfreeQueueMailbox();
@@ -60,6 +71,7 @@ private:
 
 class MoodyCamelConcurrentQueueMailbox : public Mailbox {
 public:
+    MoodyCamelConcurrentQueueMailbox();
     virtual ~MoodyCamelConcurrentQueueMailbox();
     virtual bool dequeue(PendingEvent& event);
     virtual void enqueue(const PendingEvent& event);
