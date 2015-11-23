@@ -109,3 +109,9 @@ The project is pretty new and has a long and ambitious todo list :)
 * remoting tunnels - the first step to cluster support is to establish a tunnel between two systems, that allows them to lookup remote fibers and send events. It should be possible to link two tunnels, creating a relay node. Of course this requires serialization: protocol buffers and JSON/BSON are what I'm currently looking at.
 * clustering - the idea is to use existing p2p and DHT implementations to create a cluster management layer. The job of the management layer is to maintain a mapping from system UUIDs to lists of IP addresses/ports, global fiber paths to system UUIDs, a list of relay nodes, etc. Using this information remoting tunnels can be established, possibly routing around NATs using a technique like [ICE](https://tools.ietf.org/html/rfc5245) and the relay nodes.
 * depth/breadth executors - the current executor uses a FIFO queue. This guarantees that no task will be starved, but also means that we start a lot of work without finishing it, which means we have to allocate a lot of memory for the stacks. The extreme opposite is to use a FILO queue, however this could possibly starve some fibers. A hybrid approach would attach a generation number to each fiber, starting with 0 for a fiberized OS thread. A fiber spawned by an n-th generation fiber starts at generation (n+1) and each time a fiber is suspended (or awaits) we increase its generation by 1. Depth-first executors prioritize fibers with higher generation, while bredth-first executors do the opposite. The ratio of depth/breadth can be adjusted to the workload.
+
+References
+==========
+
+* Blumofe, Robert D., and Charles E. Leiserson. "Scheduling multithreaded computations by work stealing." Journal of the ACM (JACM) 46.5 (1999): 720-748.
+* Voellmy, Andreas Richard, et al. "Mio: a high-performance multicore io manager for ghc." ACM SIGPLAN Notices 48.12 (2014): 129-140.
