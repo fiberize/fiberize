@@ -2,24 +2,38 @@
 #include <iostream>
 
 using namespace fiberize;
+using namespace std::literals;
 
 const size_t fibers = 100000;
 
+Event<Unit> go;
+
 struct Sleeper : public Fiber {
     void run() override {
-        processForever();
+        go.await();
     }
 };
 
 int main() {
-    std::cout << sizeof(detail::FiberControlBlock) << std::endl;
-
     FiberSystem system;
-    system.fiberize();
+    FiberRef self = system.fiberize();
+    system.subscribe(self);
+
+    std::vector<FiberRef> refs;
 
     for (size_t i = 0; i < fibers; ++i) {
-        system.run_<Sleeper, BlockingDequeMailbox>();
+        refs.push_back(system.run<Sleeper, BoostLockfreeQueueMailbox>());
     }
 
-    EventContext::current()->processForever();
+    std::this_thread::sleep_for(5s);
+
+    for (FiberRef& ref : refs) {
+        ref.send(go);
+    }
+    refs.clear();
+
+    system.allFibersFinished().await();
+    std::this_thread::sleep_for(5s);
+
+    return 0;
 }

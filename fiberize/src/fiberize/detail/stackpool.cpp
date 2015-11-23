@@ -8,7 +8,7 @@ constexpr size_t minCached = 32;
 #ifdef FIBERIZE_SEGMENTED_STACKS
 
 SegmentedStackPool::SegmentedStackPool()
-    : inUse(0), pool(), allocator(1024) {}
+    : inUse(0), pool(), allocator(boost::context::segmented_stack::traits_type::minimum_size()) {}
 
 SegmentedStackPool::~SegmentedStackPool() {
     for (auto stack : pool)

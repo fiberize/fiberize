@@ -240,7 +240,7 @@ void FiberScheduler::afterJump() {
         previousControlBlock_->status = Suspended;
 
         if (previousControlBlock_->reschedule) {
-            assert(lock.owns_lock());
+            assert(previousControlBlockLock.owns_lock());
             previousControlBlock_->status = detail::Scheduled;
             previousControlBlockLock.unlock();
 
