@@ -61,6 +61,10 @@ void OSThreadScheduler::terminate() {
     pthread_exit(&retval);
 }
 
+bool OSThreadScheduler::tryToStealTask(FiberControlBlock*&) {
+    return false;
+}
+
 ControlBlock* OSThreadScheduler::currentControlBlock() {
     return controlBlock_;
 }

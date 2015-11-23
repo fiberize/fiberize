@@ -20,9 +20,12 @@ public:
     void suspend(boost::unique_lock<ControlBlockMutex>&& lock) override;
     void yield(boost::unique_lock<ControlBlockMutex>&& lock) override;
     [[ noreturn ]] void terminate() override;
+    bool tryToStealTask(FiberControlBlock*& controlBlock) override;
     detail::ControlBlock* currentControlBlock() override;
 
 private:
+    bool tryDequeue(FiberControlBlock*& controlBlock);
+
     /**
      * Switches to the next fiber from a fiber. You must hold the control block mutex.
      */
@@ -71,7 +74,8 @@ private:
     /**
      * Scheduled control blocks waiting to be executed.
      */
-    moodycamel::ConcurrentQueue<FiberControlBlock*> runQueue;
+    std::deque<FiberControlBlock*> tasks;
+    boost::mutex tasksMutex;
 
     /**
      * Context executed when we have nothing to do.

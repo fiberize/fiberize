@@ -55,6 +55,11 @@ public:
     [[ noreturn ]] virtual void terminate() = 0;
 
     /**
+     * Tries to steal a fiber from this task.
+     */
+    virtual bool tryToStealTask(detail::FiberControlBlock*& controlBlock) = 0;
+
+    /**
      * Returns the currently executing control block. Not thread safe.
      */
     virtual detail::ControlBlock* currentControlBlock() = 0;

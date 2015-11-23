@@ -13,7 +13,6 @@ namespace detail {
 
 FiberScheduler::FiberScheduler(fiberize::FiberSystem* system, uint64_t seed, uint32_t index)
     : Scheduler(system, seed)
-    , runQueue(1024)
     , previousControlBlock_(nullptr)
     , currentControlBlock_(nullptr)
     , myIndex(index)
@@ -36,7 +35,9 @@ void FiberScheduler::enableFiber(FiberControlBlock* controlBlock, boost::unique_
     assert(lock.owns_lock());
     controlBlock->status = detail::Scheduled;
     lock.unlock();
-    runQueue.enqueue(controlBlock);
+
+    boost::unique_lock<boost::mutex> taskLock(tasksMutex);
+    tasks.push_back(controlBlock);
 }
 
 void FiberScheduler::suspend(boost::unique_lock<ControlBlockMutex>&& lock) {
@@ -80,8 +81,30 @@ void FiberScheduler::terminate() {
     __builtin_unreachable();
 }
 
+bool FiberScheduler::tryToStealTask(FiberControlBlock*& controlBlock) {
+    boost::unique_lock<boost::mutex> lock(tasksMutex);
+    if (!tasks.empty()) {
+        controlBlock = tasks.front();
+        tasks.pop_front();
+        return true;
+    } else {
+        return false;
+    }
+}
+
 ControlBlock* FiberScheduler::currentControlBlock() {
     return currentControlBlock_;
+}
+
+bool FiberScheduler::tryDequeue(FiberControlBlock*& controlBlock) {
+    boost::unique_lock<boost::mutex> lock(tasksMutex);
+    if (!tasks.empty()) {
+        controlBlock = tasks.back();
+        tasks.pop_back();
+        return true;
+    } else {
+        return false;
+    }
 }
 
 void FiberScheduler::idle() {
@@ -94,7 +117,7 @@ void FiberScheduler::idle() {
     std::uniform_int_distribution<uint32_t> randomFiberScheduler(0, system()->schedulers().size() - 2);
 
     while (!emergencyStop) {
-        while (runQueue.try_dequeue(controlBlock)) {
+        while (tryDequeue(controlBlock)) {
             assert(controlBlock->status == Scheduled);
             jumpToFiber(&idleContext, std::move(controlBlock));
         }
@@ -110,7 +133,7 @@ void FiberScheduler::idle() {
             /**
              * Try to take his job.
              */
-            if (system()->schedulers()[i]->runQueue.try_dequeue(controlBlock)) {
+            if (system()->schedulers()[i]->tryToStealTask(controlBlock)) {
                 assert(controlBlock->status == Scheduled);
                 jumpToFiber(&idleContext, std::move(controlBlock));
             } else {
@@ -127,7 +150,7 @@ void FiberScheduler::switchFromRunning(boost::unique_lock<detail::ControlBlockMu
     FiberControlBlock* controlBlock;
     assert(EventContext::current() != nullptr);
 
-    if (runQueue.try_dequeue(controlBlock)) {
+    if (tryDequeue(controlBlock)) {
         assert(controlBlock->status == Scheduled);
 
         /**
@@ -160,7 +183,7 @@ void FiberScheduler::switchFromRunning(boost::unique_lock<detail::ControlBlockMu
 void FiberScheduler::switchFromTerminated() {
     FiberControlBlock* controlBlock;
 
-    if (runQueue.try_dequeue(controlBlock)) {
+    if (tryDequeue(controlBlock)) {
         assert(controlBlock->status == Scheduled);
 
         /**
@@ -217,7 +240,12 @@ void FiberScheduler::afterJump() {
         previousControlBlock_->status = Suspended;
 
         if (previousControlBlock_->reschedule) {
-            enableFiber(previousControlBlock_, std::move(previousControlBlockLock));
+            assert(lock.owns_lock());
+            previousControlBlock_->status = detail::Scheduled;
+            previousControlBlockLock.unlock();
+
+            boost::unique_lock<boost::mutex> taskLock(tasksMutex);
+            tasks.push_front(previousControlBlock_);
         } else {
             previousControlBlockLock.unlock();
         }

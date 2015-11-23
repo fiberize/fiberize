@@ -18,6 +18,7 @@ public:
     void suspend(boost::unique_lock<ControlBlockMutex>&& lock) override;
     void yield(boost::unique_lock<ControlBlockMutex>&& lock) override;
     [[ noreturn ]] void terminate() override;
+    bool tryToStealTask(FiberControlBlock*& controlBlock) override;
     detail::ControlBlock* currentControlBlock() override;
 
 private:
