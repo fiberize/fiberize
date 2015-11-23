@@ -3,8 +3,8 @@
 
 using namespace fiberize;
 
-Event<FiberRef> ping("ping");
-Event<Unit> pong("pong");
+Event<FiberRef> ping;
+Event<Unit> pong;
 
 struct Echo : public Fiber {
     void run() override {
