@@ -226,7 +226,7 @@ void FiberScheduler::jumpToFiber(boost::context::fcontext_t* stash, FiberControl
         currentControlBlock_->context = boost::context::make_fcontext(currentControlBlock_->stack.sp, currentControlBlock_->stack.size, &FiberScheduler::fiberRunner);
     }
 
-    boost::context::jump_fcontext(stash, currentControlBlock_->context, reinterpret_cast<intptr_t>(this));
+    boost::context::jump_fcontext(stash, currentControlBlock_->context, 0);
     static_cast<FiberScheduler*>(current())->afterJump();
 }
 
