@@ -139,7 +139,7 @@ EventContext* EventContext::current() {
 }
 
 FiberRef EventContext::fiberRef() {
-    if (fiberRef_.path() == Path(DevNullPath{})) {
+    if (fiberRef_.path() == devNullPath) {
         fiberRef_ = FiberRef(std::make_shared<detail::LocalFiberRef>(system, controlBlock_));
     }
     return fiberRef_;

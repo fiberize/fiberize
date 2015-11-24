@@ -7,6 +7,7 @@
 #include <fiberize/mailbox.hpp>
 #include <fiberize/locality.hpp>
 #include <fiberize/detail/fiberrefimpl.hpp>
+#include <fiberize/detail/devnullfiberref.hpp>
 
 namespace fiberize {
 
@@ -80,6 +81,16 @@ protected:
 template <typename A>
 class FutureRef : public FiberRef {
 public:
+    /**
+     * Creates a /dev/null future.
+     */
+    FutureRef()
+        : FiberRef(std::shared_ptr<detail::FiberRefImpl>(
+            std::shared_ptr<detail::FiberRefImpl>(),
+            &detail::devNullFutureRef<A>))
+        , futureImpl_(&detail::devNullFutureRef<A>)
+        {}
+
     /**
      * Creates a new future reference with the given implementation.
      */

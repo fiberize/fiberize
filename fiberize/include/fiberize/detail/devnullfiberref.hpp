@@ -1,10 +1,13 @@
-#ifndef FIBERIZE_DETAIL_DEADLETTERFIBERREF_HPP
-#define FIBERIZE_DETAIL_DEADLETTERFIBERREF_HPP
+#ifndef FIBERIZE_DETAIL_DEVNULLFIBERREF_HPP
+#define FIBERIZE_DETAIL_DEVNULLFIBERREF_HPP
 
-#include <fiberize/fiberref.hpp>
-#include <fiberize/promise.hpp>
+#include <fiberize/detail/fiberrefimpl.hpp>
 
 namespace fiberize {
+
+template <typename A>
+class Promise;
+
 namespace detail {
 
 class DevNullFiberRef : public virtual FiberRefImpl {
@@ -31,5 +34,5 @@ DevNullFutureRef<A> devNullFutureRef;
 } // namespace detail    
 } // namespace fiberize
 
-#endif // FIBERIZE_DETAIL_DEADLETTERFIBERREF_HPP
+#endif // FIBERIZE_DETAIL_DEVNULLFIBERREF_HPP
 

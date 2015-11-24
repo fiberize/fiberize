@@ -1,7 +1,9 @@
 #include <fiberize/path.hpp>
 
 namespace fiberize {
-    
+
+Path devNullPath(DevNullPath{});
+
 namespace detail {
 std::atomic<uint64_t> generators(0);
 } // namespace detail

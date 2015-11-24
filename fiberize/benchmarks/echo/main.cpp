@@ -11,8 +11,7 @@ Event<Unit> pong;
 struct Echo : public Fiber {
     void run() override {
         while (true) {
-            FiberRef sender = ping.await();
-            sender.send(pong);
+            ping.await().send(pong);
         }
     }
 };
@@ -57,7 +56,7 @@ int main() {
 
     for (uint i = 0; i < n; ++i) {
         auto echo = system.run<Echo>();
-        auto emitter = system.run<Emitter>(echo, 100, 1000000);
+        auto emitter = system.run<Emitter>(echo, 100, 5000000);
         emitters.push_back(emitter);
     }
 

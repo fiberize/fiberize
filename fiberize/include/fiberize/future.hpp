@@ -39,11 +39,16 @@ public:
      * Returns the reference to the current fiber.
      */
     FutureRef<A> self() const {
-        // TODO: cache
-        return FutureRef<A>(std::make_shared<detail::LocalFutureRef<A>>(
-            system(), static_cast<detail::FutureControlBlock<A>*>(Scheduler::current()->currentControlBlock())
-        ));
+        if (self_.path() == devNullPath) {
+            self_ = FutureRef<A>(std::make_shared<detail::LocalFutureRef<A>>(
+                system(), static_cast<detail::FutureControlBlock<A>*>(Scheduler::current()->currentControlBlock())
+            ));
+        }
+        return self_;
     }
+
+private:
+    mutable FutureRef<A> self_;
 };
 
 } // namespace fiberize

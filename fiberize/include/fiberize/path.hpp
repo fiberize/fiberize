@@ -173,6 +173,11 @@ inline std::size_t hash_value(const GlobalPath& path) {
 typedef boost::variant<DevNullPath, PrefixedPath, GlobalPath> Path;
 
 /**
+ * Singleton for the /dev/null path.
+ */
+extern Path devNullPath;
+
+/**
  * Unique ident generator.
  *
  * It's not thread safe, as it was designed to be used as a thread local variable.
