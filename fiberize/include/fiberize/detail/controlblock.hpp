@@ -55,7 +55,7 @@ public:
     /**
      * Mailbox attached to this control block.
      */
-    std::unique_ptr<Mailbox, MailboxDeleter> mailbox;
+    std::unique_ptr<Mailbox> mailbox;
     
     /**
      * Event context attached to this block.

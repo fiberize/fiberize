@@ -1,6 +1,8 @@
 #ifndef FIBERIZE_DETAIL_FIBERSCHEDULER_HPP
 #define FIBERIZE_DETAIL_FIBERSCHEDULER_HPP
 
+#include <thread>
+
 #include <fiberize/scheduler.hpp>
 
 namespace fiberize {

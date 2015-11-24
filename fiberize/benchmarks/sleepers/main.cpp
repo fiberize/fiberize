@@ -1,5 +1,6 @@
 #include <fiberize/fiberize.hpp>
 #include <iostream>
+#include <thread>
 
 using namespace fiberize;
 using namespace std::literals;
@@ -22,7 +23,7 @@ int main() {
     std::vector<FiberRef> refs;
 
     for (size_t i = 0; i < fibers; ++i) {
-        refs.push_back(system.run<Sleeper, BoostLockfreeQueueMailbox>());
+        refs.push_back(system.run<Sleeper>());
     }
 
     std::this_thread::sleep_for(5s);

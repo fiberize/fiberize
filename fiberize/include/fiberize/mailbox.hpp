@@ -10,7 +10,6 @@
 #include <boost/thread.hpp>
 
 #include <fiberize/path.hpp>
-#include <moodycamel/concurrentqueue.h>
 
 namespace fiberize {
 
@@ -43,79 +42,16 @@ public:
     virtual void clear() = 0;
 };
 
-using MailboxDeleter = std::function<void (Mailbox*)>;
-
-class BlockingDequeMailbox : public Mailbox {
+class DequeMailbox : public Mailbox {
 public:
-    virtual ~BlockingDequeMailbox();
+    virtual ~DequeMailbox();
     virtual bool dequeue(PendingEvent& event);
     virtual void enqueue(const PendingEvent& event);
     virtual void clear();
 
 private:
     std::deque<PendingEvent> pendingEvents;
-    boost::mutex mutex;
 };
-
-class BoostLockfreeQueueMailbox : public Mailbox {
-public:
-    BoostLockfreeQueueMailbox();
-    virtual ~BoostLockfreeQueueMailbox();
-    virtual bool dequeue(PendingEvent& event);
-    virtual void enqueue(const PendingEvent& event);    
-    virtual void clear();
-    
-private:
-    boost::lockfree::queue<PendingEvent*> pendingEvents;
-};
-
-class MoodyCamelConcurrentQueueMailbox : public Mailbox {
-public:
-    MoodyCamelConcurrentQueueMailbox();
-    virtual ~MoodyCamelConcurrentQueueMailbox();
-    virtual bool dequeue(PendingEvent& event);
-    virtual void enqueue(const PendingEvent& event);
-    virtual void clear();
-
-private:
-    moodycamel::ConcurrentQueue<PendingEvent> pendingEvents;
-};
-
-template <typename MailboxImpl>
-class MailboxPool {
-public:
-    std::unique_ptr<Mailbox, MailboxDeleter> allocate() {
-        std::unique_ptr<Mailbox> mailbox;
-        if (!pool.try_dequeue(mailbox)) {
-            mailbox.reset(new MailboxImpl);
-        }
-
-        return std::unique_ptr<Mailbox, MailboxDeleter>(mailbox.release(), [this] (Mailbox* ptr) {
-            ptr->clear();
-            pool.enqueue(std::unique_ptr<Mailbox>(ptr));
-        });
-    }
-
-    static MailboxPool current;
-
-private:
-    moodycamel::ConcurrentQueue<std::unique_ptr<Mailbox>> pool;
-};
-
-template <>
-class MailboxPool<BlockingDequeMailbox> {
-public:
-    std::unique_ptr<Mailbox, MailboxDeleter> allocate() {
-        return  std::unique_ptr<Mailbox, MailboxDeleter>(new BlockingDequeMailbox(), [] (Mailbox* ptr) {
-            delete ptr;
-        });
-    }
-
-    static MailboxPool current;
-};
-
-template <typename MailboxImpl>
-MailboxPool<MailboxImpl> MailboxPool<MailboxImpl>::current;
 
 } // namespace fiberize
 

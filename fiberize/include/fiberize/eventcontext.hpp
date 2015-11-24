@@ -95,7 +95,6 @@ public:
 private:
     static thread_local EventContext* current_;
 
-    // TODO: cache hashes
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
     detail::ControlBlock* controlBlock_;
     FiberRef fiberRef_;
