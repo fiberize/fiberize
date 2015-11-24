@@ -66,16 +66,6 @@ public:
     std::exception_ptr exception;
 };
 
-/**
- * Ugly way to implement type erasure.
- * TODO: This will probably have to be changed when implementing remoting.
- * TODO: We'll have to implement some kind of covariance.
- */
-class SomePromise {
-public:
-    virtual ~SomePromise() {};
-};
-
 } // namespace detail
 
 /**
@@ -83,7 +73,7 @@ public:
  * in the future to support remote promises.
  */
 template <typename A>
-class Promise : public detail::SomePromise {
+class Promise {
 public:
     Promise() = default;
     Promise(const Event<Unit>& condition) : condition(condition) {};
