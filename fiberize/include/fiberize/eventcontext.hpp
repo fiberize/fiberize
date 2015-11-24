@@ -18,21 +18,9 @@ class FiberContext;
 
 namespace detail {
 
-struct HandlerBlock {
-    std::list<std::unique_ptr<detail::Handler>> stackedHandlers;
-};
-
-class HandlerContext {
+class HandlerBlock {
 public:
-    explicit inline HandlerContext(HandlerBlock* handlerBlock, const void* data)
-        : handlerBlock(handlerBlock)
-        , handler(handlerBlock->stackedHandlers.end())
-        , data(data) {
-    };
-
-    HandlerBlock* handlerBlock;
-    std::list<std::unique_ptr<Handler>>::iterator handler;
-    const void* data;
+    std::list<std::unique_ptr<detail::Handler>> handlers;
 };
 
 class ControlBlock;
@@ -50,7 +38,7 @@ public:
     EventContext(FiberSystem* system, detail::ControlBlock* controlBlock);
     
     /**
-     * Processes all pending events.
+     * Processes all pending events and returns.
      */
     void process();
 
@@ -60,9 +48,9 @@ public:
     [[ noreturn ]] void processForever();
 
     /**
-     * Executes the next handler in a stack.
+     * Processes events until the condition is true.
      */
-    void super();
+    void processUntil(const bool& condition);
     
     /**
      * Handle an event in this context.
@@ -72,7 +60,7 @@ public:
     /**
      * Sets up a handler for an event.
      */
-    HandlerRef bind(const Path& path, detail::Handler* handler);
+    HandlerRef bind(const Path& path, std::unique_ptr<detail::Handler> handler);
 
     /**
      * The system this context is attached to.
@@ -109,11 +97,8 @@ private:
 
     // TODO: cache hashes
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
-    std::unique_ptr<detail::HandlerContext> handlerContext;
     detail::ControlBlock* controlBlock_;
     FiberRef fiberRef_;
-    
-    friend detail::HandlerContext;
 };
 
     

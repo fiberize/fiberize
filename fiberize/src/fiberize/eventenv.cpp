@@ -25,8 +25,8 @@ void EventEnv::processForever() const {
     context()->processForever();
 }
 
-void EventEnv::super() const {
-    context()->super();
+void EventEnv::processUntil(const bool& condition) const {
+    context()->processUntil(condition);
 }
 
 } // namespace fiberize

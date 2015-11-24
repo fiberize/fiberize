@@ -37,9 +37,9 @@ public:
     [[ noreturn ]] void processForever() const;
 
     /**
-     * Executes the next handler in a handler stack.
+     * Processes events until the condition is true.
      */
-    void super() const;
+    void processUntil(const bool& condition) const;
 };
 
 } // namespace fiberize

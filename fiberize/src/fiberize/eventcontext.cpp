@@ -27,8 +27,19 @@ void EventContext::process()
 
 void EventContext::processForever()
 {
+    const bool condition = false;
+    processUntil(condition);
+
+    /**
+     * Obviously, the condition will always be false.
+     */
+    __builtin_unreachable();
+}
+
+void EventContext::processUntil(const bool& condition)
+{
     PendingEvent event;
-    while (true) {
+    while (!condition) {
         /**
          * First, process all pending events.
          */
@@ -43,12 +54,16 @@ void EventContext::processForever()
                 throw;
             }
             event.freeData(event.data);
+
+            /**
+             * Short-circuit when condition is triggered.
+             */
+            if (condition) {
+                return;
+            }
+
             lock.lock();
         }
-
-        /**
-         * Prepare to suspend the thread by locking the control block.
-         */
 
         /**
          * No more events, we can suspend the thread.
@@ -57,75 +72,46 @@ void EventContext::processForever()
     }
 }
 
-void EventContext::super() {
-    /**
-     * Check if we executed all handlers.
-     */
-    if (handlerContext->handler == handlerContext->handlerBlock->stackedHandlers.begin()) {
-        return;
-    }
-    
-    /**
-     * Otherwise find an alive handler.
-     */
-    auto it = --handlerContext->handler;
-    while ((*it)->isDestroyed()) {
-        if (it == handlerContext->handlerBlock->stackedHandlers.begin()) {
-            /**
-             * That was the last handler.
-             */
-            handlerContext->handlerBlock->stackedHandlers.pop_front();
-            return;
-        } else {
-            /**
-             * Remove the handler and try to find another one.
-             */
-            auto copy = it;
-            --it;
-            handlerContext->handlerBlock->stackedHandlers.erase(copy);
-        }
-    }
-    
-    /**
-     * Set the current handler and execute it.
-     */
-    handlerContext->handler = it;
-    (*it)->execute(handlerContext->data);
-}
-
 void EventContext::handleEvent(const PendingEvent& event) {
     /**
      * Find a handler block.
      */
-    auto it = handlerBlocks.find(event.path);
-    if (it == handlerBlocks.end())
+    auto blockIt = handlerBlocks.find(event.path);
+    if (blockIt == handlerBlocks.end())
         return;
-    detail::HandlerBlock* block = it->second.get();
+    detail::HandlerBlock* block = blockIt->second.get();
     
     /**
      * Get rid of dead handlers at the back.
      */
-    while (!block->stackedHandlers.empty() && block->stackedHandlers.back()->isDestroyed()) {
-        block->stackedHandlers.pop_back();
+    while (!block->handlers.empty() && block->handlers.back()->isDestroyed()) {
+        block->handlers.pop_back();
     }
     
     /**
      * There are no handlers at all, remove the handler block.
      */
-    if (block->stackedHandlers.empty()) {
-        handlerBlocks.erase(it);
+    if (block->handlers.empty()) {
+        handlerBlocks.erase(blockIt);
         return;
     }
         
     /**
-     * Execute the handler.
+     * Execute the handlers.
      */
-    handlerContext.reset(new detail::HandlerContext(block, event.data));
-    super();
-    handlerContext.reset();
+    auto it = block->handlers.rbegin();
+    while (it != block->handlers.rend()) {
+        if (!(*it)->isDestroyed()) {
+            (*it)->execute(event.data);
+            ++it;
+        } else {
+            ++it;
+            it = decltype(block->handlers)::reverse_iterator(block->handlers.erase(it.base()));
+        }
+    }
 }
 
-HandlerRef EventContext::bind(const Path& path, fiberize::detail::Handler* handler) {
+HandlerRef EventContext::bind(const Path& path, std::unique_ptr<fiberize::detail::Handler> handler) {
     detail::HandlerBlock* block;
     auto it = handlerBlocks.find(path);
     if (it == handlerBlocks.end()) {
@@ -135,8 +121,9 @@ HandlerRef EventContext::bind(const Path& path, fiberize::detail::Handler* handl
         block = it->second.get();
     }
 
-    block->stackedHandlers.emplace_back(handler);        
-    return HandlerRef(handler);
+    HandlerRef ref(handler.get());
+    block->handlers.emplace_back(std::move(handler));
+    return ref;
 }
 
 detail::ControlBlock* EventContext::controlBlock() {

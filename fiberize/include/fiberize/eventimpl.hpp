@@ -1,6 +1,8 @@
 #ifndef FIBERIZE_EVENTIMPL_HPP
 #define FIBERIZE_EVENTIMPL_HPP
 
+#include <boost/optional.hpp>
+
 #include <fiberize/event.hpp>
 #include <fiberize/eventcontext.hpp>
 
@@ -11,16 +13,17 @@ namespace fiberize {
  */
 template <typename A>
 A Event<A>::await() const {
-    auto handler = bind([] (const A& value) {
-        EventContext::current()->super();
-        throw EventFired{value};
+    bool condition = false;
+    boost::optional<A> result;
+
+    HandlerRef handler = bind([&] (const A& value) {
+        condition = true;
+        result = value;
+        handler.release();
     });
 
-    try {
-        EventContext::current()->processForever();
-    } catch (const EventFired& eventFired) {
-        return eventFired.value;
-    }
+    EventContext::current()->processUntil(condition);
+    return result.value();
 }
 
 /**
@@ -29,8 +32,9 @@ A Event<A>::await() const {
 template <typename A>
 template <typename... Args>
 HandlerRef Event<A>::bind(Args&&... args) const {
-    detail::Handler* handler = new detail::TypedHandler<A>(std::forward<Args>(args...)...);
-    return EventContext::current()->bind(path(), handler);
+    std::unique_ptr<detail::Handler> handler(
+        new detail::TypedHandler<A>(std::forward<Args>(args...)...));
+    return EventContext::current()->bind(path(), std::move(handler));
 }
 
 } // namespace fiberize
