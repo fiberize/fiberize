@@ -125,3 +125,5 @@ References
 * Blumofe, Robert D., and Charles E. Leiserson. "Scheduling multithreaded computations by work stealing." Journal of the ACM (JACM) 46.5 (1999): 720-748.
 * Voellmy, Andreas Richard, et al. "Mio: a high-performance multicore io manager for ghc." ACM SIGPLAN Notices 48.12 (2014): 129-140.
 * http://lxr.free-electrons.com/source/fs/eventpoll.c
+* Han, Sangjin, et al. "MegaPipe: A New Programming Interface for Scalable Network I/O." OSDI. 2012.
+* Jeong, E., et al. "mTCP: a highly scalable user-level TCP stack for multicore systems." Proc. 11th USENIX NSDI (2014).
