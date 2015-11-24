@@ -1,0 +1,9 @@
+Fiberize is a C++ framework for parallel (and in the future distributed) computing. It implements
+an M:N threading model, where the basic unit of parallelism is a very light thread, called a fiber.
+A large number of fibers is executed on a small number of OS threads, usually equal to the number
+of physical cores.
+
+Fibers in fiberize can communicate by sending and receiving events. When a fiber waits for an
+event it doesn't block the OS thread it was running on - instead the execution switches to
+another fiber. This means that you can write asynchronous and nonblocking code as easly as you
+would write a synchronous version.
