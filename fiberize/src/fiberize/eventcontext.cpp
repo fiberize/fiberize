@@ -82,14 +82,12 @@ void EventContext::handleEvent(const PendingEvent& event) {
     detail::HandlerBlock* block = blockIt->second.get();
     
     /**
-     * Get rid of dead handlers at the back.
+     * GC dead handlers.
      */
-    while (!block->handlers.empty() && block->handlers.back()->isDestroyed()) {
-        block->handlers.pop_back();
-    }
-    
+    collectGarbage(block);
+
     /**
-     * There are no handlers at all, remove the handler block.
+     * There are no alive handlers, remove the handler block.
      */
     if (block->handlers.empty()) {
         handlerBlocks.erase(blockIt);
@@ -100,15 +98,25 @@ void EventContext::handleEvent(const PendingEvent& event) {
      * Execute the handlers.
      */
     auto it = block->handlers.rbegin();
-    while (it != block->handlers.rend()) {
-        if (!(*it)->isDestroyed()) {
-            (*it)->execute(event.data);
-            ++it;
-        } else {
-            ++it;
-            it = decltype(block->handlers)::reverse_iterator(block->handlers.erase(it.base()));
+    auto end = block->handlers.rend();
+    while (it != end) {
+        (*it)->execute(event.data);
+        ++it;
+    }
+}
+
+void EventContext::collectGarbage(detail::HandlerBlock* block) {
+    size_t i = 0;
+
+    const size_t n = block->handlers.size();
+    for (size_t j = 0; j < n; ++j) {
+        if (!block->handlers[j]->isDestroyed()) {
+            block->handlers[i].reset(block->handlers[j].release());
+            ++i;
         }
     }
+
+    block->handlers.resize(i);
 }
 
 HandlerRef EventContext::bind(const Path& path, std::unique_ptr<fiberize::detail::Handler> handler) {

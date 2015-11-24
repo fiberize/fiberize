@@ -20,7 +20,7 @@ namespace detail {
 
 class HandlerBlock {
 public:
-    std::list<std::unique_ptr<detail::Handler>> handlers;
+    std::vector<std::unique_ptr<detail::Handler>> handlers;
 };
 
 class ControlBlock;
@@ -93,6 +93,8 @@ public:
     static EventContext* current();
 
 private:
+    void collectGarbage(detail::HandlerBlock* block);
+
     static thread_local EventContext* current_;
 
     std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
