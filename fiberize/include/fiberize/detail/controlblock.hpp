@@ -10,7 +10,9 @@
 #include <limits>
 
 #include <boost/thread.hpp>
+#include <boost/atomic/atomic.hpp>
 #include <boost/context/all.hpp>
+#include <boost/smart_ptr/detail/spinlock.hpp>
 
 namespace fiberize {
 
@@ -26,7 +28,7 @@ enum LifeStatus : uint8_t {
     Dead
 };
 
-typedef boost::upgrade_mutex ControlBlockMutex;
+typedef boost::detail::spinlock ControlBlockMutex;
 
 class ControlBlock {
 public:

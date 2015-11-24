@@ -24,15 +24,11 @@ Path LocalFiberRef::path() const {
 }
 
 void LocalFiberRef::send(const PendingEvent& pendingEvent) {
-    boost::shared_lock<boost::upgrade_mutex> shared_lock(block->mutex);
+    boost::unique_lock<ControlBlockMutex> lock(block->mutex);
     block->mailbox->enqueue(pendingEvent);
 
     if (block->status == Suspended) {
-        boost::upgrade_lock<boost::upgrade_mutex> upgrade_lock(std::move(shared_lock), boost::try_to_lock);
-        if (upgrade_lock.owns_lock()) {
-            boost::unique_lock<boost::upgrade_mutex> unique_lock(std::move(upgrade_lock));
-            Scheduler::current()->enable(block, std::move(unique_lock));
-        }
+        Scheduler::current()->enable(block, std::move(lock));
     }
 }
 

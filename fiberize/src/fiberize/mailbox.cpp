@@ -10,12 +10,12 @@ BlockingDequeMailbox::~BlockingDequeMailbox() {
 }
 
 void BlockingDequeMailbox::enqueue(const PendingEvent& event) {
-    boost::unique_lock<boost::mutex> lock(mutex);
+    //boost::unique_lock<boost::mutex> lock(mutex);
     pendingEvents.push_back(event);
 }
 
 bool BlockingDequeMailbox::dequeue(PendingEvent& event) {
-    boost::unique_lock<boost::mutex> lock(mutex);
+    //boost::unique_lock<boost::mutex> lock(mutex);
     if (pendingEvents.empty()) {
         return false;
     } else {
@@ -26,7 +26,7 @@ bool BlockingDequeMailbox::dequeue(PendingEvent& event) {
 }
 
 void BlockingDequeMailbox::clear() {
-    boost::unique_lock<boost::mutex> lock(mutex);
+    //boost::unique_lock<boost::mutex> lock(mutex);
     for (auto& event : pendingEvents) {
         if (event.freeData != nullptr)
             event.freeData(event.data);

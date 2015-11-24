@@ -3,6 +3,8 @@
 
 using namespace fiberize;
 
+const uint n = 16;
+
 Event<FiberRef> ping;
 Event<Unit> pong;
 
@@ -50,8 +52,16 @@ struct Emitter : public Future<Unit> {
 int main() {
     FiberSystem system;
     system.fiberize();
-    auto echo = system.run<Echo>();
-    auto emitter = system.run<Emitter>(echo, 100, 1000000);
-    emitter.result()->await();
-    exit(0);
+
+    std::vector<FutureRef<Unit>> emitters;
+
+    for (uint i = 0; i < n; ++i) {
+        auto echo = system.run<Echo>();
+        auto emitter = system.run<Emitter>(echo, 100, 100000);
+        emitters.push_back(emitter);
+    }
+
+    for (FutureRef<Unit>& emitter : emitters)
+        emitter.result()->await();
+    return 0;
 }

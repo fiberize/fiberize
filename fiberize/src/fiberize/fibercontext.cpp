@@ -11,7 +11,9 @@ EventContext::EventContext(FiberSystem* system, detail::ControlBlock* controlBlo
 void EventContext::process()
 {
     PendingEvent event;
+    boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
     while (controlBlock_->mailbox->dequeue(event)) {
+        lock.unlock();
         try {
             handleEvent(event);
         } catch (...) {
@@ -19,6 +21,7 @@ void EventContext::process()
             throw;
         }
         event.freeData(event.data);
+        lock.lock();
     }
 }
 
@@ -29,24 +32,10 @@ void EventContext::processForever()
         /**
          * First, process all pending events.
          */
-        process();
-
-        /**
-         * Prepare to suspend the thread by locking the control block.
-         */
+        PendingEvent event;
         boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
-
-        /**
-         * It's possible that someone queued a message before we locked the mutex.
-         * Check if this is the case.
-         */
-        if (controlBlock_->mailbox->dequeue(event)) {
-            /**
-             * Too bad, now we have to process it and start again. Give up the mutex,
-             * as we are not suspending yet.
-             */
+        while (controlBlock_->mailbox->dequeue(event)) {
             lock.unlock();
-
             try {
                 handleEvent(event);
             } catch (...) {
@@ -54,15 +43,15 @@ void EventContext::processForever()
                 throw;
             }
             event.freeData(event.data);
-
-            /**
-             * Process remaining events and try to suspend again.
-             */
-            continue;
+            lock.lock();
         }
 
         /**
-         * No new events, we can suspend the thread.
+         * Prepare to suspend the thread by locking the control block.
+         */
+
+        /**
+         * No more events, we can suspend the thread.
          */
         Scheduler::current()->suspend(std::move(lock));
     }
