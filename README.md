@@ -3,9 +3,13 @@ fiberize
 
 ![Build status](https://travis-ci.org/fiberize/fiberize.svg?branch=master)
 
-Fiberize is a C++ framework for parallel (and in the future distributed) computing. It implements an M:N threading model, where the basic unit of parallelism is a very light thread, called a fiber. A large number of fibers is executed on a small number of OS threads, usually equal to the number of physical cores.
+Fiberize is a C++ framework for high performance parallel (and in the future distributed) computing. It implements an user space scheduler integrated with an evented IO system (based on node.js's libuv). There are four concurrency abstractions:
+* fibers - lightweight threads implemented entirely in user space,
+* futures - computations that eventually return some value, executed asynchronously,
+* actors (wip) - even more lightweight then fibers, but less flexible,
+* threads (wip) - full blown OS threads, when you want to run a continous process, e.g. OpenGL rendering or a multiplayer game server.
 
-Fibers in fiberize can communicate by sending and receiving events. When a fiber waits for an event it doesn't block the OS thread it was running on - instead the execution switches to another fiber. This means that you can write asynchronous and nonblocking code as easly as you would write a synchronous version.
+Fibers in fiberize can communicate by sending and receiving events. When a fiber waits for an event or performs an IO operation it doesn't block the OS thread it was running on - instead the execution switches to another fiber. This means that you can write asynchronous and nonblocking code as easly as you would write a synchronous version (think es7 await/async, but faster and multithreaded ;)
 
 Example
 =======
