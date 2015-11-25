@@ -128,10 +128,9 @@ public:
     virtual bool isThread() { return true; };
 
     /**
-     * Condition variable used to wake up the thread when an event arrives.
+     * Function used to wake up the thread.
      */
-    boost::condition_variable enabled;
-    boost::mutex enabledMutex;
+    std::function<void ()> wakeUp;
 };
 
 } // namespace detail

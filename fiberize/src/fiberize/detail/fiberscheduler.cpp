@@ -23,12 +23,15 @@ FiberScheduler::FiberScheduler(fiberize::FiberSystem* system, uint64_t seed, uin
 FiberScheduler::~FiberScheduler() {}
 
 void FiberScheduler::start() {
-    thread = std::thread(&FiberScheduler::idle, this);
+    executorThread = std::thread(&FiberScheduler::idle, this);
+    dispatcherThread = std::thread(&io::detail::IOContext::runLoop, &ioContext());
 }
 
 void FiberScheduler::stop() {
     emergencyStop = true;
-    thread.join();
+    ioContext().stopLoop();
+    executorThread.join();
+    dispatcherThread.join();
 }
 
 void FiberScheduler::enableFiber(FiberControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock) {

@@ -5,7 +5,7 @@ MAINTAINER Paweł Nowak pawel@livetalk.lol
 RUN apt-get update
 
 # Install build tools.
-RUN apt-get install -y build-essential g++ git cmake
+RUN apt-get install -y build-essential automake libtool g++ git cmake
 
 # Install boost.
 RUN apt-get install -y libboost-dev libboost-context-dev libboost-thread-dev libboost-system-dev
@@ -15,6 +15,10 @@ RUN apt-get install -y libgtest-dev && cd /usr/src/gtest && cmake . && make && c
 
 # Install tlmalloc.
 RUN apt-get install -y libgoogle-perftools-dev
+
+# Install libuv.
+COPY libuv/ /usr/src/libuv/
+RUN cd /usr/src/libuv && sh autogen.sh && ./configure && make && make check && make install
 
 # Build and install fiberize.
 COPY fiberize/ /usr/src/fiberize/

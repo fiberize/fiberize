@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/Modules/")
 
 ################################################################################
 ### User options.
@@ -51,6 +52,10 @@ include_directories(${Boost_INCLUDE_DIRS})
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
+# libuv
+find_package(LibUV REQUIRED)
+include_directories(${LIBUV_INCLUDE_DIRS})
+
 # Google test
 find_package(GTest 1.0 REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -70,7 +75,9 @@ include_directories("${CMAKE_SOURCE_DIR}/include")
 ################################################################################
 
 add_library(fiberize ${FIBERIZE_SRCS})
-target_link_libraries(fiberize ${Boost_LIBRARIES} Threads::Threads)
+target_link_libraries(fiberize ${Boost_LIBRARIES})
+target_link_libraries(fiberize Threads::Threads)
+target_link_libraries(fiberize ${LIBUV_LIBRARIES})
 
 ################################################################################
 ### tcmalloc

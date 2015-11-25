@@ -71,7 +71,12 @@ private:
     /**
      * The thread this executor is running on.
      */
-    std::thread thread;
+    std::thread executorThread;
+
+    /**
+     * IO dispatcher thread.
+     */
+    std::thread dispatcherThread;
 
     /**
      * Scheduled control blocks waiting to be executed.

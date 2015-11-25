@@ -2,6 +2,7 @@
 #define FIBERIZE_SCHEDULER_HPP
 
 #include <fiberize/detail/controlblock.hpp>
+#include <fiberize/io/detail/iocontext.hpp>
 
 namespace fiberize {
 
@@ -70,6 +71,11 @@ public:
     inline FiberSystem* system() { return system_; }
 
     /**
+     * Returns the IO context associated with this scheduler.
+     */
+    inline io::detail::IOContext& ioContext() { return ioContext_; }
+
+    /**
      * Returns a random generator local to this scheduler.
      */
     inline std::mt19937_64& random() { return random_; }
@@ -81,6 +87,7 @@ public:
 
 private:
     FiberSystem* system_;
+    io::detail::IOContext ioContext_;
     std::mt19937_64 random_;
     static thread_local Scheduler* current_;
 };

@@ -8,8 +8,11 @@ namespace fiberize {
 namespace detail {
 
 ThreadScheduler::ThreadScheduler(FiberSystem* system, uint64_t seed, ThreadControlBlock* controlBlock)
-    : Scheduler(system, seed), controlBlock_(controlBlock)
-    {}
+    : Scheduler(system, seed), controlBlock_(controlBlock) {
+    controlBlock->wakeUp = [this] () {
+        ioContext().stopLoop();
+    };
+}
 
 ThreadScheduler::~ThreadScheduler() {
     if (controlBlock_ != nullptr)
@@ -26,17 +29,12 @@ void ThreadScheduler::enableFiber(FiberControlBlock* controlBlock, boost::unique
 
 void ThreadScheduler::suspend(boost::unique_lock<ControlBlockMutex>&& lock) {
     controlBlock_->status = Suspended;
-
-    /**
-     * Exchange the control block lock to the condition variable lock.
-     */
-    boost::unique_lock<boost::mutex> enabledLock(controlBlock_->enabledMutex);
     lock.unlock();
 
     /**
-     * Wait until someone enables us.
+     * Loop until someone breaks it.
      */
-    controlBlock_->enabled.wait(enabledLock);
+    ioContext().runLoop();
 
     /**
      * Change the status to running without locking.
@@ -47,6 +45,7 @@ void ThreadScheduler::suspend(boost::unique_lock<ControlBlockMutex>&& lock) {
 
 void ThreadScheduler::yield(boost::unique_lock<ControlBlockMutex>&& lock) {
     lock.unlock();
+    ioContext().runLoopNoWait();
     std::this_thread::yield();
 }
 
