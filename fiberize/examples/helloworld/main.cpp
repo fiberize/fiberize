@@ -3,11 +3,22 @@
 
 using namespace fiberize;
 
+const size_t fibers = 1000000;
+
+Event<Unit> finished;
+std::atomic<size_t> spawned(0);
+
+FiberRef mainThread;
+
 struct Printer : public Fiber {
     Printer(int n): n(n) {}
     
     void run() override {
         std::cout << "Hello from fiber #" << n << std::endl;
+
+        if (std::atomic_fetch_add(&spawned, size_t(1)) == fibers - 1) {
+            mainThread.send(finished);
+        }
     }
     
     int n;
@@ -15,13 +26,12 @@ struct Printer : public Fiber {
 
 int main() {
     FiberSystem system;
-    FiberRef self = system.fiberize();
-    system.subscribe(self);
-    
-    for (int i = 0; i < 1000000; ++i) {
-        system.run<Printer>(i);
+    mainThread = system.fiberize();
+
+    for (size_t i = 0; i < fibers; ++i) {
+        system.run_<Printer>(i);
     }
 
-    system.allFibersFinished().await();
+    finished.await();
     return 0;
 }

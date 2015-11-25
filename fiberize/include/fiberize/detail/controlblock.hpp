@@ -18,6 +18,7 @@ namespace fiberize {
 
 class Runnable;
 class EventContext;
+class Scheduler;
 
 namespace detail {
 
@@ -34,9 +35,6 @@ class ControlBlock {
 public:
     virtual ~ControlBlock() {};
 
-    virtual bool isFiber() = 0;
-    virtual bool isThread() = 0;
-
     /**
      * Status of this fiber.
      */
@@ -51,6 +49,11 @@ public:
      * Path to this fiber.
      */
     Path path;
+
+    /**
+     * Scheduler this task is bound to, or nullptr.
+     */
+    Scheduler* bound;
     
     /**
      * Mailbox attached to this control block.
@@ -89,9 +92,6 @@ public:
 
 class FiberControlBlock : public ControlBlock {
 public:
-    virtual bool isFiber() { return true; };
-    virtual bool isThread() { return false; };
-
     /**
      * The stack of this fiber.
      */
@@ -123,14 +123,6 @@ public:
 };
 
 class ThreadControlBlock : public ControlBlock {
-public:
-    virtual bool isFiber() { return false; };
-    virtual bool isThread() { return true; };
-
-    /**
-     * Function used to wake up the thread.
-     */
-    std::function<void ()> wakeUp;
 };
 
 } // namespace detail

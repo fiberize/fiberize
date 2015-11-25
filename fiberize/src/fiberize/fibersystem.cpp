@@ -31,8 +31,6 @@ FiberSystem::FiberSystem(uint32_t macrothreads) {
     boost::uuids::random_generator uuidGenerator(pseudorandom);
     uuid_ = uuidGenerator();
 
-    allFibersFinished_ = newEvent<Unit>();
-
     // Spawn the schedulers.
     for (uint32_t i = 0; i < macrothreads; ++i) {
         schedulers_.emplace_back(new detail::FiberScheduler(this, seedDist(seedGenerator), i));
@@ -54,24 +52,6 @@ FiberSystem::~FiberSystem() {
 
 void FiberSystem::shutdown() {
     shuttingDown = true;
-}
-
-Event<Unit> FiberSystem::allFibersFinished() {
-    return allFibersFinished_;
-}
-
-void FiberSystem::subscribe(FiberRef ref) {
-    std::lock_guard<std::mutex> lock(subscribersMutex);
-    subscribers.push_back(ref);
-}
-
-void FiberSystem::fiberFinished() {
-    if (std::atomic_fetch_sub_explicit(&running, 1lu, std::memory_order_release) == 1) {
-        std::atomic_thread_fence(std::memory_order_acquire);
-        std::lock_guard<std::mutex> lock(subscribersMutex);
-        for (FiberRef ref : subscribers)
-            ref.send(allFibersFinished_);
-    }
 }
 
 boost::uuids::uuid FiberSystem::uuid() const {

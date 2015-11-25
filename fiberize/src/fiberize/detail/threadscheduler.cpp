@@ -8,15 +8,24 @@ namespace fiberize {
 namespace detail {
 
 ThreadScheduler::ThreadScheduler(FiberSystem* system, uint64_t seed, ThreadControlBlock* controlBlock)
-    : Scheduler(system, seed), controlBlock_(controlBlock) {
-    controlBlock->wakeUp = [this] () {
-        ioContext().stopLoop();
-    };
-}
+    : Scheduler(system, seed), controlBlock_(controlBlock)
+    {}
 
 ThreadScheduler::~ThreadScheduler() {
     if (controlBlock_ != nullptr)
         controlBlock_->drop();
+}
+
+void ThreadScheduler::enable(ControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock)
+{
+    assert(controlBlock->status == Suspended);
+    if (controlBlock != controlBlock_) {
+        Scheduler::enable(controlBlock, std::move(lock));
+    } else {
+        controlBlock_->status = Scheduled;
+        lock.unlock();
+        ioContext().stopLoop();
+    }
 }
 
 void ThreadScheduler::enableFiber(FiberControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock) {

@@ -76,7 +76,12 @@ template <typename A>
 class Promise {
 public:
     Promise() = default;
-    Promise(const Event<Unit>& condition) : condition(condition) {};
+    explicit Promise(const Event<A>& watched) {
+        handler = watched.bind([this] (const A& value) {
+            tryToComplete(value);
+            handler.release();
+        });
+    }
     Promise(const Promise&) = delete;
     Promise(Promise&&) = default;
 
@@ -149,8 +154,12 @@ private:
     std::vector<FiberRef> waiting;
     std::unique_ptr<detail::Result<A>> result;
     Event<Unit> condition;
+    HandlerRef handler;
 };
-    
+
+template <typename A>
+using PromiseRef =  std::shared_ptr<Promise<A>>;
+
 } // namespace fiberize
 
 #endif // FIBERIZE_PROMISE_HPP

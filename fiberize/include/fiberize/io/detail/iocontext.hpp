@@ -2,6 +2,7 @@
 #define FIBERIZE_IO_DETAIL_IOCONTEXT_HPP
 
 #include <uv.h>
+#include <fiberize/fiberref.hpp>
 
 namespace fiberize {
 namespace io {
@@ -40,11 +41,12 @@ public:
     /**
      * Returns the libuv loop associated with this IO context.
      */
-    uv_loop_t& loop();
+    uv_loop_t* loop();
 
 private:
     uv_loop_t loop_;
     bool stopped;
+    FutureRef<Unit> dispatcher;
 };
 
 } // namespace detail

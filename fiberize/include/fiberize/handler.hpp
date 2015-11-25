@@ -69,7 +69,9 @@ protected:
 
 class HandlerRef {
 public:
-    HandlerRef(detail::Handler* handler): handler(handler) {
+    HandlerRef() : handler(nullptr) {}
+    
+    explicit HandlerRef(detail::Handler* handler): handler(handler) {
         if (handler != nullptr)
             handler->grab();
     }

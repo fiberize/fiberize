@@ -12,5 +12,6 @@
 #include <fiberize/fibersystem.hpp>
 #include <fiberize/eventcontext.hpp>
 #include <fiberize/promise.hpp>
+#include <fiberize/io/file.hpp>
 
 #endif // FIBERIZE_FIBERIZE_HPP

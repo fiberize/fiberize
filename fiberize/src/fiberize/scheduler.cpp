@@ -17,25 +17,17 @@ void Scheduler::resetCurrent() {
 
 void Scheduler::enable(detail::ControlBlock* controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock) {
     assert(controlBlock->status == detail::Suspended);
-    if (controlBlock->isFiber()) {
+    if (controlBlock->bound == nullptr) {
         /**
-         * If this is a fiber, forward it to a thread that is executing fibers.
+         * Only fibers can be unbound.
          */
+        assert(dynamic_cast<detail::FiberControlBlock*>(controlBlock) != nullptr);
         enableFiber(static_cast<detail::FiberControlBlock*>(controlBlock), std::move(lock));
     } else {
-        assert(controlBlock->isThread());
-        auto threadControlBlock = static_cast<detail::ThreadControlBlock*>(controlBlock);
-
         /**
-         * Switch the status to scheduled and give up the lock.
+         * Forward the control block to its bound scheduler.
          */
-        threadControlBlock->status = detail::Scheduled;
-        lock.unlock();
-
-        /**
-         * Wake up the thread.
-         */
-        threadControlBlock->wakeUp();
+        controlBlock->bound->enable(controlBlock, std::move(lock));
     }
 }
 

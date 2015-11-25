@@ -14,6 +14,7 @@ public:
     ThreadScheduler(FiberSystem* system, uint64_t seed, ThreadControlBlock* controlBlock);
     virtual ~ThreadScheduler();
 
+    void enable(ControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock) override;
     void enableFiber(FiberControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock) override;
     void suspend(boost::unique_lock<ControlBlockMutex>&& lock) override;
     void yield(boost::unique_lock<ControlBlockMutex>&& lock) override;

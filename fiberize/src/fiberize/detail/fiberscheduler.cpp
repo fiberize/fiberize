@@ -24,14 +24,12 @@ FiberScheduler::~FiberScheduler() {}
 
 void FiberScheduler::start() {
     executorThread = std::thread(&FiberScheduler::idle, this);
-    dispatcherThread = std::thread(&io::detail::IOContext::runLoop, &ioContext());
 }
 
 void FiberScheduler::stop() {
+    ioContext().stopDispatcher();
     emergencyStop = true;
-    ioContext().stopLoop();
     executorThread.join();
-    dispatcherThread.join();
 }
 
 void FiberScheduler::enableFiber(FiberControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock) {
@@ -86,8 +84,13 @@ void FiberScheduler::terminate() {
 
 bool FiberScheduler::tryToStealTask(FiberControlBlock*& controlBlock) {
     boost::unique_lock<boost::mutex> lock(tasksMutex);
-    if (!tasks.empty()) {
+    if (tasks.size() > 0 && !tasks[0]->bound) {
         controlBlock = tasks.front();
+        tasks.pop_front();
+        return true;
+    } if (tasks.size() > 1 && !tasks[1]->bound) {
+        controlBlock = tasks[1];
+        tasks[1] = tasks[0];
         tasks.pop_front();
         return true;
     } else {
@@ -100,6 +103,8 @@ ControlBlock* FiberScheduler::currentControlBlock() {
 }
 
 bool FiberScheduler::tryDequeue(FiberControlBlock*& controlBlock) {
+    if (emergencyStop) return false;
+
     boost::unique_lock<boost::mutex> lock(tasksMutex);
     if (!tasks.empty()) {
         controlBlock = tasks.back();
@@ -112,6 +117,7 @@ bool FiberScheduler::tryDequeue(FiberControlBlock*& controlBlock) {
 
 void FiberScheduler::idle() {
     makeCurrent();
+    ioContext().startDispatcher();
 
     /**
      * Idle loop.
@@ -302,7 +308,6 @@ void FiberScheduler::fiberRunner(intptr_t) {
     /**
      * Terminate the fiber.
      */
-    current()->system()->fiberFinished();
     current()->terminate();
 }
 

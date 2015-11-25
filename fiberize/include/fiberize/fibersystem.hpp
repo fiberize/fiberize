@@ -56,7 +56,7 @@ public:
         typename ...Args
         >
     FiberRef run(Args&& ...args) {
-        return runFiber<MailboxImpl>(uniqueIdentGenerator.generate(), [&] () {
+        return runFiber<MailboxImpl>(uniqueIdentGenerator.generate(), false, [&] () {
             return new FiberImpl(std::forward<Args>(args)...);
         });
     }
@@ -76,7 +76,7 @@ public:
         typename ...Args
         >
     FutureRef<Result> run(Args&& ...args) {
-        return runFuture<MailboxImpl>(uniqueIdentGenerator.generate(), [&] () {
+        return runFuture<MailboxImpl>(uniqueIdentGenerator.generate(), false, [&] () {
             return new FutureImpl(std::forward<Args>(args)...);
         });
     }
@@ -95,7 +95,7 @@ public:
         typename ...Args
         >
     void run_(Args&& ...args) {
-        runFiber_<MailboxImpl>(uniqueIdentGenerator.generate(), [&] () {
+        runFiber_<MailboxImpl>(uniqueIdentGenerator.generate(), false, [&] () {
             return new FiberImpl(std::forward<Args>(args)...);
         });
     }
@@ -115,7 +115,85 @@ public:
         typename ...Args
         >
     void run_(Args&& ...args) {
-        runFuture_<MailboxImpl>(uniqueIdentGenerator.generate(), [&] () {
+        runFuture_<MailboxImpl>(uniqueIdentGenerator.generate(), false, [&] () {
+            return new FutureImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new unnamed fiber, bound to this scheduler.
+     *
+     * The fiber is constructed using the given arguments.
+     */
+    template <
+        typename FiberImpl,
+        typename MailboxImpl = DequeMailbox,
+        typename std::enable_if<
+             std::is_base_of<Fiber, FiberImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    FiberRef runBound(Args&& ...args) {
+        return runFiber<MailboxImpl>(uniqueIdentGenerator.generate(), true, [&] () {
+            return new FiberImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new unnamed future, bound to this scheduler.
+     *
+     * The future is constructed using the given arguments.
+     */
+    template <
+        typename FutureImpl,
+        typename MailboxImpl = DequeMailbox,
+        typename Result = decltype(std::declval<FutureImpl>().run()),
+        typename std::enable_if<
+             std::is_base_of<Future<Result>, FutureImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    FutureRef<Result> runBound(Args&& ...args) {
+        return runFuture<MailboxImpl>(uniqueIdentGenerator.generate(), true, [&] () {
+            return new FutureImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new unnamed fiber, bound to this scheduler. This version doesn't return the fiber reference.
+     *
+     * The fiber is constructed using the given arguments.
+     */
+    template <
+        typename FiberImpl,
+        typename MailboxImpl = DequeMailbox,
+        typename std::enable_if<
+             std::is_base_of<Fiber, FiberImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    void runBound_(Args&& ...args) {
+        runFiber_<MailboxImpl>(uniqueIdentGenerator.generate(), true, [&] () {
+            return new FiberImpl(std::forward<Args>(args)...);
+        });
+    }
+
+    /**
+     * Starts a new unnamed future, bound to this scheduler. This version doesn't return the future reference.
+     *
+     * The future is constructed using the given arguments.
+     */
+    template <
+        typename FutureImpl,
+        typename MailboxImpl = DequeMailbox,
+        typename Result = decltype(std::declval<FutureImpl>().run()),
+        typename std::enable_if<
+             std::is_base_of<Future<Result>, FutureImpl>{}
+            >::type* = nullptr,
+        typename ...Args
+        >
+    void runBound_(Args&& ...args) {
+        runFuture_<MailboxImpl>(uniqueIdentGenerator.generate(), true, [&] () {
             return new FutureImpl(std::forward<Args>(args)...);
         });
     }
@@ -134,7 +212,7 @@ public:
         typename ...Args
         >
     FiberRef runNamed(const std::string& name, Args&& ...args) {
-        return runFiber<MailboxImpl>(Ident(NamedIdent(name)), [&] () {
+        return runFiber<MailboxImpl>(Ident(NamedIdent(name)), false, [&] () {
             return new FiberImpl(std::forward<Args>(args)...);
         });
     }
@@ -154,7 +232,7 @@ public:
         typename ...Args
         >
     FutureRef<Result> runNamed(const std::string& name, Args&& ...args) {
-        return runFuture<MailboxImpl>(Ident(NamedIdent(name)), [&] () {
+        return runFuture<MailboxImpl>(Ident(NamedIdent(name)), false, [&] () {
             return new FutureImpl(std::forward<Args>(args)...);
         });
     }
@@ -173,7 +251,7 @@ public:
         typename ...Args
         >
     void runNamed_(const std::string& name, Args&& ...args) {
-        runFiber_<MailboxImpl>(Ident(NamedIdent(name)), [&] () {
+        runFiber_<MailboxImpl>(Ident(NamedIdent(name)), false, [&] () {
             return new FiberImpl(std::forward<Args>(args)...);
         });
     }
@@ -193,17 +271,9 @@ public:
         typename ...Args
         >
     void runNamed_(const std::string& name, Args&& ...args) {
-        runFuture_<MailboxImpl>(Ident(NamedIdent(name)), [&] () {
+        runFuture_<MailboxImpl>(Ident(NamedIdent(name)), false, [&] () {
             return new FutureImpl(std::forward<Args>(args)...);
         });
-    }
-
-    /**
-     * Creates a new unique event.
-     */
-    template <typename A>
-    Event<A> newEvent() {
-        return Event<A>::fromPath(PrefixedPath(uuid(), uniqueIdentGenerator.generate()));
     }
     
     /**
@@ -211,11 +281,6 @@ public:
      */
     void shutdown();
 
-    /**
-     * Event that fires when all fibers finished running.
-     */
-    Event<Unit> allFibersFinished();
-    
     /**
      * Returns the UUID of this system.
      */
@@ -237,13 +302,13 @@ public:
         auto scheduler = new detail::ThreadScheduler(this, 123, controlBlock);
         scheduler->makeCurrent();
 
+        /**
+         * Bind the thread's control block to the thread's scheduler.
+         */
+        controlBlock->bound = scheduler;
+
         return FiberRef(std::make_shared<detail::LocalFiberRef>(this, controlBlock));
     }
-
-    /**
-     * Subscribes to events. TODO: refactor
-     */
-    void subscribe(FiberRef ref);
 
     /**
      * Returns a vector of fiber schedulers.
@@ -251,9 +316,6 @@ public:
     inline const std::vector<detail::FiberScheduler*>& schedulers() { return schedulers_; }
 
 private:
-    void fiberFinished();
-    friend class detail::FiberScheduler;
-
     /**
      * Starts a new fiber, using a factory to construct it.
      */
@@ -262,10 +324,11 @@ private:
         typename FiberFactory,
         typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type
         >
-    FiberRef runFiber(const Ident& ident, const FiberFactory& fiberFactory) {
+    FiberRef runFiber(const Ident& ident, bool bound, const FiberFactory& fiberFactory) {
         std::shared_ptr<detail::FiberRefImpl> impl;
         if (!shuttingDown) {
             auto block = createFiberControlBlock(ident, fiberFactory);
+            if (bound) block->bound = Scheduler::current();
 
             // Increment fiber counter.
             std::atomic_fetch_add(&running, 1ul);
@@ -291,9 +354,10 @@ private:
         typename FiberFactory,
         typename FiberImpl = typename std::decay<decltype(*(std::declval<FiberFactory>()()))>::type
         >
-    void runFiber_(const Ident& ident, const FiberFactory& fiberFactory) {
+    void runFiber_(const Ident& ident, bool bound, const FiberFactory& fiberFactory) {
         if (!shuttingDown) {
             auto block = createFiberControlBlock(ident, fiberFactory);
+            if (bound) block->bound = Scheduler::current();
 
             // Increment fiber counter.
             std::atomic_fetch_add(&running, 1ul);
@@ -315,10 +379,11 @@ private:
         typename FutureImpl = typename std::decay<decltype(*(std::declval<FutureFactory>()()))>::type,
         typename Result = decltype(std::declval<FutureImpl>().run())
         >
-    FutureRef<Result> runFuture(const Ident& ident, const FutureFactory& futureFactory) {
+    FutureRef<Result> runFuture(const Ident& ident, bool bound, const FutureFactory& futureFactory) {
         std::shared_ptr<detail::FutureRefImpl<Result>> impl;
         if (!shuttingDown) {
             auto block = createFutureControlBlock(ident, futureFactory);
+            if (bound) block->bound = Scheduler::current();
 
             // Increment fiber counter.
             std::atomic_fetch_add(&running, 1ul);
@@ -344,9 +409,10 @@ private:
         typename FutureFactory,
         typename FutureImpl = typename std::decay<decltype(*(std::declval<FutureFactory>()()))>::type
         >
-    void runFuture_(const Ident& ident, const FutureFactory& futureFactory) {
+    void runFuture_(const Ident& ident, bool bound, const FutureFactory& futureFactory) {
         if (!shuttingDown) {
             auto block = createFutureControlBlock(ident, futureFactory);
+            if (bound) block->bound = Scheduler::current();
 
             // Increment fiber counter.
             std::atomic_fetch_add(&running, 1ul);
@@ -373,6 +439,7 @@ private:
         // Create the control block.
         auto block = new detail::FiberControlBlock;
         block->refCount = 1;
+        block->bound = nullptr;
         block->path = PrefixedPath(uuid(), ident);
         block->mailbox.reset(new MailboxImpl);
         block->runnable.reset(fiber);
@@ -396,6 +463,7 @@ private:
         // Create the control block.
         auto block = new detail::FutureControlBlock<Result>;
         block->refCount = 1;
+        block->bound = nullptr;
         block->path = PrefixedPath(uuid(), ident);
         block->mailbox.reset(new MailboxImpl);
         block->runnable.reset(future);
@@ -411,6 +479,7 @@ private:
     detail::ThreadControlBlock* createThreadControlBlock() {
         auto block = new detail::ThreadControlBlock;
         block->refCount = 1;
+        block->bound = nullptr;
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
         block->mailbox.reset(new MailboxImpl);
         block->status = detail::Running;
@@ -433,11 +502,6 @@ private:
     std::atomic<uint64_t> running;
 
     bool shuttingDown;
-
-    // Events, TODO: refactor
-    std::mutex subscribersMutex;
-    std::vector<FiberRef> subscribers;
-    Event<Unit> allFibersFinished_;
 };
     
 } // namespace fiberize

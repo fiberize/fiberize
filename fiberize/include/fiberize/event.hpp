@@ -7,7 +7,10 @@
 #include <fiberize/handler.hpp>
 
 namespace fiberize {
-    
+
+template <typename A>
+class Promise;
+
 template <typename A>
 class Event {
 public:
@@ -87,6 +90,13 @@ public:
      */
     template <typename... Args>
     HandlerRef bind(Args&&... args) const;
+
+    /**
+     * Creates a promise that will capture the next occurence of this event.
+     */
+    Promise<A> promise() const {
+        return Promise<A>(*this);
+    }
 
 private:
     Path path_;

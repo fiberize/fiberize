@@ -6,8 +6,17 @@ using namespace fiberize;
 const size_t fibers = 1000 * 1000 * 4;
 const size_t spawners = 8;
 
+Event<Unit> finished;
+std::atomic<size_t> spawned(0);
+
+FiberRef mainThread;
+
 struct Noop : public Fiber {
-    void run() override {}
+    void run() override {
+        if (std::atomic_fetch_add(&spawned, size_t(1)) == fibers * spawners - 1) {
+            mainThread.send(finished);
+        }
+    }
 };
 
 struct Spawner : public Fiber {
@@ -23,13 +32,12 @@ struct Spawner : public Fiber {
 
 int main() {
     FiberSystem system;
-    FiberRef self = system.fiberize();
-    system.subscribe(self);
+    mainThread = system.fiberize();
 
     for (size_t i = 0; i < spawners; ++i) {
         system.run_<Spawner>();
     }
 
-    system.allFibersFinished().await();
+    finished.await();
     return 0;
 }

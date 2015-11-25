@@ -9,18 +9,18 @@ const size_t fibers = 100000;
 
 Event<Unit> go;
 
-struct Sleeper : public Fiber {
-    void run() override {
+struct Sleeper : public Future<Unit> {
+    Unit run() override {
         go.await();
+        return {};
     }
 };
 
 int main() {
     FiberSystem system;
-    FiberRef self = system.fiberize();
-    system.subscribe(self);
+    system.fiberize();
 
-    std::vector<FiberRef> refs;
+    std::vector<FutureRef<Unit>> refs;
 
     for (size_t i = 0; i < fibers; ++i) {
         refs.push_back(system.run<Sleeper>());
@@ -28,12 +28,13 @@ int main() {
 
     std::this_thread::sleep_for(5s);
 
-    for (FiberRef& ref : refs) {
+    for (FutureRef<Unit>& ref : refs) {
         ref.send(go);
     }
-    refs.clear();
 
-    system.allFibersFinished().await();
+    for (FutureRef<Unit>& ref : refs) {
+        ref.result()->await();
+    }
     std::this_thread::sleep_for(5s);
 
     return 0;

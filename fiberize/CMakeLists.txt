@@ -11,7 +11,7 @@ if(VALGRIND)
   add_definitions(-DFIBERIZE_VALGRIND -DBOOST_USE_VALGRIND)
 endif(VALGRIND)
 
-option(SEGMENTED_STACKS "enable segmented stacks [work in progress]" OFF)
+option(SEGMENTED_STACKS "enable segmented stacks" OFF)
 
 if(SEGMENTED_STACKS)
   add_definitions(-DFIBERIZE_SEGMENTED_STACKS -DBOOST_USE_SEGMENTED_STACKS)
