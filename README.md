@@ -91,14 +91,22 @@ The easiest way to build the library is to use docker:
 > docker build github.com/fiberize/fiberize.git
 ```
 
-Dependencies you need if you're not using docker are boost, google test and cmake. Once you have them run:
+Dependencies you need if you're not using docker are boost, google test, cmake, automake and libtool. Once you have them run:
 ```bash
 > git clone github.com/fiberize/fiberize.git
+libuv> cd libuv 
+libuv> sh autogen.sh
+libuv> ./configure
+libuv> make && make check
+libuv> sudo make install
+libuv> cd ../
 > mkdir fiberize/build
 > cd fiberize/build
 > cmake .. && make
-optionally> sudo make install
+> sudo make install
 ```
+This will install both libuv and fiberize into /usr/local. You can (and probably should if you have node.js installed)
+skip the libuv steps if it's already installed and the version is new enough.
 
 To link with the library add -lfiberize to c++ compiler options.
 
