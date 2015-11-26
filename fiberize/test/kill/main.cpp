@@ -15,7 +15,7 @@ TEST(Sleeper, ShouldDie) {
     FiberSystem system;
     system.fiberize();
 
-    auto sleeper = system.run<Sleeper>();
+    auto sleeper = system.future<Sleeper>().run();
     sleeper.kill();
     EXPECT_THROW(sleeper.result()->await(), Killed);
 }

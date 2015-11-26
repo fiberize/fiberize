@@ -41,8 +41,8 @@ TEST(PingPong, PingPong) {
     FiberSystem system;
     FiberRef self = system.fiberize();
     
-    auto ping = system.run<Ping>();
-    auto pong = system.run<Pong>(self);
+    auto ping = system.future<Ping>().run();
+    auto pong = system.future<Pong>().run(self);
     
     pong.send(init, ping);
     ready.await();

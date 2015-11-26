@@ -42,7 +42,7 @@ TEST(File, ThreadReadsAndWrites) {
 }
 
 TEST(File, FiberReadsAndWrites) {
-    EXPECT_EQ(data, fiberSystem.run<Writer>(data, path).result()->await());
+    EXPECT_EQ(data, fiberSystem.future<Writer>().run(data, path).result()->await());
 }
 
 int main(int argc, char **argv) {

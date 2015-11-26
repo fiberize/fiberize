@@ -21,8 +21,9 @@ struct Noop : public Fiber {
 
 struct Spawner : public Fiber {
     void run() override {
+        auto builder = system()->fiber<Noop>();
         for (size_t i = 1; i <= fibers; ++i) {
-            system()->run_<Noop>();
+            builder.run_();
             if (i % 100 == 0) {
                 yield();
             }
@@ -35,7 +36,7 @@ int main() {
     mainThread = system.fiberize();
 
     for (size_t i = 0; i < spawners; ++i) {
-        system.run_<Spawner>();
+        system.fiber<Spawner>().run_();
     }
 
     finished.await();

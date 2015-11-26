@@ -28,8 +28,9 @@ int main() {
     FiberSystem system;
     mainThread = system.fiberize();
 
+    auto printer = system.fiber<Printer>();
     for (size_t i = 0; i < fibers; ++i) {
-        system.run_<Printer>(i);
+        printer.run_(i);
     }
 
     finished.await();

@@ -22,7 +22,7 @@ int main() {
     std::vector<FutureRef<void>> refs;
 
     for (size_t i = 0; i < fibers; ++i) {
-        refs.push_back(system.run<Sleeper>());
+        refs.push_back(system.future<Sleeper>().run());
     }
 
     std::this_thread::sleep_for(5s);

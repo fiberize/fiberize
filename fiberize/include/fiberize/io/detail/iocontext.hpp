@@ -2,6 +2,7 @@
 #define FIBERIZE_IO_DETAIL_IOCONTEXT_HPP
 
 #include <uv.h>
+
 #include <fiberize/fiberref.hpp>
 
 namespace fiberize {
@@ -46,7 +47,7 @@ public:
 private:
     uv_loop_t loop_;
     bool stopped;
-    FutureRef<void> dispatcher;
+    FiberRef dispatcher;
 };
 
 } // namespace detail

@@ -70,12 +70,12 @@ int main() {
     FiberRef self = system.fiberize();
 
     // We create the fibers. Any parameters passed to run will be forwarded to the constructor.
-    FiberRef ping = system.run<Ping>();
-    FiberRef pong = system.run<Pong>(self);
+    FiberRef ping = system.fiber<Ping>().run();
+    FiberRef pong = system.fiber<Pong>().run(self);
 
     // Exchange the fiber refs.
     pong.send(init, ping);
-    ready.await(); // Awaiting in a fiberized thread (and not a real fiber) *blocks*.
+    ready.await(); // Awaiting in a fiberized thread continues to process events.
     ping.send(init, pong);
 
     // Enter an infinite loop processing events.

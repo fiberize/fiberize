@@ -12,8 +12,9 @@ struct Fibonacci : public Future<uint64_t> {
         if (n <= 1) {
             return 1;
         } else {
-            auto x = system()->run<Fibonacci>(n-2);
-            auto y = system()->run<Fibonacci>(n-1);
+            auto fibbonacci = system()->future<Fibonacci>();
+            auto x = fibbonacci.run(n-2);
+            auto y = fibbonacci.run(n-1);
             return x.result()->await() + y.result()->await();
         }
     }
@@ -32,6 +33,6 @@ TEST(Fibonacci, ComputesFibonacciSequence) {
     system.fiberize();
     
     for (uint64_t n = 0; n < 20; ++n) {
-        EXPECT_EQ(fibonacci(n), system.run<Fibonacci>(n).result()->await());
+        EXPECT_EQ(fibonacci(n), system.future<Fibonacci>().run(n).result()->await());
     }
 }

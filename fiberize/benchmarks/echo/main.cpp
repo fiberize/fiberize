@@ -53,8 +53,8 @@ int main() {
     std::vector<FutureRef<void>> emitters;
 
     for (uint i = 0; i < n; ++i) {
-        auto echo = system.run<Echo>();
-        auto emitter = system.run<Emitter>(echo, 100, 5000000);
+        auto echo = system.fiber<Echo>().run();
+        auto emitter = system.future<Emitter>().run(echo, 100, 5000000);
         emitters.push_back(emitter);
     }
 

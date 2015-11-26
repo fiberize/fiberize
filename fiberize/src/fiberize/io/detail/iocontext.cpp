@@ -5,6 +5,7 @@
 #include <fiberize/fiberref-inl.hpp>
 #include <fiberize/future.hpp>
 #include <fiberize/fibersystem.hpp>
+#include <fiberize/builder-inl.hpp>
 
 #include <chrono>
 #include <thread>
@@ -15,20 +16,16 @@ namespace fiberize {
 namespace io {
 namespace detail {
 
-class Dispatcher : public Future<void> {
+class Dispatcher : public Fiber {
 public:
-    static Event<void> kill;
-
     Dispatcher(uv_loop_t* loop)
-        : loop(loop), killed(false) {}
+        : loop(loop) {}
 
     void run() override {
-        auto _kill = kill.bind([&] () {
-            killed = true;
-        });
-
-        while (!killed) {
-            uv_run(loop, UV_RUN_NOWAIT);
+        uint64_t k = 0;
+        for (;;++k) {
+            if (k % 100 == 0)
+                uv_run(loop, UV_RUN_NOWAIT);
             yield();
             process();
         }
@@ -36,10 +33,7 @@ public:
 
 private:
     uv_loop_t* loop;
-    bool killed;
 };
-
-Event<void> Dispatcher::kill;
 
 IOContext::IOContext() {
     uv_loop_init(loop());
@@ -50,12 +44,12 @@ IOContext::~IOContext() {
 }
 
 void IOContext::startDispatcher() {
-    dispatcher = Scheduler::current()->system()->run<Dispatcher>(loop());
+    dispatcher = Scheduler::current()->system()->fiber<Dispatcher>().bound().run(loop());
 }
 
 void IOContext::stopDispatcher() {
-    dispatcher.send(Dispatcher::kill);
-    dispatcher = FutureRef<void>();
+    dispatcher.kill();
+    dispatcher = FiberRef();
 }
 
 void IOContext::runLoop() {

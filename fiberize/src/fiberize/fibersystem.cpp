@@ -12,7 +12,7 @@ namespace fiberize {
 FiberSystem::FiberSystem() : FiberSystem(std::thread::hardware_concurrency()) {}
 
 FiberSystem::FiberSystem(uint32_t macrothreads)
-    : shuttingDown(false)
+    : shuttingDown_(false)
 #ifdef FIBERIZE_VALGRIND
     , seedGenerator(std::chrono::system_clock::now().time_since_epoch().count())
 #endif
@@ -45,7 +45,11 @@ FiberSystem::~FiberSystem() {
 }
 
 void FiberSystem::shutdown() {
-    shuttingDown = true;
+    shuttingDown_ = true;
+}
+
+bool FiberSystem::shuttingDown() const {
+    return shuttingDown_;
 }
 
 boost::uuids::uuid FiberSystem::uuid() const {
