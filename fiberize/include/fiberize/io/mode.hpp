@@ -1,3 +1,11 @@
+/**
+ * IO modes.
+ *
+ * @see @ref io_modes
+ *
+ * @file mode.hpp
+ * @copyright 2015 Paweł Nowak
+ */
 #ifndef FIBERIZE_IO_MODE_HPP
 #define FIBERIZE_IO_MODE_HPP
 
@@ -9,6 +17,43 @@ namespace fiberize {
 namespace io {
 
 /**
+ * @page io_modes IO modes
+ *
+ * Controls how to execute IO operations.
+ *
+ * IO modes control whether an IO operation should be blocking, asynchronous or nonblocking.
+ * There are three IO modes:
+ *   - Await - Executing an IO operation in await mode will block the fiber until the operation is done,
+ *             while processing messages and allowing other fibers to execute. This mode is usually the default.
+ *   - Block - Exeuting an IO operation in block mode will block the fiber and the thread it is executing on.
+ *             This version does not process messages and does not allow other fibers to execute on this core.
+ *   - Async - Executing an IO operation in defer mode won't block the fiber and won't process messages.
+ *             Instead it starts the IO operation asynchronously and reports the result with a promise.
+ *
+ * IO operations are implemented as template functions, which take the mode as a template parameter.
+ * For example we can open a file in three different ways:
+ * * Blocking:
+ *   @code
+ *     File file = File::open<Block>("test", O_RDONLY, 0777);
+ *   @endcode
+ * * Nonblocking, but synchronous:
+ *   @code
+ *     File file = File::open<Await>("test", O_RDONLY, 0777);
+ *   @endcode
+ * * Asynchronous, which gives us a promise:
+ *   @code
+ *     std::shared_ptr<Promise<File>> promise = File::open<Async>("test", O_RDONLY, 0777);
+ *     File file = promise->await();
+ *   @endcode
+ *
+ * Some functions provide a default mode. For example if you call
+ * @code
+ *   File file = File::open("test", O_RDONLY, 0777);
+ * @endcode
+ * it will use the Block mode.
+ */
+
+/**
  * Executing an IO operation in await mode will block the fiber until the operation is done,
  * while processing messages and allowing other fibers to execute.
  *
@@ -18,7 +63,7 @@ class Await {};
 
 /**
  * Exeuting an IO operation in block mode will block the fiber and the thread it is executing on.
- * This version does not process messages and does not allow other fibeers to execute on this core.
+ * This version does not process messages and does not allow other fibers to execute on this core.
  *
  * This mode should be used for inexpensive and predictable IO operations, especially filesystem
  * operations. Asynchronous FS operations are currently implemented with a worker pool. The cost

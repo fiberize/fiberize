@@ -1,3 +1,9 @@
+/**
+ * Simple buffer.
+ *
+ * @file buffer.hpp
+ * @copyright 2015 Paweł Nowak
+ */
 #ifndef FIBERIZE_IO_BUFFER_HPP
 #define FIBERIZE_IO_BUFFER_HPP
 
@@ -7,23 +13,24 @@ namespace fiberize {
 namespace io {
 
 /**
- * A buffer is a pointer to a memory fragment with a known size.
+ * Simple pointer to a memory fragment with a known size.
  *
- * Buffer does not manage memory - it's just a pointer and size.
+ * @note Buffer does not manage memory - it's just a pointer and size.
  */
 class Buffer : private uv_buf_t {
 public:
-    Buffer() = delete;
-    Buffer(const Buffer&) = default;
-    Buffer(Buffer&&) = default;
-
-    Buffer& operator = (const Buffer&) = default;
-    Buffer& operator = (Buffer&&) = default;
-
     /**
      * Creates a buffer from an existing memory region.
      */
     explicit Buffer(char* data, uint lenght);
+
+    /**
+     * Copies the pointer and size, without copying any data.
+     */
+    /// @{
+    Buffer(const Buffer&) = default;
+    Buffer& operator = (const Buffer&) = default;
+    /// @}
 
     /**
      * Returns the pointer to the buffer data.

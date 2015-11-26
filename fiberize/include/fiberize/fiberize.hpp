@@ -22,6 +22,6 @@
 #include <fiberize/eventcontext.hpp>
 #include <fiberize/fibersystem.hpp>
 
-#include <fiberize/io/file.hpp>
+#include <fiberize/io/io.hpp>
 
 #endif // FIBERIZE_FIBERIZE_HPP

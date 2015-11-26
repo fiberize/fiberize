@@ -1,4 +1,4 @@
-#include <fiberize/io/file.hpp>
+#include <fiberize/io/filesystem.hpp>
 #include <fiberize/io/detail/libuvwrapper.hpp>
 #include <fiberize/scheduler.hpp>
 #include <fiberize/fibersystem.hpp>
@@ -78,13 +78,18 @@ Result<ssize_t, Mode> File::write(const Buffer bufs[], uint nbufs, int64_t offse
     return detail::LibUVWrapper<
         ssize_t,
         uv_fs_t,
+        uv_fs_req_cleanup,
         decltype(&uv_fs_write),
-        &uv_fs_write,
+        uv_fs_write,
         readWriteResult
     >::execute<Mode>(file, detail::static_buffer_cast(bufs), nbufs, offset);
 }
 
 FIBERIZE_IO_DETAIL_INSTANTIATE_MODES(ssize_t, File::write, const Buffer bufs[], uint nbufs, int64_t offset)
+
+int File::descriptor() {
+    return file;
+}
 
 } // namespace io
 } // namespace fiberize
