@@ -29,7 +29,7 @@ public:
 };
 
 template <typename A>
-DevNullFutureRef<A> devNullFutureRef;
+DevNullFutureRef<A> devNullFutureRef = {};
 
 } // namespace detail    
 } // namespace fiberize
