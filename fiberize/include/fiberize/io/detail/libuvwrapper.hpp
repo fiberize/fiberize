@@ -38,12 +38,24 @@ struct TryToComplete<void, Request, extractor> {
     }
 };
 
-template <typename Value, typename Request, typename UVFunctionType, UVFunctionType uvfunction, Value (*extractor)(Request*)>
+template <typename Value, typename Request, void (*cleanup)(Request*), typename UVFunctionType, UVFunctionType uvfunction, Value (*extractor)(Request*)>
 struct LibUVWrapper {
     template <typename Mode, typename... Args>
     static Result<Value, Mode> execute(Args&&... args) {
         return execute(Mode(), std::forward<Args>(args)...);
     }
+
+    struct ScopedCleanup {
+        ScopedCleanup(Request* req) {
+            this->req = req;
+        }
+
+        ~ScopedCleanup() {
+            cleanup(req);
+        }
+
+        Request* req;
+    };
 
     template <typename... Args>
     static Result<Value, Await> execute(Await, Args&&... args) {
@@ -65,6 +77,7 @@ struct LibUVWrapper {
 
         EventContext::current()->processUntil(ctx.condition);
 
+        ScopedCleanup finalize(&req);
         if (req.result >= 0) {
             return extractor(&req);
         } else {
@@ -77,6 +90,7 @@ struct LibUVWrapper {
         Request req;
         uvfunction(Scheduler::current()->ioContext().loop(), &req, std::forward<Args>(args)..., nullptr);
 
+        ScopedCleanup finalize(&req);
         if (req.result >= 0) {
             return extractor(&req);
         } else {
@@ -109,6 +123,7 @@ struct LibUVWrapper {
                     ));
                 }
             }
+            cleanup(&ctx->request);
             delete ctx;
         });
 

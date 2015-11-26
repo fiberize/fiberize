@@ -30,8 +30,9 @@ Result<File, Mode> File::open(const char* path, int flags, int mode) {
     return detail::LibUVWrapper<
         File,
         uv_fs_t,
+        uv_fs_req_cleanup,
         decltype(&uv_fs_open),
-        &uv_fs_open,
+        uv_fs_open,
         openResult
     >::execute<Mode>(path, flags, mode);
 }
@@ -45,8 +46,9 @@ Result<void, Mode> File::close() {
     return detail::LibUVWrapper<
         void,
         uv_fs_t,
+        uv_fs_req_cleanup,
         decltype(&uv_fs_close),
-        &uv_fs_close,
+        uv_fs_close,
         closeResult
     >::execute<Mode>(file);
 }
@@ -62,8 +64,9 @@ Result<ssize_t, Mode> File::read(const Buffer bufs[], uint nbufs, int64_t offset
     return detail::LibUVWrapper<
         ssize_t,
         uv_fs_t,
+        uv_fs_req_cleanup,
         decltype(&uv_fs_read),
-        &uv_fs_read,
+        uv_fs_read,
         readWriteResult
     >::execute<Mode>(file, detail::static_buffer_cast(bufs), nbufs, offset);
 }
