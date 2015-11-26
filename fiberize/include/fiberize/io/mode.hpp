@@ -53,12 +53,6 @@ struct ResultImpl<Value, Async> {
     typedef std::shared_ptr<Promise<Value>> Type;
 };
 
-template <>
-struct ResultImpl<void, Async> {
-    // TODO: get rid of Unit
-    typedef std::shared_ptr<Promise<Unit>> Type;
-};
-
 } // namespace detail
 
 /**

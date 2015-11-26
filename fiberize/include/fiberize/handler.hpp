@@ -65,6 +65,24 @@ protected:
     std::function<void (const A&)> handler;
 };
 
+template <>
+class TypedHandler<void> : public Handler {
+public:
+    template <typename... Args>
+    explicit TypedHandler(Args&&... args) : handler(std::forward<Args>(args...)...) {}
+
+    virtual void execute(const void*) {
+        handler();
+    }
+
+protected:
+    virtual void release() {
+        handler = std::function<void ()>();
+    }
+
+    std::function<void ()> handler;
+};
+
 } // namespace detail
 
 class HandlerRef {

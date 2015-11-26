@@ -8,8 +8,9 @@
 #include <boost/variant.hpp>
 
 #include <fiberize/event.hpp>
-#include <fiberize/eventcontext.hpp>
 #include <fiberize/fiberref.hpp>
+#include <fiberize/event-inl.hpp>
+#include <fiberize/eventcontext.hpp>
 
 namespace fiberize {
 namespace detail {
@@ -50,6 +51,18 @@ public:
     Failure<A>* asFailure() override { return nullptr; }
 
     A value;
+};
+
+template <>
+class Success<void> : public Result<void> {
+public:
+    Success() {};
+
+    bool isSuccess() override { return true; }
+    bool isFailure() override { return false; }
+
+    Success<void>* asSuccess() override { return this; }
+    Failure<void>* asFailure() override { return nullptr; }
 };
 
 template <typename A>
@@ -157,8 +170,90 @@ private:
     HandlerRef handler;
 };
 
-template <typename A>
-using PromiseRef =  std::shared_ptr<Promise<A>>;
+
+
+template <>
+class Promise<void> {
+public:
+    Promise() = default;
+    explicit Promise(const Event<void>& watched) {
+        handler = watched.bind([this] () {
+            tryToComplete();
+            handler.release();
+        });
+    }
+    Promise(const Promise&) = delete;
+    Promise(Promise&&) = default;
+
+    Promise& operator = (const Promise&) = delete;
+    Promise& operator = (Promise&&) = delete;
+
+    /**
+     * Tries to complete the promise.
+     */
+    bool tryToComplete() {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (!result) {
+            try {
+                result.reset(new detail::Success<void>());
+            } catch (...) {
+                result.reset(new detail::Failure<void>(std::current_exception()));
+            }
+            wakup();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Tries to fail this promise.
+     */
+    bool tryToFail(std::exception_ptr error) {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (!result) {
+            result.reset(new detail::Failure<void>(error));
+            wakup();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Awaits until the promise is completed or failed. If the promise
+     * failed it will rethrow the exception.
+     * TODO: optimize
+     */
+    void await() {
+        std::unique_lock<std::mutex> lock(mutex);
+        if (result) {
+            detail::Success<void>* success = result->asSuccess();
+            if (success != nullptr) {
+                return;
+            } else {
+                std::rethrow_exception(result->asFailure()->exception);
+            }
+        } else {
+            waiting.push_back(EventContext::current()->fiberRef());
+            lock.unlock();
+            condition.await();
+        }
+    }
+
+private:
+    void wakup() {
+        for (FiberRef& ref : waiting)
+            ref.send(condition);
+        waiting = std::vector<FiberRef>();
+    }
+
+    std::mutex mutex;
+    std::vector<FiberRef> waiting;
+    std::unique_ptr<detail::Result<void>> result;
+    Event<Unit> condition;
+    HandlerRef handler;
+};
 
 } // namespace fiberize
 

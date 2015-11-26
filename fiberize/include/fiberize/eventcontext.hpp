@@ -27,9 +27,6 @@ class ControlBlock;
 
 } // namespace detail
 
-template <typename A>
-class Event;
-
 class EventContext {
 public:
     /**

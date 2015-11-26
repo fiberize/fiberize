@@ -1,7 +1,10 @@
 #include <fiberize/io/detail/iocontext.hpp>
-#include <fiberize/fibersystem.hpp>
+#include <fiberize/event.hpp>
+#include <fiberize/fiberref.hpp>
+#include <fiberize/event-inl.hpp>
+#include <fiberize/fiberref-inl.hpp>
 #include <fiberize/future.hpp>
-#include <fiberize/eventimpl.hpp>
+#include <fiberize/fibersystem.hpp>
 
 #include <chrono>
 #include <thread>

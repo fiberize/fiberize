@@ -3,13 +3,15 @@
 
 #include <fiberize/types.hpp>
 #include <fiberize/path.hpp>
-#include <fiberize/event.hpp>
 #include <fiberize/mailbox.hpp>
 #include <fiberize/locality.hpp>
 #include <fiberize/detail/fiberrefimpl.hpp>
 #include <fiberize/detail/devnullfiberref.hpp>
 
 namespace fiberize {
+
+template <typename A>
+class Event;
 
 template <typename A>
 class Promise;
@@ -57,15 +59,7 @@ public:
      * Emits an event.
      */
     template<typename A, typename... Args>
-    void send(const Event<A>& event, Args&&... args) {
-        if (impl_->locality() != DevNull && event.path() != Path(DevNullPath{})) {
-            PendingEvent pendingEvent;
-            pendingEvent.path = event.path();
-            pendingEvent.data = new A(std::forward<Args>(args)...);
-            pendingEvent.freeData = [] (void* data) { delete reinterpret_cast<A*>(data); };
-            impl_->send(pendingEvent);
-        }
-    }
+    void send(const Event<A>& event, Args&&... args);
 
     /**
      * The internal implementation.

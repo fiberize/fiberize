@@ -4,14 +4,22 @@
 #include <fiberize/types.hpp>
 #include <fiberize/locality.hpp>
 #include <fiberize/path.hpp>
-#include <fiberize/event.hpp>
-#include <fiberize/eventimpl.hpp>
-#include <fiberize/mailbox.hpp>
 #include <fiberize/handler.hpp>
+#include <fiberize/mailbox.hpp>
+
+// Cyclic dependency.
+#include <fiberize/event.hpp>
+#include <fiberize/fiberref.hpp>
+#include <fiberize/event-inl.hpp>
+#include <fiberize/fiberref-inl.hpp>
+
 #include <fiberize/fiber.hpp>
-#include <fiberize/fibersystem.hpp>
-#include <fiberize/eventcontext.hpp>
+#include <fiberize/future.hpp>
 #include <fiberize/promise.hpp>
+
+#include <fiberize/eventcontext.hpp>
+#include <fiberize/fibersystem.hpp>
+
 #include <fiberize/io/file.hpp>
 
 #endif // FIBERIZE_FIBERIZE_HPP

@@ -1,5 +1,5 @@
-#ifndef FIBERIZE_EVENTIMPL_HPP
-#define FIBERIZE_EVENTIMPL_HPP
+#ifndef FIBERIZE_EVENTINL_HPP
+#define FIBERIZE_EVENTINL_HPP
 
 #include <boost/optional.hpp>
 
@@ -8,9 +8,6 @@
 
 namespace fiberize {
 
-/**
- * Waits until an event occurs and returns its value.
- */
 template <typename A>
 A Event<A>::await() const {
     bool condition = false;
@@ -26,9 +23,6 @@ A Event<A>::await() const {
     return result.value();
 }
 
-/**
- * Binds an event to a handler.
- */
 template <typename A>
 template <typename... Args>
 HandlerRef Event<A>::bind(Args&&... args) const {
@@ -39,5 +33,5 @@ HandlerRef Event<A>::bind(Args&&... args) const {
 
 } // namespace fiberize
 
-#endif // FIBERIZE_EVENTIMPL_HPP
+#endif // FIBERIZE_EVENTINL_HPP
 
