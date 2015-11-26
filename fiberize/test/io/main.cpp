@@ -23,10 +23,10 @@ public:
         Buffer wrb(data, n);
         Buffer rdb(buffer, n);
 
-        File file = File::open(block, path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0777);
-        file.write(async, &wrb, 1, 0)->await();
-        file.read(await, &rdb, 1, 0);
-        file.close(block);
+        File file = File::open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0777);
+        file.write<Async>(&wrb, 1, 0)->await();
+        file.read<Await>(&rdb, 1, 0);
+        file.close();
 
         return buffer;
     }

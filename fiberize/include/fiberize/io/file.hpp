@@ -23,21 +23,17 @@ public:
     File& operator = (const File&) = delete;
     File& operator = (File&& other);
 
-    static File open(Await, const char* path, int flags, int mode);
-    static File open(Block, const char* path, int flags, int mode);
-    static std::shared_ptr<Promise<File>> open(Async, const char* path, int flags, int mode);
+    template <typename Mode = Block>
+    static Result<File, Mode> open(const char* path, int flags, int mode);
 
-    void close(Await);
-    void close(Block);
-    std::shared_ptr<Promise<Unit>> close(Async);
+    template <typename Mode = Block>
+    Result<void, Mode> close();
 
-    ssize_t read(Await, const Buffer bufs[], uint nbufs, int64_t offset);
-    ssize_t read(Block, const Buffer bufs[], uint nbufs, int64_t offset);
-    std::shared_ptr<Promise<ssize_t>> read(Async, const Buffer bufs[], uint nbufs, int64_t offset);
+    template <typename Mode = Await>
+    Result<ssize_t, Mode> read(const Buffer bufs[], uint nbufs, int64_t offset);
 
-    ssize_t write(Await, const Buffer bufs[], uint nbufs, int64_t offset);
-    ssize_t write(Block, const Buffer bufs[], uint nbufs, int64_t offset);
-    std::shared_ptr<Promise<ssize_t>> write(Async, const Buffer bufs[], uint nbufs, int64_t offset);
+    template <typename Mode = Await>
+    Result<ssize_t, Mode> write(const Buffer bufs[], uint nbufs, int64_t offset);
 
 private:
     uv_file file;

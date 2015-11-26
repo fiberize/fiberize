@@ -27,7 +27,8 @@ struct AwaitContext {
     ControlBlock* controlBlock;
 };
 
-File File::open(Await, const char* path, int flags, int mode) {
+template <>
+File File::open<Await>(const char* path, int flags, int mode) {
     AwaitContext ctx;
     ctx.condition = false;
     ctx.controlBlock = Scheduler::current()->currentControlBlock();
@@ -53,7 +54,8 @@ File File::open(Await, const char* path, int flags, int mode) {
     }
 }
 
-File File::open(Block, const char* path, int flags, int mode) {
+template <>
+File File::open<Block>(const char* path, int flags, int mode) {
     uv_fs_t req;
     uv_fs_open(Scheduler::current()->ioContext().loop(), &req, path, flags, mode, nullptr);
 
@@ -110,7 +112,8 @@ RequestClosure<A, F>* newRequestClosure(const std::shared_ptr<Promise<A>>& promi
     return new RequestClosure<A, F>(promise, std::forward<F>(result));
 }
 
-std::shared_ptr<Promise<File>> File::open(Async, const char* path, int flags, int mode) {
+template <>
+std::shared_ptr<Promise<File>> File::open<Async>(const char* path, int flags, int mode) {
     auto promise = std::make_shared<Promise<File>>();
     auto closure = newRequestClosure(promise, [] (uv_fs_t& req) {
         return File(req.result);
@@ -119,7 +122,8 @@ std::shared_ptr<Promise<File>> File::open(Async, const char* path, int flags, in
     return promise;
 }
 
-void File::close(Await) {
+template <>
+void File::close<Await>() {
     AwaitContext ctx;
     ctx.condition = false;
     ctx.controlBlock = Scheduler::current()->currentControlBlock();
@@ -145,7 +149,8 @@ void File::close(Await) {
     }
 }
 
-void File::close(Block) {
+template <>
+void File::close<Block>() {
     uv_fs_t req;
     uv_fs_close(Scheduler::current()->ioContext().loop(), &req, file, nullptr);
 
@@ -156,7 +161,8 @@ void File::close(Block) {
     }
 }
 
-std::shared_ptr<Promise<Unit>> File::close(Async) {
+template <>
+std::shared_ptr<Promise<Unit>> File::close<Async>() {
     auto promise = std::make_shared<Promise<Unit>>();
     auto closure = newRequestClosure(promise, [] (uv_fs_t&) {
         return Unit {};
@@ -165,7 +171,8 @@ std::shared_ptr<Promise<Unit>> File::close(Async) {
     return promise;
 }
 
-ssize_t File::read(Await, const Buffer bufs[], uint nbufs, int64_t offset) {
+template <>
+ssize_t File::read<Await>(const Buffer bufs[], uint nbufs, int64_t offset) {
     AwaitContext ctx;
     ctx.condition = false;
     ctx.controlBlock = Scheduler::current()->currentControlBlock();
@@ -191,7 +198,8 @@ ssize_t File::read(Await, const Buffer bufs[], uint nbufs, int64_t offset) {
     }
 }
 
-ssize_t File::read(Block, const Buffer bufs[], uint nbufs, int64_t offset) {
+template <>
+ssize_t File::read<Block>(const Buffer bufs[], uint nbufs, int64_t offset) {
     uv_fs_t req;
     uv_fs_read(Scheduler::current()->ioContext().loop(), &req, file, detail::static_buffer_cast(bufs), nbufs, offset, nullptr);
 
@@ -202,7 +210,8 @@ ssize_t File::read(Block, const Buffer bufs[], uint nbufs, int64_t offset) {
     }
 }
 
-std::shared_ptr<Promise<ssize_t>> File::read(Async, const Buffer bufs[], uint nbufs, int64_t offset) {
+template <>
+std::shared_ptr<Promise<ssize_t>> File::read<Async>(const Buffer bufs[], uint nbufs, int64_t offset) {
     auto promise = std::make_shared<Promise<ssize_t>>();
     auto closure = newRequestClosure(promise, [] (uv_fs_t& req) {
         return req.result;
@@ -211,7 +220,8 @@ std::shared_ptr<Promise<ssize_t>> File::read(Async, const Buffer bufs[], uint nb
     return promise;
 }
 
-ssize_t File::write(Await, const Buffer bufs[], uint nbufs, int64_t offset) {
+template <>
+ssize_t File::write<Await>(const Buffer bufs[], uint nbufs, int64_t offset) {
     AwaitContext ctx;
     ctx.condition = false;
     ctx.controlBlock = Scheduler::current()->currentControlBlock();
@@ -237,7 +247,8 @@ ssize_t File::write(Await, const Buffer bufs[], uint nbufs, int64_t offset) {
     }
 }
 
-ssize_t File::write(Block, const Buffer bufs[], uint nbufs, int64_t offset) {
+template <>
+ssize_t File::write<Block>(const Buffer bufs[], uint nbufs, int64_t offset) {
     uv_fs_t req;
     uv_fs_write(Scheduler::current()->ioContext().loop(), &req, file, detail::static_buffer_cast(bufs), nbufs, offset, nullptr);
 
@@ -248,7 +259,8 @@ ssize_t File::write(Block, const Buffer bufs[], uint nbufs, int64_t offset) {
     }
 }
 
-std::shared_ptr<Promise<ssize_t>> File::write(Async, const Buffer bufs[], uint nbufs, int64_t offset) {
+template <>
+std::shared_ptr<Promise<ssize_t>> File::write<Async>(const Buffer bufs[], uint nbufs, int64_t offset) {
     auto promise = std::make_shared<Promise<ssize_t>>();
     auto closure = newRequestClosure(promise, [] (uv_fs_t& req) {
         return req.result;
