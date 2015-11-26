@@ -298,8 +298,12 @@ public:
         controlBlock->eventContext = new EventContext(this, controlBlock);
         controlBlock->eventContext->makeCurrent();
 
-        // TODO: real seed
-        auto scheduler = new detail::ThreadScheduler(this, 123, controlBlock);
+        std::uniform_int_distribution<uint64_t> seedDist;
+        generatorMutex.lock();
+        uint64_t seed = seedDist(seedGenerator);
+        generatorMutex.unlock();
+
+        auto scheduler = new detail::ThreadScheduler(this, seed, controlBlock);
         scheduler->makeCurrent();
 
         /**
@@ -330,9 +334,6 @@ private:
             auto block = createFiberControlBlock(ident, fiberFactory);
             if (bound) block->bound = Scheduler::current();
 
-            // Increment fiber counter.
-            std::atomic_fetch_add(&running, 1ul);
-
             // Schedule the block.
             boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
             Scheduler::current()->enableFiber(block, std::move(lock));
@@ -359,9 +360,6 @@ private:
             auto block = createFiberControlBlock(ident, fiberFactory);
             if (bound) block->bound = Scheduler::current();
 
-            // Increment fiber counter.
-            std::atomic_fetch_add(&running, 1ul);
-
             // Schedule the block.
             boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
             Scheduler::current()->enableFiber(block, std::move(lock));
@@ -384,9 +382,6 @@ private:
         if (!shuttingDown) {
             auto block = createFutureControlBlock(ident, futureFactory);
             if (bound) block->bound = Scheduler::current();
-
-            // Increment fiber counter.
-            std::atomic_fetch_add(&running, 1ul);
 
             // Schedule the block.
             boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
@@ -413,9 +408,6 @@ private:
         if (!shuttingDown) {
             auto block = createFutureControlBlock(ident, futureFactory);
             if (bound) block->bound = Scheduler::current();
-
-            // Increment fiber counter.
-            std::atomic_fetch_add(&running, 1ul);
 
             // Schedule the block.
             boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
@@ -497,11 +489,19 @@ private:
     boost::uuids::uuid uuid_;
 
     /**
-     * Number of running actors.
+     * Whether the system is shutting down.
      */
-    std::atomic<uint64_t> running;
-
     bool shuttingDown;
+
+    // If valgrind support is enabled we cannot use std::random_device, because valgrind 3.11.0
+    // doesn't recognize the rdrand instruction used in the implementation of random_device.
+#ifdef FIBERIZE_VALGRIND
+    std::default_random_engine seedGenerator;
+#else
+    std::random_device seedGenerator;
+#endif
+
+    std::mutex generatorMutex;
 };
     
 } // namespace fiberize
