@@ -18,10 +18,7 @@ class FiberContext;
 
 namespace detail {
 
-class HandlerBlock {
-public:
-    std::vector<std::unique_ptr<detail::Handler>> handlers;
-};
+using HandlerBlock = std::vector<std::unique_ptr<detail::Handler>>;
 
 class ControlBlock;
 
@@ -90,11 +87,11 @@ public:
     static EventContext* current();
 
 private:
-    void collectGarbage(detail::HandlerBlock* block);
+    void collectGarbage(fiberize::detail::HandlerBlock& block);
 
     static thread_local EventContext* current_;
 
-    std::unordered_map<Path, std::unique_ptr<detail::HandlerBlock>, boost::hash<Path>> handlerBlocks;
+    std::unordered_map<Path, detail::HandlerBlock, boost::hash<Path>> handlerBlocks;
     detail::ControlBlock* controlBlock_;
     FiberRef fiberRef_;
 };

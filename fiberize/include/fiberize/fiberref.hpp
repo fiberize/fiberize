@@ -2,6 +2,7 @@
 #define FIBERIZE_FIBERREF_HPP
 
 #include <fiberize/path.hpp>
+#include <fiberize/events.hpp>
 #include <fiberize/mailbox.hpp>
 #include <fiberize/locality.hpp>
 #include <fiberize/detail/fiberrefimpl.hpp>
@@ -53,6 +54,11 @@ public:
     inline Path path() const {
         return impl_->path();
     }
+
+    /**
+     * Kills this fiber.
+     */
+    void kill();
 
     /**
      * Emits an event.

@@ -17,4 +17,8 @@ void FiberRef::send<void>(const Event<void>& event) {
     }
 }
 
+void FiberRef::kill() {
+    send(fiberize::kill);
+}
+
 } // namespace fiberize

@@ -16,6 +16,9 @@
 #include <fiberize/future.hpp>
 #include <fiberize/promise.hpp>
 
+#include <fiberize/exceptions.hpp>
+#include <fiberize/events.hpp>
+
 #include <fiberize/eventcontext.hpp>
 #include <fiberize/fibersystem.hpp>
 

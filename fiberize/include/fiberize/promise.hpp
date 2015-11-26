@@ -238,6 +238,7 @@ public:
             waiting.push_back(EventContext::current()->fiberRef());
             lock.unlock();
             condition.await();
+            return await();
         }
     }
 
