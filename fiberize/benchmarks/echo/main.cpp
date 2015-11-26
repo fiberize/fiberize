@@ -6,7 +6,7 @@ using namespace fiberize;
 const uint n = 16;
 
 Event<FiberRef> ping;
-Event<Unit> pong;
+Event<void> pong;
 
 struct Echo : public Fiber {
     void run() override {
@@ -16,7 +16,7 @@ struct Echo : public Fiber {
     }
 };
 
-struct Emitter : public Future<Unit> {
+struct Emitter : public Future<void> {
     Emitter(const FiberRef& echo, int initialMessages, int repeat)
         : echo(echo), initialMessages(initialMessages), repeat(repeat), sent(0), received(0)
         {}
@@ -28,7 +28,7 @@ struct Emitter : public Future<Unit> {
     int sent;
     int received;
     
-    Unit run() override {
+    void run() override {
         while (sent < initialMessages) {
             echo.send(ping, self());
             sent += 1;
@@ -43,8 +43,6 @@ struct Emitter : public Future<Unit> {
                 sent += 1;
             }
         }
-
-        return {};
     }
 };
 
@@ -52,7 +50,7 @@ int main() {
     FiberSystem system;
     system.fiberize();
 
-    std::vector<FutureRef<Unit>> emitters;
+    std::vector<FutureRef<void>> emitters;
 
     for (uint i = 0; i < n; ++i) {
         auto echo = system.run<Echo>();
@@ -60,7 +58,7 @@ int main() {
         emitters.push_back(emitter);
     }
 
-    for (FutureRef<Unit>& emitter : emitters)
+    for (FutureRef<void>& emitter : emitters)
         emitter.result()->await();
     return 0;
 }

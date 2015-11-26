@@ -17,6 +17,9 @@ void FiberRef::send(const Event<A>& event, Args&&... args) {
     }
 }
 
+template <>
+void FiberRef::send<void>(const Event<void>& event);
+
 } // namespace fiberize
 
 #endif // FIBERIZE_FIBERREFINL_HPP

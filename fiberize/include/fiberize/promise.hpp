@@ -166,7 +166,7 @@ private:
     std::mutex mutex;
     std::vector<FiberRef> waiting;
     std::unique_ptr<detail::Result<A>> result;
-    Event<Unit> condition;
+    Event<void> condition;
     HandlerRef handler;
 };
 
@@ -251,7 +251,7 @@ private:
     std::mutex mutex;
     std::vector<FiberRef> waiting;
     std::unique_ptr<detail::Result<void>> result;
-    Event<Unit> condition;
+    Event<void> condition;
     HandlerRef handler;
 };
 

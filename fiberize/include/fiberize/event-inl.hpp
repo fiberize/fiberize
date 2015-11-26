@@ -23,6 +23,9 @@ A Event<A>::await() const {
     return result.value();
 }
 
+template <>
+void Event<void>::await() const;
+
 template <typename A>
 template <typename... Args>
 HandlerRef Event<A>::bind(Args&&... args) const {

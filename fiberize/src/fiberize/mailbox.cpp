@@ -25,7 +25,7 @@ bool DequeMailbox::dequeue(PendingEvent& event) {
 
 void DequeMailbox::clear() {
     for (auto& event : pendingEvents) {
-        if (event.freeData != nullptr)
+        if (event.freeData)
             event.freeData(event.data);
     }
 }

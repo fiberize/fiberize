@@ -6,7 +6,7 @@ using namespace fiberize;
 const size_t fibers = 1000 * 1000 * 4;
 const size_t spawners = 8;
 
-Event<Unit> finished;
+Event<void> finished;
 std::atomic<size_t> spawned(0);
 
 FiberRef mainThread;

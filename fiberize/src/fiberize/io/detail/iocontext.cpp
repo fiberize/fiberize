@@ -15,15 +15,15 @@ namespace fiberize {
 namespace io {
 namespace detail {
 
-class Dispatcher : public Future<Unit> {
+class Dispatcher : public Future<void> {
 public:
-    static Event<Unit> kill;
+    static Event<void> kill;
 
     Dispatcher(uv_loop_t* loop)
         : loop(loop), killed(false) {}
 
-    Unit run() override {
-        auto _kill = kill.bind([&] (const Unit&) {
+    void run() override {
+        auto _kill = kill.bind([&] () {
             killed = true;
         });
 
@@ -32,8 +32,6 @@ public:
             yield();
             process();
         }
-
-        return {};
     }
 
 private:
@@ -41,7 +39,7 @@ private:
     bool killed;
 };
 
-Event<Unit> Dispatcher::kill;
+Event<void> Dispatcher::kill;
 
 IOContext::IOContext() {
     uv_loop_init(loop());
@@ -57,7 +55,7 @@ void IOContext::startDispatcher() {
 
 void IOContext::stopDispatcher() {
     dispatcher.send(Dispatcher::kill);
-    dispatcher = FutureRef<Unit>();
+    dispatcher = FutureRef<void>();
 }
 
 void IOContext::runLoop() {

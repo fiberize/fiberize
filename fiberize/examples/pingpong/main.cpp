@@ -4,14 +4,12 @@
 using namespace fiberize;
 
 // First we declare some events. The default constructor assigns a locally
-// unique id to the event.
-// Events can have attached values. "Unit" is an empty structure and
-// means that the event doesn't have any attached value.
+// unique id to the event. Events can have attached values.
 Event<FiberRef> init; // Initializes the fiber, giving it a reference to its peer.
-Event<Unit> ready;    // Reports back to the main thread that we are ready and waiting for the first ping.
+Event<void> ready;    // Reports back to the main thread that we are ready and waiting for the first ping.
 
-Event<Unit> ping;
-Event<Unit> pong;
+Event<void> ping;
+Event<void> pong;
 
 // To create a fiber we derive from the Fiber class and implement the run function.
 struct Ping : public Fiber {

@@ -46,7 +46,7 @@ public:
 private:
     uv_loop_t loop_;
     bool stopped;
-    FutureRef<Unit> dispatcher;
+    FutureRef<void> dispatcher;
 };
 
 } // namespace detail

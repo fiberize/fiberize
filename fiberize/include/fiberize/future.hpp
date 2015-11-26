@@ -10,6 +10,27 @@
 
 namespace fiberize {
 
+namespace detail {
+
+template <typename A>
+struct CompletePromise {
+    template <typename Closure>
+    static void with(Promise<A>& promise, Closure&& closure) {
+        promise.tryToComplete(closure());
+    }
+};
+
+template <>
+struct CompletePromise<void> {
+    template <typename Closure>
+    static void with(Promise<void>& promise, Closure&& closure) {
+        closure();
+        promise.tryToComplete();
+    }
+};
+
+} // namespace detail
+
 /**
  * A future is a fiber that returns a value.
  */
@@ -29,7 +50,9 @@ public:
         auto futureControlBlock = static_cast<detail::FutureControlBlock<A>*>(controlBlock);
 
         try {
-            futureControlBlock->result.tryToComplete(run());
+            detail::CompletePromise<A>::with(futureControlBlock->result, [this] () {
+                return run();
+            });
         } catch (...) {
             futureControlBlock->result.tryToFail(std::current_exception());
         }

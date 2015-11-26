@@ -17,10 +17,12 @@ void EventContext::process()
         try {
             handleEvent(event);
         } catch (...) {
-            event.freeData(event.data);
+            if (event.freeData)
+                event.freeData(event.data);
             throw;
         }
-        event.freeData(event.data);
+        if (event.freeData)
+            event.freeData(event.data);
         lock.lock();
     }
 }
@@ -50,10 +52,12 @@ void EventContext::processUntil(const bool& condition)
             try {
                 handleEvent(event);
             } catch (...) {
-                event.freeData(event.data);
+                if (event.freeData)
+                    event.freeData(event.data);
                 throw;
             }
-            event.freeData(event.data);
+            if (event.freeData)
+                event.freeData(event.data);
 
             /**
              * Short-circuit when condition is triggered.

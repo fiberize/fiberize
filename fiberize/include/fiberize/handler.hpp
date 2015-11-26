@@ -6,8 +6,6 @@
 #include <utility>
 #include <functional>
 
-#include <fiberize/types.hpp>
-
 namespace fiberize {
 
 class HandlerRef;

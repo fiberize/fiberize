@@ -1,7 +1,6 @@
 #ifndef FIBERIZE_FIBERIZE_HPP
 #define FIBERIZE_FIBERIZE_HPP
 
-#include <fiberize/types.hpp>
 #include <fiberize/locality.hpp>
 #include <fiberize/path.hpp>
 #include <fiberize/handler.hpp>

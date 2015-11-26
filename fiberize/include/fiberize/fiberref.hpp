@@ -1,7 +1,6 @@
 #ifndef FIBERIZE_FIBERREF_HPP
 #define FIBERIZE_FIBERREF_HPP
 
-#include <fiberize/types.hpp>
 #include <fiberize/path.hpp>
 #include <fiberize/mailbox.hpp>
 #include <fiberize/locality.hpp>

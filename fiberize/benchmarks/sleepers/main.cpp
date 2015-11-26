@@ -7,12 +7,11 @@ using namespace std::literals;
 
 const size_t fibers = 100000;
 
-Event<Unit> go;
+Event<void> go;
 
-struct Sleeper : public Future<Unit> {
-    Unit run() override {
+struct Sleeper : public Future<void> {
+    void run() override {
         go.await();
-        return {};
     }
 };
 
@@ -20,7 +19,7 @@ int main() {
     FiberSystem system;
     system.fiberize();
 
-    std::vector<FutureRef<Unit>> refs;
+    std::vector<FutureRef<void>> refs;
 
     for (size_t i = 0; i < fibers; ++i) {
         refs.push_back(system.run<Sleeper>());
@@ -28,11 +27,11 @@ int main() {
 
     std::this_thread::sleep_for(5s);
 
-    for (FutureRef<Unit>& ref : refs) {
+    for (FutureRef<void>& ref : refs) {
         ref.send(go);
     }
 
-    for (FutureRef<Unit>& ref : refs) {
+    for (FutureRef<void>& ref : refs) {
         ref.result()->await();
     }
     std::this_thread::sleep_for(5s);
