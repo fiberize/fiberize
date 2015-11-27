@@ -15,14 +15,15 @@ public:
     ~IOContext();
 
     /**
-     * Starts the dispatcher fiber.
+     * Run the event loop once, exiting immediately if there are no events.
+     * @returns whether any event was processed.
      */
-    void startDispatcher();
+    bool poll();
 
     /**
-     * Stops the dispatcher fiber.
+     * Run the event loop, not more often then some predefined time.
      */
-    void stopDispatcher();
+    void throttledPoll();
 
     /**
      * Run the event loop in the current thread.
@@ -47,7 +48,7 @@ public:
 private:
     uv_loop_t loop_;
     bool stopped;
-    FiberRef dispatcher;
+    uint64_t lastRun;
 };
 
 } // namespace detail

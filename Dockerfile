@@ -23,3 +23,4 @@ RUN cd /usr/src/libuv && sh autogen.sh && ./configure && make && make check && m
 # Build and install fiberize.
 COPY fiberize/ /usr/src/fiberize/
 RUN mkdir -p /tmp/build/fiberize && cd /tmp/build/fiberize && cmake /usr/src/fiberize/ -DCMAKE_BUILD_TYPE=Release && make -j8 && make -j8 test && make install
+RUN rm -R /tmp/build

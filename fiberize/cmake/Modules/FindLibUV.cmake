@@ -109,6 +109,8 @@ if(HAVE_LIBWS232)
   list(APPEND LIBUV_LIBRARIES ws2_32)
 endif()
 
+check_library_exists(uv uv_hrtime_fast "uv.h" HAVE_UV_HRTIME_FAST)
+
 include(FindPackageHandleStandardArgs)
 
 # handle the QUIETLY and REQUIRED arguments and set LIBUV_FOUND to TRUE

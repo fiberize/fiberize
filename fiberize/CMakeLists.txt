@@ -52,13 +52,20 @@ include_directories(${Boost_INCLUDE_DIRS})
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-# libuv
-find_package(LibUV REQUIRED)
-include_directories(${LIBUV_INCLUDE_DIRS})
-
 # Google test
 find_package(GTest 1.0 REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
+
+# libuv
+set(LIBUV_USE_STATIC YES)
+find_package(LibUV REQUIRED)
+include_directories(${LIBUV_INCLUDE_DIRS} BEFORE)
+
+if(NOT HAVE_UV_HRTIME_FAST)
+  message(FATAL_ERROR
+    "The installed libuv does not support uv_hrtime_fast function. "
+    "Please install the libuv version bundled with fiberize.")
+endif(NOT HAVE_UV_HRTIME_FAST)
 
 ################################################################################
 ### Enable C++1y and warnings

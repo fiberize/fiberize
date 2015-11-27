@@ -94,19 +94,18 @@ The easiest way to build the library is to use docker:
 Dependencies you need if you're not using docker are boost, google test, cmake, automake and libtool. Once you have them run:
 ```bash
 > git clone github.com/fiberize/fiberize.git
-libuv> cd libuv 
-libuv> sh autogen.sh
-libuv> ./configure
-libuv> make && make check
-libuv> sudo make install
-libuv> cd ../
+> cd libuv 
+> sh autogen.sh
+> ./configure --prefix=/usr
+> make && make check
+> sudo make install
+> cd ../
 > mkdir fiberize/build
 > cd fiberize/build
 > cmake .. && make
 > sudo make install
 ```
-This will install both libuv and fiberize into /usr/local. You can (and probably should if you have node.js installed)
-skip the libuv steps if it's already installed and the version is new enough.
+This will install both libuv (into /usr) and fiberize (into /usr/local). Warning: this will overwrite your libuv version. The bundled libuv version differs slightly from mainstream, but should be compatible.
 
 To link with the library add -lfiberize to c++ compiler options.
 
@@ -115,7 +114,7 @@ Performance
 
 fiberize is built for performance. Currently, when running on a 4 core Intel i7-4702MQ it can:
 * process ~10 million fibers per second [(fiberize/benchmarks/fps/main.cpp)](fiberize/benchmarks/fps/main.cpp),
-* send ~6.8 million messages per second [(fiberize/benchmarks/echo/main.cpp)](fiberize/benchmarks/echo/main.cpp),
+* send ~8 million messages per second [(fiberize/benchmarks/echo/main.cpp)](fiberize/benchmarks/echo/main.cpp),
 * run ~100000 fibers simultaneously per 1GB of RAM [(fiberize/benchmarks/sleepers/main.cpp)](fiberize/benchmarks/sleepers/main.cpp).
 
 IO and http benchmarks will come when the respective components are done.

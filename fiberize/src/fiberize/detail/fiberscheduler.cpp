@@ -27,7 +27,6 @@ void FiberScheduler::start() {
 }
 
 void FiberScheduler::stop() {
-    ioContext().stopDispatcher();
     emergencyStop = true;
     executorThread.join();
 }
@@ -117,7 +116,6 @@ bool FiberScheduler::tryDequeue(FiberControlBlock*& controlBlock) {
 
 void FiberScheduler::idle() {
     makeCurrent();
-    ioContext().startDispatcher();
 
     /**
      * Idle loop.
@@ -146,7 +144,8 @@ void FiberScheduler::idle() {
                 assert(controlBlock->status == Scheduled);
                 jumpToFiber(&idleContext, controlBlock);
             } else {
-                std::this_thread::sleep_for(1ns);
+                if (!ioContext().poll())
+                    std::this_thread::sleep_for(1ns);
             }
         } else {
             std::this_thread::sleep_for(1ns);
@@ -277,6 +276,8 @@ void FiberScheduler::afterJump() {
         currentControlBlock_->status = detail::Running;
         currentControlBlock_->eventContext->makeCurrent();
     }
+
+    ioContext().throttledPoll();
 }
 
 void FiberScheduler::fiberRunner(intptr_t) {

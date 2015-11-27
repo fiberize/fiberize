@@ -16,26 +16,13 @@ namespace fiberize {
 namespace io {
 namespace detail {
 
-class Dispatcher : public Fiber {
-public:
-    Dispatcher(uv_loop_t* loop)
-        : loop(loop) {}
-
-    void run() override {
-        uint64_t k = 0;
-        for (;;++k) {
-            if (k % 100 == 0)
-                uv_run(loop, UV_RUN_NOWAIT);
-            yield();
-            process();
-        }
-    }
-
-private:
-    uv_loop_t* loop;
-};
+/**
+ * 10 milliseconds.
+ */
+const uint64_t timeInterval = 1000 * 1000 * 10;
 
 IOContext::IOContext() {
+    lastRun = 0;
     uv_loop_init(loop());
 }
 
@@ -43,13 +30,17 @@ IOContext::~IOContext() {
     uv_loop_close(loop());
 }
 
-void IOContext::startDispatcher() {
-    dispatcher = Scheduler::current()->system()->fiber<Dispatcher>().bound().run(loop());
+bool IOContext::poll() {
+    lastRun = uv_hrtime_fast();
+    return uv_run(loop(), UV_RUN_NOWAIT);
 }
 
-void IOContext::stopDispatcher() {
-    dispatcher.kill();
-    dispatcher = FiberRef();
+void IOContext::throttledPoll() {
+    uint64_t time = uv_hrtime_fast();
+    if (time - lastRun > timeInterval) {
+        lastRun = time;
+        uv_run(loop(), UV_RUN_NOWAIT);
+    }
 }
 
 void IOContext::runLoop() {
