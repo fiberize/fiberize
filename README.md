@@ -113,7 +113,7 @@ Performance
 ===========
 
 fiberize is built for performance. Currently, when running on a 4 core Intel i7-4702MQ it can:
-* process ~10 million fibers per second [(fiberize/benchmarks/fps/main.cpp)](fiberize/benchmarks/fps/main.cpp),
+* process ~13 million fibers per second [(fiberize/benchmarks/fps/main.cpp)](fiberize/benchmarks/fps/main.cpp),
 * send ~8 million messages per second [(fiberize/benchmarks/echo/main.cpp)](fiberize/benchmarks/echo/main.cpp),
 * run ~100000 fibers simultaneously per 1GB of RAM [(fiberize/benchmarks/sleepers/main.cpp)](fiberize/benchmarks/sleepers/main.cpp).
 

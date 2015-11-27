@@ -8,12 +8,19 @@
 namespace fiberize {
 
 EventContext::EventContext(FiberSystem* system, detail::ControlBlock* controlBlock)
-    : system(system), controlBlock_(controlBlock) {
+    : system(system), controlBlock_(controlBlock), initialized_(false) {
+}
+
+void EventContext::initialize() {
+    /**
+     * This probably could be improved a lot.
+     */
     std::unique_ptr<detail::Handler> killHandler(new detail::TypedHandler<void>([] () {
         throw Killed();
     }));
     killHandler->grab();
     handlerBlocks[kill.path()].emplace_back(std::move(killHandler));
+    initialized_ = true;
 }
 
 void EventContext::process()
@@ -56,6 +63,9 @@ void EventContext::processUntil(const bool& condition)
         PendingEvent event;
         boost::unique_lock<detail::ControlBlockMutex> lock(controlBlock_->mutex);
         while (controlBlock_->mailbox->dequeue(event)) {
+            if (!initialized_)
+                initialize();
+
             lock.unlock();
             try {
                 handleEvent(event);

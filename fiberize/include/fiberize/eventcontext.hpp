@@ -87,6 +87,7 @@ public:
     static EventContext* current();
 
 private:
+    void initialize();
     void collectGarbage(fiberize::detail::HandlerBlock& block);
 
     static thread_local EventContext* current_;
@@ -94,6 +95,7 @@ private:
     std::unordered_map<Path, detail::HandlerBlock, boost::hash<Path>> handlerBlocks;
     detail::ControlBlock* controlBlock_;
     FiberRef fiberRef_;
+    bool initialized_;
 };
 
     
