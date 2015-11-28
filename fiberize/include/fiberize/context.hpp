@@ -8,12 +8,18 @@ namespace fiberize {
 class FiberSystem;
 class Scheduler;
 
+namespace detail {
+
+class ControlBlock;
+
+} // namespace detail
+
 namespace context {
 
 /**
  * @defgroup context Fiber context
  *
- * Global methods available inside any fiberized thread or fiber.
+ * Global methods available inside any fiberized OS thread, fiber, actor, future or thread.
  *
  */
 ///@{
@@ -24,7 +30,7 @@ namespace context {
 FiberSystem* system();
 
 /**
- * Scheduler executing this fiber.
+ * Returns the scheduler executing this fiber.
  */
 Scheduler* scheduler();
 
@@ -50,8 +56,33 @@ void processUntil(const bool& condition);
 
 /**
  * Returns reference to the currently running fiber.
+ * @note This function performs a memory allocation.
  */
 FiberRef self();
+
+namespace detail {
+
+/**
+ * Returns the control block of the currently executing fiber.
+ */
+fiberize::detail::ControlBlock* controlBlock();
+
+/**
+ * Dispatches an event to the handlers.
+ */
+void dispatchEvent(const PendingEvent& event);
+
+/**
+ * Binds an event with the given path to a handler.
+ */
+HandlerRef bind(const Path& path, std::unique_ptr<fiberize::detail::Handler> handler);
+
+/**
+ * Resumes execution of a suspended fiber.
+ */
+void resume(fiberize::detail::ControlBlock* controlBlock, boost::unique_lock<boost::detail::spinlock> lock);
+
+} // namespace detail
 
 ///@}
 

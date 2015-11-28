@@ -1,6 +1,6 @@
 #include <fiberize/event.hpp>
 #include <fiberize/event-inl.hpp>
-#include <fiberize/eventcontext.hpp>
+#include <fiberize/context.hpp>
 
 namespace fiberize {
 
@@ -13,7 +13,7 @@ void Event<void>::await() const {
         handler.release();
     });
 
-    EventContext::current()->processUntil(condition);
+    context::processUntil(condition);
 }
 
 } // namespace fiberize

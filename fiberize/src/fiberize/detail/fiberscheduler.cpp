@@ -64,6 +64,7 @@ void FiberScheduler::terminate() {
      * Destroy the control block.
      */
     currentControlBlock_->status = detail::Dead;
+    currentControlBlock_->handlers.clear();
     stackPool->delayedDeallocate(currentControlBlock_->stack);
     currentControlBlock_->drop();
     currentControlBlock_ = nullptr;
@@ -154,7 +155,6 @@ void FiberScheduler::idle() {
 void FiberScheduler::switchFromRunning(boost::unique_lock<detail::ControlBlockMutex>&& lock) {
     assert(lock.owns_lock());
     FiberControlBlock* controlBlock;
-    assert(EventContext::current() != nullptr);
 
     if (tryDequeue(controlBlock)) {
         assert(controlBlock->status == Scheduled);
@@ -182,8 +182,6 @@ void FiberScheduler::switchFromRunning(boost::unique_lock<detail::ControlBlockMu
          */
         jumpToIdle(&currentControlBlock_->context);
     }
-
-    assert(EventContext::current() != nullptr);
 }
 
 void FiberScheduler::switchFromTerminated() {
@@ -272,7 +270,6 @@ void FiberScheduler::afterJump() {
          */
         assert(currentControlBlock_->status == detail::Scheduled);
         currentControlBlock_->status = detail::Running;
-        currentControlBlock_->eventContext->makeCurrent();
     }
 
     ioContext().throttledPoll();
@@ -282,28 +279,15 @@ void FiberScheduler::fiberRunner(intptr_t) {
     /**
       * Change the status to Running.
       */
-    static_cast<FiberScheduler*>(current())->afterJump();
+    auto scheduler = static_cast<FiberScheduler*>(current());
+    scheduler->afterJump();
 
     /**
-     * We need a block here to make sure destructors are executed,
-     * because terminate() doesn't return.
+     * Execute the fiber.
      */
-    {
-        auto controlBlock = static_cast<FiberScheduler*>(current())->currentControlBlock_;
-
-        /**
-         * Prepare the event context.
-         */
-        EventContext ectx(current()->system(), controlBlock);
-        controlBlock->eventContext = &ectx;
-        ectx.makeCurrent();
-
-        /**
-         * Execute the fiber.
-         */
-        controlBlock->runnable->run();
-        controlBlock->runnable.reset();
-    }
+    auto controlBlock = scheduler->currentControlBlock_;
+    controlBlock->runnable->run();
+    controlBlock->runnable.reset();
 
     /**
      * Terminate the fiber.

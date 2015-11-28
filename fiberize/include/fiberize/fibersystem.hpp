@@ -11,7 +11,7 @@
 #include <fiberize/builder.hpp>
 #include <fiberize/fiberref.hpp>
 #include <fiberize/scheduler.hpp>
-#include <fiberize/eventcontext.hpp>
+#include <fiberize/context.hpp>
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/detail/localfiberref.hpp>
 #include <fiberize/detail/devnullfiberref.hpp>
@@ -99,8 +99,6 @@ public:
     FiberRef fiberize() {
         auto controlBlock = createFiberizedControlBlock<MailboxImpl>();
         controlBlock->grab();
-        controlBlock->eventContext = new EventContext(this, controlBlock);
-        controlBlock->eventContext->makeCurrent();
 
         std::uniform_int_distribution<uint64_t> seedDist;
         generatorMutex.lock();

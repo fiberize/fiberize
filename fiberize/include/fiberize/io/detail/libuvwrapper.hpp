@@ -8,7 +8,7 @@
 #define FIBERIZE_IO_DETAIL_LIBUVWRAPPER_HPP
 
 #include <fiberize/scheduler.hpp>
-#include <fiberize/eventcontext.hpp>
+#include <fiberize/context.hpp>
 #include <fiberize/io/mode.hpp>
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/detail/refrencecounted.hpp>

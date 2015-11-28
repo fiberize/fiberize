@@ -138,6 +138,6 @@ int main() {
         std::cout << "> ";
         std::getline(std::cin, line);
         calc.send(Calculator::feed, line);
-        EventContext::current()->process();
+        context::process();
     }
 }

@@ -1,6 +1,8 @@
 #include <fiberize/detail/localfiberref.hpp>
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/fibersystem.hpp>
+#include <fiberize/context.hpp>
+
 #include <iostream>
 
 namespace fiberize {
@@ -28,7 +30,7 @@ void LocalFiberRef::send(const PendingEvent& pendingEvent) {
     block->mailbox->enqueue(pendingEvent);
 
     if (block->status == Suspended) {
-        Scheduler::current()->enable(block, std::move(lock));
+        context::detail::resume(block, std::move(lock));
     }
 }
 

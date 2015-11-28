@@ -10,7 +10,7 @@
 #include <fiberize/event.hpp>
 #include <fiberize/fiberref.hpp>
 #include <fiberize/event-inl.hpp>
-#include <fiberize/eventcontext.hpp>
+#include <fiberize/context.hpp>
 
 namespace fiberize {
 namespace detail {
@@ -149,7 +149,7 @@ public:
                 std::rethrow_exception(result->asFailure()->exception);
             }
         } else {
-            waiting.push_back(EventContext::current()->fiberRef());
+            waiting.push_back(context::self());
             lock.unlock();
             condition.await();
             return await();
@@ -169,8 +169,6 @@ private:
     Event<void> condition;
     HandlerRef handler;
 };
-
-
 
 template <>
 class Promise<void> {
@@ -235,7 +233,7 @@ public:
                 std::rethrow_exception(result->asFailure()->exception);
             }
         } else {
-            waiting.push_back(EventContext::current()->fiberRef());
+            waiting.push_back(context::self());
             lock.unlock();
             condition.await();
             return await();

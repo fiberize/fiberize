@@ -18,7 +18,6 @@
 #include <fiberize/context.hpp>
 #include <fiberize/exceptions.hpp>
 #include <fiberize/events.hpp>
-#include <fiberize/eventcontext.hpp>
 
 // Cyclic dependency
 #include <fiberize/builder.hpp>

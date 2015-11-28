@@ -4,7 +4,7 @@
 #include <boost/optional.hpp>
 
 #include <fiberize/event.hpp>
-#include <fiberize/eventcontext.hpp>
+#include <fiberize/context.hpp>
 
 namespace fiberize {
 
@@ -19,7 +19,7 @@ A Event<A>::await() const {
         handler.release();
     });
 
-    EventContext::current()->processUntil(condition);
+    context::processUntil(condition);
     return result.value();
 }
 
@@ -31,7 +31,7 @@ template <typename... Args>
 HandlerRef Event<A>::bind(Args&&... args) const {
     std::unique_ptr<detail::Handler> handler(
         new detail::TypedHandler<A>(std::forward<Args>(args...)...));
-    return EventContext::current()->bind(path(), std::move(handler));
+    return context::detail::bind(path(), std::move(handler));
 }
 
 } // namespace fiberize

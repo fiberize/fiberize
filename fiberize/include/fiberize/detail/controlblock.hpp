@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <limits>
+#include <unordered_map>
 
 #include <boost/thread.hpp>
 #include <boost/atomic/atomic.hpp>
@@ -19,7 +20,6 @@
 namespace fiberize {
 
 class Runnable;
-class EventContext;
 class Scheduler;
 
 namespace detail {
@@ -31,14 +31,15 @@ enum LifeStatus : uint8_t {
     Dead
 };
 
-typedef boost::detail::spinlock ControlBlockMutex;
+using ControlBlockMutex = boost::detail::spinlock;
+using HandlerBlock = std::vector<std::unique_ptr<detail::Handler>>;
 
 class ControlBlock : public ReferenceCountedAtomic {
 public:
     ControlBlock() {
         status = Suspended;
         mutex.v_ = 0;
-        eventContext = nullptr;
+        handlersInitialized = false;
     }
 
     virtual ~ControlBlock() {};
@@ -67,11 +68,16 @@ public:
      * Mailbox attached to this control block.
      */
     std::unique_ptr<Mailbox> mailbox;
-    
+
     /**
-     * Event context attached to this block.
+     * Whether the handlers were initialized.
      */
-    EventContext* eventContext;
+    bool handlersInitialized;
+
+    /**
+     * Hash map of event handlers.
+     */
+    std::unordered_map<Path, detail::HandlerBlock, boost::hash<Path>> handlers;
 };
 
 class RunnableControlBlock : public ControlBlock {

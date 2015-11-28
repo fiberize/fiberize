@@ -97,7 +97,7 @@ struct FutureTraits {
                 block->path = path;
                 block->mailbox = std::move(mailbox);
                 block->runnable = makeRunnable([runnable = std::move(runnable)] () mutable {
-                    auto controlBlock = EventContext::current()->controlBlock();
+                    auto controlBlock = context::detail::controlBlock();
                     auto futureControlBlock = static_cast<FutureControlBlock<Result>*>(controlBlock);
 
                     try {
