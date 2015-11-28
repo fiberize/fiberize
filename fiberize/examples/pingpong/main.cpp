@@ -21,7 +21,8 @@ void alice(FiberRef peer) {
     // In the first step we perform a handshake with the peer.
     // peer.send(event, attachedValue) sends an event to the fiber referenced by "peer"
     peer.send(hello, self());
-    // hello.await() will "block" until the current fiber receives an ack message
+    // hello.await() will "block" until the current fiber receives an ack message.
+    // Execution will switch to another fiber when this fiber is waiting.
     ack.await();
 
     // Now we enter an the main loop.
