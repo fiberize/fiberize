@@ -71,9 +71,9 @@ struct Bob {
 int main() {
     // The FiberSystem by default will create an OS thread for each CPU core we have.
     // After initializing the system, we fiberize the current thread. This means it will
-    // be able to communicate with real fibers.
+    // be able to start and communicate with fibers.
     FiberSystem system;
-    FiberRef self = system.fiberize();
+    system.fiberize();
 
     // A fiber can be created from any function, lambda or function object. The fiber(...)
     // function returns a Builder, which is used to configure the fiber and start it.
