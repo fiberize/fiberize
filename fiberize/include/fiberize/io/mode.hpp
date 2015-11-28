@@ -17,7 +17,8 @@ namespace fiberize {
 namespace io {
 
 /**
- * @page io_modes IO modes
+ * @defgroup io_modes IO modes
+ * @ingroup io
  *
  * Controls how to execute IO operations.
  *
@@ -52,6 +53,7 @@ namespace io {
  * @endcode
  * it will use the Block mode.
  */
+///@{
 
 /**
  * Executing an IO operation in await mode will block the fiber until the operation is done,
@@ -77,35 +79,53 @@ class Block {};
  */
 class Async {};
 
+///@}
+
 namespace detail {
 
-template <typename Value, typename Mode>
+template <typename Value, typename Mode, template <typename> typename Wrapper>
 struct ResultImpl {
 };
 
-template <typename Value>
-struct ResultImpl<Value, Await> {
+template <typename Value, template <typename> typename Wrapper>
+struct ResultImpl<Value, Await, Wrapper> {
     typedef Value Type;
 };
 
-template <typename Value>
-struct ResultImpl<Value, Block> {
+template <typename Value, template <typename> typename Wrapper>
+struct ResultImpl<Value, Block, Wrapper> {
     typedef Value Type;
 };
 
-template <typename Value>
-struct ResultImpl<Value, Async> {
-    typedef std::shared_ptr<Promise<Value>> Type;
+template <typename Value, template <typename> typename Wrapper>
+struct ResultImpl<Value, Async, Wrapper> {
+    typedef Wrapper<Value> Type;
 };
+
+template <typename A>
+using SharedPromise = std::shared_ptr<Promise<A>>;
 
 } // namespace detail
 
 /**
  * A helper used to choose the right result type based on IO mode. Await and Block modes
  * return the value, while Async returns a pointer to a promise.
+ *
+ * @todo switch from promises to events
+ *
+ * @ingroup io_modes
  */
 template <typename Value, typename Mode>
-using Result = typename detail::ResultImpl<Value, Mode>::Type;
+using Result = typename detail::ResultImpl<Value, Mode, detail::SharedPromise>::Type;
+
+/**
+ * A helper used to choose the right result type based on IO mode. Await and Block modes
+ * return the value, while Async returns an event.
+ *
+ * @ingroup io_modes
+ */
+template <typename Value, typename Mode>
+using ResultEvent = typename detail::ResultImpl<Value, Mode, Event>::Type;
 
 } // namespace io
 } // namespace fiberize

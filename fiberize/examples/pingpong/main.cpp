@@ -2,6 +2,7 @@
 #include <iostream>
 
 using namespace fiberize;
+using namespace std::literals;
 
 // First we declare some events. The default constructor assigns a locally
 // unique id to the event. Events can have attached values.
@@ -30,6 +31,7 @@ void alice(FiberRef peer) {
         std::cout << "Ping" << std::endl;
         peer.send(ping);
         pong.await();
+        io::sleep(500ms);
     }
 }
 
@@ -43,6 +45,7 @@ struct Bob {
         // Enter the loop.
         while (true) {
             ping.await();
+            io::sleep(500ms);
             std::cout << "Pong" << std::endl;
             peer.send(pong);
         }
@@ -56,11 +59,32 @@ int main() {
     FiberSystem system;
     system.fiberize();
 
-    // A fiber can be created from any function, lambda or function object. The fiber(...)
-    // function returns a Builder, which is used to configure the fiber and start it.
-    auto bobRef = system.fiber(Bob{}).run();
-    auto aliceRef = system.fiber(alice).run(bobRef);
+    // A fiber/future can be created from any function, lambda or function object. The future()
+    // function returns a Builder, which is used to configure the future and start it. The only
+    // difference between a fiber and a future is that we can await a future to get it's result.
+    auto bobRef = system.future(Bob{}).run();
+    auto aliceRef = system.future(alice).run(bobRef);
 
-    // Enter an infinite loop processing events.
-    EventContext::current()->processForever();
+    // Let them run for a few seconds.
+    io::sleep(5s);
+
+    // Kill the futures. The kill() function sends a special event which will trigger
+    // the Killed exception inside the fiber/future.
+    bobRef.kill();
+    aliceRef.kill();
+
+    // Wait until both futures finish. The Killed exception is propagated throught
+    // the result, so we have to catch it.
+    try {
+        bobRef.result()->await();
+    } catch (Killed&) {
+        std::cout << "Bob is dead." << std::endl;
+    }
+    try {
+        aliceRef.result()->await();
+    } catch (Killed&) {
+        std::cout << "Alice is dead." << std::endl;
+    }
+
+    return 0;
 }

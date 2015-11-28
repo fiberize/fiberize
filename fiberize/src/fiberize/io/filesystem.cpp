@@ -52,6 +52,7 @@ static std::string mkdtempResult(uv_fs_t* req) {
 FIBERIZE_IO_DETAIL_FS_WRAPPER(mkdtemp, mkdtempResult, std::string, ((const char*) tpl))
 
 static std::string readlinkResult(uv_fs_t* req) {
+    // TODO: this is suboptimal, we could move the path
     return reinterpret_cast<const char*>(req->ptr);
 }
 

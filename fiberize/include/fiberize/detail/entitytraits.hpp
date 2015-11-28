@@ -35,7 +35,6 @@ struct FiberTraits {
             inline static ControlBlockType*
             newControlBlock(const Path& path, std::unique_ptr<Mailbox> mailbox, Scheduler* bond, Runnable runnable) {
                 auto block = new detail::FiberControlBlock;
-                block->refCount = 1;
                 block->bound = bond;
                 block->path = path;
                 block->mailbox = std::move(mailbox);
@@ -46,8 +45,6 @@ struct FiberTraits {
                         // Nothing.
                     }
                 });
-                block->status = detail::Suspended;
-                block->reschedule = false;
                 return block;
             }
         };
@@ -96,7 +93,6 @@ struct FutureTraits {
             static ControlBlockType*
             newControlBlock(const Path& path, std::unique_ptr<Mailbox> mailbox, Scheduler* bond, Runnable runnable) {
                 auto block = new detail::FutureControlBlock<Result>;
-                block->refCount = 1;
                 block->bound = bond;
                 block->path = path;
                 block->mailbox = std::move(mailbox);
@@ -110,8 +106,6 @@ struct FutureTraits {
                         futureControlBlock->result.tryToFail(std::current_exception());
                     }
                 });
-                block->status = detail::Suspended;
-                block->reschedule = false;
                 return block;
             }
         };

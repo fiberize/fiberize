@@ -10,7 +10,6 @@
 #define FIBERIZE_IO_FILESYSTEM_HPP
 
 #include <uv.h>
-#include <boost/concept_check.hpp>
 
 #include <fiberize/promise.hpp>
 #include <fiberize/io/mode.hpp>
@@ -20,7 +19,8 @@ namespace fiberize {
 namespace io {
 
 /**
- * @page io_filesystem Filesystem
+ * @defgroup io_filesystem Filesystem
+ * @ingroup io
  *
  * Filesystem operations.
  *
@@ -30,6 +30,7 @@ namespace io {
  *
  * @note This module wraps http://docs.libuv.org/en/v1.x/fs.html
  */
+///@{
 
 /**
  * Opens a new file.
@@ -245,6 +246,8 @@ Result<void, Mode> chmod(const char* path, uid_t owner, gid_t group);
  */
 template <typename Mode = Block>
 Result<void, Mode> fchmod(int fd, uid_t owner, gid_t group);
+
+///@}
 
 } // namespace io
 } // namespace fiberize

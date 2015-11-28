@@ -16,6 +16,8 @@ namespace io {
  * Simple pointer to a memory fragment with a known size.
  *
  * @note Buffer does not manage memory - it's just a pointer and size.
+ *
+ * @ingroup io
  */
 class Buffer : public uv_buf_t {
 public:

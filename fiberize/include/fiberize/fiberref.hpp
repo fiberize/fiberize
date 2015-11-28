@@ -26,7 +26,7 @@ public:
     /**
      * Creates a new fiber reference with the given implementation.
      */
-    inline FiberRef(std::shared_ptr<detail::FiberRefImpl> impl): impl_(impl) {}
+    inline FiberRef(std::shared_ptr<detail::FiberRefImpl> impl): impl_(std::move(impl)) {}
 
     /**
      * Copies a fiber reference.

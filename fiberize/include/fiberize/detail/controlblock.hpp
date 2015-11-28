@@ -6,6 +6,7 @@
 #include <fiberize/fiberref.hpp>
 #include <fiberize/promise.hpp>
 #include <fiberize/detail/runnable.hpp>
+#include <fiberize/detail/refrencecounted.hpp>
 
 #include <iostream>
 #include <limits>
@@ -32,8 +33,14 @@ enum LifeStatus : uint8_t {
 
 typedef boost::detail::spinlock ControlBlockMutex;
 
-class ControlBlock {
+class ControlBlock : public ReferenceCountedAtomic {
 public:
+    ControlBlock() {
+        status = Suspended;
+        mutex.v_ = 0;
+        eventContext = nullptr;
+    }
+
     virtual ~ControlBlock() {};
 
     /**
@@ -65,30 +72,6 @@ public:
      * Event context attached to this block.
      */
     EventContext* eventContext;
-
-    // Reference counting.
-
-    /**
-     * Reference counter.
-     */
-    std::atomic<uint32_t> refCount;
-
-    /**
-     * Grabs a reference.
-     */
-    inline void grab() {
-        std::atomic_fetch_add(&refCount, 1u);
-    }
-
-    /**
-     * Drops a reference.
-     */
-    inline void drop() {
-        if (std::atomic_fetch_sub_explicit(&refCount, 1u, std::memory_order_release) == 1u) {
-            std::atomic_thread_fence(std::memory_order_acquire);
-            delete this;
-        }
-    }
 };
 
 class RunnableControlBlock : public ControlBlock {
@@ -101,6 +84,10 @@ public:
 
 class FiberControlBlock : public RunnableControlBlock {
 public:
+    FiberControlBlock() {
+        reschedule = false;
+    }
+
     /**
      * The stack of this fiber.
      */

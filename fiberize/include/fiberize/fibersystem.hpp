@@ -98,6 +98,7 @@ public:
     template <typename MailboxImpl = DequeMailbox>
     FiberRef fiberize() {
         auto controlBlock = createFiberizedControlBlock<MailboxImpl>();
+        controlBlock->grab();
         controlBlock->eventContext = new EventContext(this, controlBlock);
         controlBlock->eventContext->makeCurrent();
 
@@ -129,7 +130,6 @@ private:
     template <typename MailboxImpl = DequeMailbox>
     detail::FiberizedControlBlock* createFiberizedControlBlock() {
         auto block = new detail::FiberizedControlBlock;
-        block->refCount = 1;
         block->bound = nullptr;
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
         block->mailbox.reset(new MailboxImpl);

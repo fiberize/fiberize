@@ -35,6 +35,7 @@ Builder<EntityTraits, Entity, MailboxType>::run(Args&&... args) {
         std::unique_ptr<Mailbox> mailbox(new MailboxType(std::move(mailbox_)));
         auto block = Traits::newControlBlock(std::move(path), std::move(mailbox), bond_,
             detail::bind<Entity, Args...>(std::move(entity_), std::forward<Args>(args)...));
+        block->grab();
         boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
         Scheduler::current()->enableFiber(block, std::move(lock));
 
@@ -61,6 +62,7 @@ void Builder<EntityTraits, Entity, MailboxType>::run_(Args&&... args) {
         std::unique_ptr<Mailbox> mailbox(new MailboxType(std::move(mailbox_)));
         auto block = Traits::newControlBlock(std::move(path), std::move(mailbox), bond_,
             detail::bind<Entity, Args...>(std::move(entity_), std::forward<Args>(args)...));
+        block->grab();
         boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
         Scheduler::current()->enableFiber(block, std::move(lock));
     }

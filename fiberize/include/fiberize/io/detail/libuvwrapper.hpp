@@ -1,5 +1,5 @@
 /**
- * Scary file implementing the libuv wrapper template and helper macros.
+ * The libuv wrapper template and helper macros.
  *
  * @file libuvwrapper.hpp
  * @copyright 2015 Paweł Nowak
@@ -11,25 +11,36 @@
 #include <fiberize/eventcontext.hpp>
 #include <fiberize/io/mode.hpp>
 #include <fiberize/detail/controlblock.hpp>
+#include <fiberize/detail/refrencecounted.hpp>
+#include <fiberize/context.hpp>
 
 #include <system_error>
 
 #include <boost/preprocessor.hpp>
+#include <boost/intrusive_ptr.hpp>
 
 namespace fiberize {
 namespace io {
 namespace detail {
 
-struct AwaitContext {
-    bool condition;
-    fiberize::detail::ControlBlock* controlBlock;
-};
+/**
+ * Temporarily swaps the current scheduler.
+ */
+struct SwapScheduler {
+    SwapScheduler(Scheduler* newScheduler) {
+        oldScheduler = Scheduler::current();
+        newScheduler->makeCurrent();
+    }
 
-template <typename Value, typename Request>
-struct AsyncContext {
-    Request request;
-    std::weak_ptr<Promise<Value>> promise;
-    FiberSystem* system;
+    ~SwapScheduler() {
+        if (oldScheduler) {
+            oldScheduler->makeCurrent();
+        } else {
+            Scheduler::resetCurrent();
+        }
+    }
+
+    Scheduler* oldScheduler;
 };
 
 template <typename Value, typename Request, Value (*extractor)(Request*)>
@@ -46,118 +57,262 @@ struct TryToComplete<void, Request, extractor> {
     }
 };
 
+/**
+ * Closure enviroment used for Await mode operations.
+ */
+template <typename Request, void (*cleanup)(Request*)>
+struct AwaitEnv : public fiberize::detail::ReferenceCountedAtomic {
+    AwaitEnv() {
+        request.data = this;
+        condition = false;
+        dirty = false;
+        scheduler = Scheduler::current();
+        block = scheduler->currentControlBlock();
+        block->grab();
+    }
+
+    ~AwaitEnv() {
+        block->drop();
+        if (dirty)
+            cleanup(&request);
+    }
+
+    static void callback(Request* req) {
+        auto ctx = reinterpret_cast<AwaitEnv*>(req->data);
+
+        /**
+         * Set the condition to true and reschedule the fiber, if necesssary.
+         */
+        {
+            boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(ctx->block->mutex);
+            ctx->condition = true;
+            if (ctx->block->status == fiberize::detail::Suspended) {
+                /// @todo what if the scheduler is destroyed? This isn't a big problem right now, because it only
+                ///       happens after shutdown. This should be fixed for the graceful shutdown patch.
+                ctx->scheduler->enable(ctx->block, std::move(lock));
+            }
+        }
+
+        ctx->drop();
+    }
+
+    Request request;
+    bool condition;
+    bool dirty;
+    fiberize::detail::ControlBlock* block;
+    Scheduler* scheduler;
+};
+
+/**
+ * Environment for blocking mode. All it does is handle the cleanup.
+ */
+template <typename Request, void (*cleanup)(Request*)>
+struct BlockEnv {
+    BlockEnv() {
+        dirty = false;
+    }
+
+    ~BlockEnv() {
+        if (dirty)
+            cleanup(&request);
+    }
+
+    bool dirty;
+    Request request;
+};
+
+/**
+ * Closure environment for the Async mode.
+ */
+template <typename Value, typename Request, void (*cleanup)(Request*), Value (*extractor)(Request*)>
+struct AsyncEnv : public fiberize::detail::ReferenceCountedAtomic {
+    AsyncEnv(const std::shared_ptr<Promise<Value>>& promise_) {
+        request.data = this;
+        dirty = false;
+        promise = promise_;
+        scheduler = Scheduler::current();
+    }
+
+    ~AsyncEnv() {
+        if (dirty)
+            cleanup(&request);
+    }
+
+    static void callback(Request* req) {
+        auto ctx = reinterpret_cast<AsyncEnv*>(req->data);
+
+        /**
+         * Check if the promise still exists. The user could release it.
+         */
+        auto promise = ctx->promise.lock();
+        if (promise) {
+            /**
+             * Temporarily swap the current scheduler.
+             * @todo what if the scheduler is destroyed?
+             */
+            SwapScheduler swapScheduler(ctx->scheduler);
+
+            /**
+             * Complete the promise.
+             */
+            if (req->result >= 0) {
+                TryToComplete<Value, Request, extractor>::execute(promise, req);
+            } else {
+                promise->tryToFail(std::make_exception_ptr(
+                    std::system_error(-req->result, std::system_category())
+                ));
+            }
+        }
+
+        ctx->drop();
+    }
+
+    Request request;
+    bool dirty;
+    std::weak_ptr<Promise<Value>> promise;
+    Scheduler* scheduler;
+};
+
+/**
+ * Implements generic libuv wrappers for all IO modes. The parameters are:
+ * @tparam Value Type of the result.
+ * @tparam Request Type of the request.
+ * @tparam cleanup Function used to cleanup the request.
+ * @tparam UVFunctionType Type of the libuv function we are wrapping.
+ * @tparam uvfunction The wrapped function.
+ * @tparam extractor Function used to extract the result from a completed request.
+ */
 template <typename Value, typename Request, void (*cleanup)(Request*), typename UVFunctionType, UVFunctionType uvfunction, Value (*extractor)(Request*)>
 struct LibUVWrapper {
+    /**
+     * Executes the wrapped function in the given IO mode. The arguments are inserted into the call
+     * after the pointer to the request structure.
+     */
     template <typename Mode, typename... Args>
     static Result<Value, Mode> execute(Args&&... args) {
         return execute(Mode(), std::forward<Args>(args)...);
     }
 
-    struct ScopedCleanup {
-        ScopedCleanup(Request* req) {
-            this->req = req;
-        }
-
-        ~ScopedCleanup() {
-            cleanup(req);
-        }
-
-        Request* req;
-    };
-
+    /**
+     * Await mode wrapper.
+     */
     template <typename... Args>
     static Result<Value, Await> execute(Await, Args&&... args) {
-        AwaitContext ctx;
-        ctx.condition = false;
-        ctx.controlBlock = Scheduler::current()->currentControlBlock();
+        using Env = AwaitEnv<Request, cleanup>;
 
-        Request req;
-        req.data = &ctx;
+        /**
+         * Create the environment for the request. The environment cannot be located on the stack, because
+         * some event handler could throw an exception before the callback is complete.
+         */
+        boost::intrusive_ptr<Env> env(new Env);
 
-        int code = uvfunction(Scheduler::current()->ioContext().loop(), &req, std::forward<Args>(args)..., [] (Request* req) {
-            auto ctx = reinterpret_cast<AwaitContext*>(req->data);
-            boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(ctx->controlBlock->mutex);
-            ctx->condition = true;
-            if (ctx->controlBlock->status == fiberize::detail::Suspended) {
-                Scheduler::current()->enable(ctx->controlBlock, std::move(lock));
-            }
-        });
+        /**
+         * Start the IO operation and grab a reference (for the callback) to prevent the environment
+         * from being destroyed.
+         */
+        env->grab();
+        int code = uvfunction(Scheduler::current()->ioContext().loop(),
+            &env->request, std::forward<Args>(args)..., Env::callback);
 
+        /**
+         * The operation could fail instantly.
+         */
         if (code < 0) {
+            env->drop();
             throw std::system_error(-code, std::system_category());
         }
 
-        EventContext::current()->processUntil(ctx.condition);
+        /**
+         * Process events until the callback completes. Mark the request as dirty.
+         */
+        env->dirty = true;
+        context::processUntil(env->condition);
 
-        ScopedCleanup finalize(&req);
-        if (req.result >= 0) {
-            return extractor(&req);
+        /**
+         * Request finished. Extract the result.
+         */
+        if (env->request.result >= 0) {
+            return extractor(&env->request);
         } else {
-            throw std::system_error(-req.result, std::system_category());
+            throw std::system_error(-env->request.result, std::system_category());
         }
     }
 
     template <typename... Args>
     static Result<Value, Block> execute(Block, Args&&... args) {
-        Request req;
-        int code = uvfunction(Scheduler::current()->ioContext().loop(), &req, std::forward<Args>(args)..., nullptr);
+        /**
+         * Create the request on the stack, as there are not async callbacks.
+         */
+        BlockEnv<Request, cleanup> env;
 
+        /**
+         * Do the IO operation.
+         */
+        int code = uvfunction(Scheduler::current()->ioContext().loop(), &env.request, std::forward<Args>(args)..., nullptr);
+
+        /**
+         * There are two ways an error could be reported: the returned code or req.result. Check them.
+         */
         if (code < 0) {
             throw std::system_error(-code, std::system_category());
         }
 
-        ScopedCleanup finalize(&req);
-        if (req.result >= 0) {
-            return extractor(&req);
+        /**
+         * The request will require cleanup.
+         */
+        env.dirty = true;
+
+        if (env.request.result >= 0) {
+            return extractor(&env.request);
         } else {
-            throw std::system_error(-req.result, std::system_category());
+            throw std::system_error(-env.request.result, std::system_category());
         }
     }
 
     template <typename... Args>
     static Result<Value, Async> execute(Async, Args&&... args) {
+        using Env = AsyncEnv<Value, Request, cleanup, extractor>;
+
+        /**
+         * Create the promise that will hold the result.
+         */
         auto promise = std::make_shared<Promise<Value>>();
 
-        auto ctx = new AsyncContext<Value, Request>;
-        ctx->promise = promise;
-        ctx->system = Scheduler::current()->system();
-        ctx->request.data = ctx;
+        /**
+         * Create the environment.
+         */
+        boost::intrusive_ptr<Env> env(new Env(promise));
 
-        int code = uvfunction(Scheduler::current()->ioContext().loop(), &ctx->request, std::forward<Args>(args)..., [] (Request* req) {
-            auto ctx = reinterpret_cast<AsyncContext<Value, Request>*>(req->data);
-            auto promise = ctx->promise.lock();
-            if (promise) {
-                if (Scheduler::current() == nullptr) {
-                    ctx->system->fiberize();
-                }
+        /**
+         * Grab a reference for the callback and start the IO operation.
+         */
+        env->grab();
+        int code = uvfunction(Scheduler::current()->ioContext().loop(),
+            &env->request, std::forward<Args>(args)..., Env::callback);
 
-                if (req->result >= 0) {
-                    TryToComplete<Value, Request, extractor>::execute(promise, req);
-                } else {
-                    promise->tryToFail(std::make_exception_ptr(
-                        std::system_error(-req->result, std::system_category())
-                    ));
-                }
-            }
-            cleanup(&ctx->request);
-            delete ctx;
-        });
-
+        /**
+         * The operation could fail instantly.
+         */
         if (code < 0) {
-            delete ctx;
+            env->drop();
             throw std::system_error(-code, std::system_category());
         }
+
+        /**
+         * The request will require cleanup.
+         */
+        env->dirty = true;
 
         return promise;
     }
 };
 
+// Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn..
+
 #define FIBERIZE_IO_DETAIL_REM(...) __VA_ARGS__
 #define FIBERIZE_IO_DETAIL_EAT(...)
 
-// Strip off the type
 #define FIBERIZE_IO_DETAIL_STRIP(x) FIBERIZE_IO_DETAIL_EAT x
-// Show the type without parenthesis
 #define FIBERIZE_IO_DETAIL_PAIR(x) FIBERIZE_IO_DETAIL_REM x
 
 #define FIBERIZE_IO_DETAIL_DEFINE_MEMBERS_EACH(r, data, x) FIBERIZE_IO_DETAIL_PAIR(x);
