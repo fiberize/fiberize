@@ -26,12 +26,5 @@ uint Buffer::length() const {
     return len;
 }
 
-namespace detail {
-
-const uv_buf_t* static_buffer_cast(const Buffer* bufs) {
-    return reinterpret_cast<const uv_buf_t*>(bufs);
-}
-
-} // namespace detail
 } // namespace io
 } // namespace fiberize

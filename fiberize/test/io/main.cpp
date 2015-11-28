@@ -11,10 +11,10 @@ std::string fileTest(std::string data, std::string path) {
     Buffer inb(inBuffer, n);
     Buffer oub(outBuffer, n);
 
-    File file = File::open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0777);
-    file.write<Async>(&inb, 1, 0)->await();
-    file.read<Await>(&oub, 1, 0);
-    file.close();
+    int file = open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0777);
+    write<Async>(file, &inb, 1, 0)->await();
+    read<Await>(file, &oub, 1, 0);
+    close(file);
 
     free(inBuffer);
     return outBuffer;

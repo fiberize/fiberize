@@ -1,3 +1,9 @@
+/**
+ * Per-scheduler IO event context.
+ *
+ * @file iocontext.hpp
+ * @copyright 2015 Paweł Nowak
+ */
 #ifndef FIBERIZE_IO_DETAIL_IOCONTEXT_HPP
 #define FIBERIZE_IO_DETAIL_IOCONTEXT_HPP
 

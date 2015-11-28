@@ -24,6 +24,8 @@
  *
  * There are different @subpage io_modes that can be used to control how operations are executed.
  *
+ * All IO functions can throw the std::system_error exception.
+ *
  * Modules:
  * - @subpage io_filesystem
  */

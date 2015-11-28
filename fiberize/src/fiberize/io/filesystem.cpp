@@ -6,90 +6,56 @@
 namespace fiberize {
 namespace io {
 
-using namespace fiberize::detail;
+#define FIBERIZE_IO_DETAIL_FS_WRAPPER(Name, Extractor, Result, Args) \
+    FIBERIZE_IO_DETAIL_WRAPPER(fs, Name, Extractor, Result, Args)
 
-File::File(int fd) : file(fd) {}
-
-File::File(File&& other) {
-    file = other.file;
-    other.file = -1;
-}
-
-File& File::operator=(File&& other) {
-    file = other.file;
-    other.file = -1;
-    return *this;
-}
-
-static File openResult(uv_fs_t* req) {
-    return File(req->result);
-}
-
-template <typename Mode>
-Result<File, Mode> File::open(const char* path, int flags, int mode) {
-    return detail::LibUVWrapper<
-        File,
-        uv_fs_t,
-        uv_fs_req_cleanup,
-        decltype(&uv_fs_open),
-        uv_fs_open,
-        openResult
-    >::execute<Mode>(path, flags, mode);
-}
-
-FIBERIZE_IO_DETAIL_INSTANTIATE_MODES(File, File::open, const char* path, int flags, int mode)
-
-static void closeResult(uv_fs_t*) {}
-
-template <typename Mode>
-Result<void, Mode> File::close() {
-    return detail::LibUVWrapper<
-        void,
-        uv_fs_t,
-        uv_fs_req_cleanup,
-        decltype(&uv_fs_close),
-        uv_fs_close,
-        closeResult
-    >::execute<Mode>(file);
-}
-
-FIBERIZE_IO_DETAIL_INSTANTIATE_MODES(void, File::close)
-
-static ssize_t readWriteResult(uv_fs_t* req) {
+static int openResult(uv_fs_t* req) {
     return req->result;
 }
 
-template <typename Mode>
-Result<ssize_t, Mode> File::read(const Buffer bufs[], uint nbufs, int64_t offset) {
-    return detail::LibUVWrapper<
-        ssize_t,
-        uv_fs_t,
-        uv_fs_req_cleanup,
-        decltype(&uv_fs_read),
-        uv_fs_read,
-        readWriteResult
-    >::execute<Mode>(file, detail::static_buffer_cast(bufs), nbufs, offset);
+FIBERIZE_IO_DETAIL_FS_WRAPPER(open, openResult, int, ((const char*) path)((int) flags)((int) mode))
+
+static void noResult(uv_fs_t*) {}
+
+FIBERIZE_IO_DETAIL_FS_WRAPPER(close, noResult, void, ((int) fd))
+
+static ssize_t sizeResult(uv_fs_t* req) {
+    return req->result;
 }
 
-FIBERIZE_IO_DETAIL_INSTANTIATE_MODES(ssize_t, File::read, const Buffer bufs[], uint nbufs, int64_t offset)
+FIBERIZE_IO_DETAIL_FS_WRAPPER(read, sizeResult, ssize_t, ((int) fd)((const Buffer*) bufs)((uint) nbufs)((int64_t) offset))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(write, sizeResult, ssize_t, ((int) fd)((const Buffer*) bufs)((uint) nbufs)((int64_t) offset))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(sendfile, sizeResult, ssize_t, ((int) out_fd)((int) in_fd)((int64_t) in_offset)((size_t) length))
 
-template <typename Mode>
-Result<ssize_t, Mode> File::write(const Buffer bufs[], uint nbufs, int64_t offset) {
-    return detail::LibUVWrapper<
-        ssize_t,
-        uv_fs_t,
-        uv_fs_req_cleanup,
-        decltype(&uv_fs_write),
-        uv_fs_write,
-        readWriteResult
-    >::execute<Mode>(file, detail::static_buffer_cast(bufs), nbufs, offset);
+FIBERIZE_IO_DETAIL_FS_WRAPPER(unlink, noResult, void, ((const char*) path))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(mkdir, noResult, void, ((const char*) path)((int) mode))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(rmdir, noResult, void, ((const char*) path))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(rename, noResult, void, ((const char*) path)((const char*) new_path))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(fsync, noResult, void, ((int) fd))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(fdatasync, noResult, void, ((int) fd))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(ftruncate, noResult, void, ((int) fd)((int64_t) offset))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(access, noResult, void, ((const char*) path)((int) mode))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(chmod, noResult, void, ((const char*) path)((int) mode))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(fchmod, noResult, void, ((int) fd)((int) mode))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(utime, noResult, void, ((const char*) path)((double) atime)((double) mtime))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(futime, noResult, void, ((int) fd)((double) atime)((double) mtime))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(link, noResult, void, ((const char*) path)((const char*) new_path))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(symlink, noResult, void, ((const char*) path)((const char*) new_path)((int) flags))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(chown, noResult, void, ((const char*) path)((uid_t) owner)((gid_t) group))
+FIBERIZE_IO_DETAIL_FS_WRAPPER(fchown, noResult, void, ((int) fd)((uid_t) owner)((gid_t) group))
+
+static std::string mkdtempResult(uv_fs_t* req) {
+    // TODO: this is suboptimal, we could move the path
+    return req->path;
 }
 
-FIBERIZE_IO_DETAIL_INSTANTIATE_MODES(ssize_t, File::write, const Buffer bufs[], uint nbufs, int64_t offset)
+FIBERIZE_IO_DETAIL_FS_WRAPPER(mkdtemp, mkdtempResult, std::string, ((const char*) tpl))
 
-int File::descriptor() {
-    return file;
+static std::string readlinkResult(uv_fs_t* req) {
+    return reinterpret_cast<const char*>(req->ptr);
 }
+
+FIBERIZE_IO_DETAIL_FS_WRAPPER(readlink, readlinkResult, std::string, ((const char*) path))
 
 } // namespace io
 } // namespace fiberize

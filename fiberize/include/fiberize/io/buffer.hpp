@@ -17,7 +17,7 @@ namespace io {
  *
  * @note Buffer does not manage memory - it's just a pointer and size.
  */
-class Buffer : private uv_buf_t {
+class Buffer : public uv_buf_t {
 public:
     /**
      * Creates a buffer from an existing memory region.
@@ -43,14 +43,6 @@ public:
     uint length() const;
 };
 
-namespace detail {
-
-/**
- * Casts an array of Buffer to an array of uv_buf_t.
- */
-const uv_buf_t* static_buffer_cast(const Buffer* bufs);
-
-} // namespace detail
 } // namespace io
 } // namespace fiberize
 
