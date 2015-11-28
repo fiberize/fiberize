@@ -126,7 +126,7 @@ int main() {
     FiberSystem fiberSystem;
     
     FiberRef self = fiberSystem.fiberize();
-    FiberRef calc = fiberSystem.fiber(Calculator{}).run();
+    FiberRef calc = fiberSystem.fiber(Calculator()).run();
     calc.send(Calculator::subscribe, self);
     
     auto _printResults = Calculator::result.bind([] (uint value) {
