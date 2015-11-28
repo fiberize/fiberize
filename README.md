@@ -31,9 +31,9 @@ Event<void> ack;
 Event<void> ping;
 Event<void> pong;
 
-// Fiber that enters an ifinite loop sending pings to the peer and receiving pongs.
-void ping(FiberRef peer) {
-    // The fiberize::context namespace contains functions available in fibers.
+// Alice and Bob are going to play ping pong. Alice starts.
+void alice(FiberRef peer) {
+    // The fiberize::context namespace contains helper functions available in fibers.
     // The one we need is self(), which returns a reference to the currently running fiber.
     using namespace context;
 
@@ -52,7 +52,7 @@ void ping(FiberRef peer) {
 }
 
 // Fibers can be defined as function objects, possibly with some methods and state.
-struct Pong {
+struct Bob {
     void operator () () {
         // Perform the handshake.
         FiberRef peer = hello.await();
@@ -76,8 +76,8 @@ int main() {
 
     // A fiber can be created from any function, lambda or function object. The fiber(...)
     // function returns a Builder, which is used to configure the fiber and start it.
-    auto pongRef = system.fiber(Pong{}).run();
-    auto pingRef = system.fiber(ping).run(pongRef);
+    auto bobRef = system.fiber(Bob{}).run();
+    auto aliceRef = system.fiber(alice).run(bobRef);
 
     // Enter an infinite loop processing events.
     EventContext::current()->processForever();
