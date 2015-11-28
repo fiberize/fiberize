@@ -45,16 +45,16 @@ struct SwapScheduler {
 };
 
 template <typename Value, typename Request, Value (*extractor)(Request*)>
-struct TryToComplete {
-    static void execute(const std::shared_ptr<Promise<Value>>& promise, Request* req) {
-        promise->tryToComplete(extractor(req));
+struct ExtractAndSend {
+    static void execute(const FiberRef& self, const Event<Result<Value>>& event, Request* req) {
+        self.send(event, extractor(req));
     }
 };
 
 template <typename Request, void (*extractor)(Request*)>
-struct TryToComplete<void, Request, extractor> {
-    static void execute(const std::shared_ptr<Promise<void>>& promise, Request*) {
-        promise->tryToComplete();
+struct ExtractAndSend<void, Request, extractor> {
+    static void execute(const FiberRef& self, const Event<Result<void>>& event, Request*) {
+        self.send(event);
     }
 };
 
@@ -127,11 +127,11 @@ struct BlockEnv {
  */
 template <typename Value, typename Request, void (*cleanup)(Request*), Value (*extractor)(Request*)>
 struct AsyncEnv : public fiberize::detail::ReferenceCountedAtomic {
-    AsyncEnv(const std::shared_ptr<Promise<Value>>& promise_) {
+    AsyncEnv() {
         request.data = this;
         dirty = false;
-        promise = promise_;
-        scheduler = Scheduler::current();
+        self = context::self();
+        scheduler = context::scheduler();
     }
 
     ~AsyncEnv() {
@@ -142,11 +142,7 @@ struct AsyncEnv : public fiberize::detail::ReferenceCountedAtomic {
     static void callback(Request* req) {
         auto ctx = reinterpret_cast<AsyncEnv*>(req->data);
 
-        /**
-         * Check if the promise still exists. The user could release it.
-         */
-        auto promise = ctx->promise.lock();
-        if (promise) {
+        {
             /**
              * Temporarily swap the current scheduler.
              * @todo what if the scheduler is destroyed?
@@ -154,12 +150,12 @@ struct AsyncEnv : public fiberize::detail::ReferenceCountedAtomic {
             SwapScheduler swapScheduler(ctx->scheduler);
 
             /**
-             * Complete the promise.
+             * Send the result as an event.
              */
             if (req->result >= 0) {
-                TryToComplete<Value, Request, extractor>::execute(promise, req);
+                ExtractAndSend<Value, Request, extractor>::execute(ctx->self, ctx->event, req);
             } else {
-                promise->tryToFail(std::make_exception_ptr(
+                ctx->self.send(ctx->event, std::make_exception_ptr(
                     std::system_error(-req->result, std::system_category())
                 ));
             }
@@ -170,7 +166,8 @@ struct AsyncEnv : public fiberize::detail::ReferenceCountedAtomic {
 
     Request request;
     bool dirty;
-    std::weak_ptr<Promise<Value>> promise;
+    Event<Result<Value>> event;
+    FiberRef self;
     Scheduler* scheduler;
 };
 
@@ -190,7 +187,7 @@ struct LibUVWrapper {
      * after the pointer to the request structure.
      */
     template <typename Mode, typename... Args>
-    static Result<Value, Mode> execute(Args&&... args) {
+    static IOResult<Value, Mode> execute(Args&&... args) {
         return execute(Mode(), std::forward<Args>(args)...);
     }
 
@@ -198,7 +195,7 @@ struct LibUVWrapper {
      * Await mode wrapper.
      */
     template <typename... Args>
-    static Result<Value, Await> execute(Await, Args&&... args) {
+    static IOResult<Value, Await> execute(Await, Args&&... args) {
         using Env = AwaitEnv<Request, cleanup>;
         ScopedPin pin;
 
@@ -241,7 +238,7 @@ struct LibUVWrapper {
     }
 
     template <typename... Args>
-    static Result<Value, Block> execute(Block, Args&&... args) {
+    static IOResult<Value, Block> execute(Block, Args&&... args) {
         ScopedPin pin;
 
         /**
@@ -274,19 +271,14 @@ struct LibUVWrapper {
     }
 
     template <typename... Args>
-    static Result<Value, Async> execute(Async, Args&&... args) {
+    static IOResult<Value, Async> execute(Async, Args&&... args) {
         using Env = AsyncEnv<Value, Request, cleanup, extractor>;
         ScopedPin pin;
 
         /**
-         * Create the promise that will hold the result.
-         */
-        auto promise = std::make_shared<Promise<Value>>();
-
-        /**
          * Create the environment.
          */
-        boost::intrusive_ptr<Env> env(new Env(promise));
+        boost::intrusive_ptr<Env> env(new Env);
 
         /**
          * Grab a reference for the callback and start the IO operation.
@@ -308,7 +300,7 @@ struct LibUVWrapper {
          */
         env->dirty = true;
 
-        return promise;
+        return env->event;
     }
 };
 
@@ -330,7 +322,7 @@ struct LibUVWrapper {
 
 #define FIBERIZE_IO_DETAIL_DEFINE_WRAPPER(Module, Name, Extractor, Value, Args)               \
     template <typename Mode>                                                                  \
-    Result<Value, Mode> Name ( FIBERIZE_IO_DETAIL_DEFINE_ARGS(Args) ) {                       \
+    IOResult<Value, Mode> Name ( FIBERIZE_IO_DETAIL_DEFINE_ARGS(Args) ) {                     \
         return detail::LibUVWrapper<                                                          \
             Value,                                                                            \
             uv_ ## Module ## _t,                                                              \
@@ -342,9 +334,9 @@ struct LibUVWrapper {
     }
 
 #define FIBERIZE_IO_DETAIL_INSTANTIATE(Value, Name, Args)                                     \
-    template Result<Value, Await> Name<Await> ( FIBERIZE_IO_DETAIL_DEFINE_ARGS(Args) );       \
-    template Result<Value, Block> Name<Block> ( FIBERIZE_IO_DETAIL_DEFINE_ARGS(Args) );       \
-    template Result<Value, Async> Name<Async> ( FIBERIZE_IO_DETAIL_DEFINE_ARGS(Args) );
+    template IOResult<Value, Await> Name<Await> ( FIBERIZE_IO_DETAIL_DEFINE_ARGS(Args) );     \
+    template IOResult<Value, Block> Name<Block> ( FIBERIZE_IO_DETAIL_DEFINE_ARGS(Args) );     \
+    template IOResult<Value, Async> Name<Async> ( FIBERIZE_IO_DETAIL_DEFINE_ARGS(Args) );
 
 #define FIBERIZE_IO_DETAIL_WRAPPER(Module, Name, Extractor, Value, Args)    \
     FIBERIZE_IO_DETAIL_DEFINE_WRAPPER(Module, Name, Extractor, Value, Args) \

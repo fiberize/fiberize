@@ -56,7 +56,7 @@ namespace io {
  * @note You might have to use std::chrono::duration_cast to cast your duration to milliseconds.
  */
 template <typename Mode = Await>
-ResultEvent<void, Mode> sleep(const std::chrono::milliseconds& duration);
+IOResult<void, Mode> sleep(const std::chrono::milliseconds& duration);
 
 ///@}
 

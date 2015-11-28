@@ -38,7 +38,7 @@ namespace io {
  * Equivalent to [open (2)](http://linux.die.net/man/2/open).
  */
 template <typename Mode = Block>
-Result<int, Mode> open(const char* path, int flags, int mode);
+IOResult<int, Mode> open(const char* path, int flags, int mode);
 
 /**
  * Closes the file.
@@ -46,7 +46,7 @@ Result<int, Mode> open(const char* path, int flags, int mode);
  * Equivalent to [close (2)](http://linux.die.net/man/2/close).
  */
 template <typename Mode = Block>
-Result<void, Mode> close(int fd);
+IOResult<void, Mode> close(int fd);
 
 /**
  * Reads data from the file into multiple buffers.
@@ -54,7 +54,7 @@ Result<void, Mode> close(int fd);
  * Equivalent to [read (2)](http://linux.die.net/man/2/read).
  */
 template <typename Mode = Await>
-Result<ssize_t, Mode> read(int fd, const Buffer bufs[], uint nbufs, int64_t offset);
+IOResult<ssize_t, Mode> read(int fd, const Buffer bufs[], uint nbufs, int64_t offset);
 
 /**
  * Writes data from multiple buffers into the file.
@@ -62,7 +62,7 @@ Result<ssize_t, Mode> read(int fd, const Buffer bufs[], uint nbufs, int64_t offs
  * Equivalent to [write (2)](http://linux.die.net/man/2/write).
  */
 template <typename Mode = Await>
-Result<ssize_t, Mode> write(int fd, const Buffer bufs[], uint nbufs, int64_t offset);
+IOResult<ssize_t, Mode> write(int fd, const Buffer bufs[], uint nbufs, int64_t offset);
 
 /**
  * Deletes a file.
@@ -70,7 +70,7 @@ Result<ssize_t, Mode> write(int fd, const Buffer bufs[], uint nbufs, int64_t off
  * Equivalent to [unlink (2)](http://linux.die.net/man/2/unlink).
  */
 template <typename Mode = Block>
-Result<void, Mode> unlink(const char* path);
+IOResult<void, Mode> unlink(const char* path);
 
 /**
  * Creates a directory.
@@ -80,7 +80,7 @@ Result<void, Mode> unlink(const char* path);
  * @note Note @a mode is currently not implemented on Windows.
  */
 template <typename Mode = Block>
-Result<void, Mode> mkdir(const char* path, int mode);
+IOResult<void, Mode> mkdir(const char* path, int mode);
 
 /**
  * Create a unique temporary directory and returns it's path.
@@ -88,7 +88,7 @@ Result<void, Mode> mkdir(const char* path, int mode);
  * Equivalent to [mkdtemp (2)](http://linux.die.net/man/2/mkdtemp).
  */
 template <typename Mode = Block>
-Result<std::string, Mode> mkdtemp(const char* tpl);
+IOResult<std::string, Mode> mkdtemp(const char* tpl);
 
 /**
  * Removes a directory.
@@ -96,7 +96,7 @@ Result<std::string, Mode> mkdtemp(const char* tpl);
  * Equivalent to [rmdir (2)](http://linux.die.net/man/2/rmdir).
  */
 template <typename Mode = Block>
-Result<void, Mode> rmdir(const char* path);
+IOResult<void, Mode> rmdir(const char* path);
 
 /**
  * @todo scandir and stat (they are not trivial)
@@ -108,7 +108,7 @@ Result<void, Mode> rmdir(const char* path);
  * Equivalent to [rename (2)](http://linux.die.net/man/2/rename).
  */
 template <typename Mode = Block>
-Result<void, Mode> rename(const char* path, const char* new_path);
+IOResult<void, Mode> rename(const char* path, const char* new_path);
 
 /**
  * Flushes a file.
@@ -116,7 +116,7 @@ Result<void, Mode> rename(const char* path, const char* new_path);
  * Equivalent to [fsync (2)](http://linux.die.net/man/2/fsync).
  */
 template <typename Mode = Await>
-Result<void, Mode> fsync(int fd);
+IOResult<void, Mode> fsync(int fd);
 
 /**
  * Flushes a file, without flushing the metadata.
@@ -124,7 +124,7 @@ Result<void, Mode> fsync(int fd);
  * Equivalent to [fdatasync (2)](http://linux.die.net/man/2/fdatasync).
  */
 template <typename Mode = Await>
-Result<void, Mode> fdatasync(int fd);
+IOResult<void, Mode> fdatasync(int fd);
 
 /**
  * Truncates a file to the specified length.
@@ -132,7 +132,7 @@ Result<void, Mode> fdatasync(int fd);
  * Equivalent to [ftruncate (2)](http://linux.die.net/man/2/ftruncate).
  */
 template <typename Mode = Block>
-Result<void, Mode> ftruncate(int fd, int64_t offset);
+IOResult<void, Mode> ftruncate(int fd, int64_t offset);
 
 /**
  * Transfers data between file descriptors.
@@ -140,7 +140,7 @@ Result<void, Mode> ftruncate(int fd, int64_t offset);
  * Equivalent to [sendfile (2)](http://linux.die.net/man/2/sendfile).
  */
 template <typename Mode = Await>
-Result<ssize_t, Mode> sendfile(int out_fd, int in_fd, int64_t in_offset, size_t length);
+IOResult<ssize_t, Mode> sendfile(int out_fd, int in_fd, int64_t in_offset, size_t length);
 
 /**
  * Checks if the user has permissions for a file. In case he doesn't an exception will be thrown.
@@ -148,7 +148,7 @@ Result<ssize_t, Mode> sendfile(int out_fd, int in_fd, int64_t in_offset, size_t 
  * Equivalent to [access (2)](http://linux.die.net/man/2/access).
  */
 template <typename Mode = Block>
-Result<void, Mode> access(const char* path, int mode);
+IOResult<void, Mode> access(const char* path, int mode);
 
 /**
  * Changes file permissions.
@@ -156,7 +156,7 @@ Result<void, Mode> access(const char* path, int mode);
  * Equivalent to [chmod (2)](http://linux.die.net/man/2/chmod).
  */
 template <typename Mode = Block>
-Result<void, Mode> chmod(const char* path, int mode);
+IOResult<void, Mode> chmod(const char* path, int mode);
 
 /**
  * Changes file permissions.
@@ -164,7 +164,7 @@ Result<void, Mode> chmod(const char* path, int mode);
  * Equivalent to [fchmod (2)](http://linux.die.net/man/2/fchmod).
  */
 template <typename Mode = Block>
-Result<void, Mode> fchmod(int fd, int mode);
+IOResult<void, Mode> fchmod(int fd, int mode);
 
 /**
  * Changes file last access and modification times.
@@ -172,7 +172,7 @@ Result<void, Mode> fchmod(int fd, int mode);
  * Equivalent to [utime (2)](http://linux.die.net/man/2/utime).
  */
 template <typename Mode = Block>
-Result<void, Mode> utime(const char* path, double atime, double mtime);
+IOResult<void, Mode> utime(const char* path, double atime, double mtime);
 
 /**
  * Changes file last access and modification times.
@@ -180,7 +180,7 @@ Result<void, Mode> utime(const char* path, double atime, double mtime);
  * Equivalent to [futime (2)](http://linux.die.net/man/2/futime).
  */
 template <typename Mode = Block>
-Result<void, Mode> futime(int fd, double atime, double mtime);
+IOResult<void, Mode> futime(int fd, double atime, double mtime);
 
 /**
  * Makes a new name for a file.
@@ -188,7 +188,7 @@ Result<void, Mode> futime(int fd, double atime, double mtime);
  * Equivalent to [link (2)](http://linux.die.net/man/2/link).
  */
 template <typename Mode = Block>
-Result<void, Mode> link(const char* path, const char* new_path);
+IOResult<void, Mode> link(const char* path, const char* new_path);
 
 /**
  * @see symlink
@@ -217,7 +217,7 @@ enum SymlinkFlags : int {
  *  - @ref Junction : request that the symlink is created using junction points.
  */
 template <typename Mode = Block>
-Result<void, Mode> symlink(const char* path, const char* new_path, int flags);
+IOResult<void, Mode> symlink(const char* path, const char* new_path, int flags);
 
 /**
  * Reads value of a symblic link.
@@ -225,7 +225,7 @@ Result<void, Mode> symlink(const char* path, const char* new_path, int flags);
  * Equivalent to [readlink (2)](http://linux.die.net/man/2/readlink).
  */
 template <typename Mode = Block>
-Result<std::string, Mode> readlink(const char* path);
+IOResult<std::string, Mode> readlink(const char* path);
 
 /**
  * Changes ownership of a file.
@@ -235,7 +235,7 @@ Result<std::string, Mode> readlink(const char* path);
  * @warning Not implemented on Windows.
  */
 template <typename Mode = Block>
-Result<void, Mode> chmod(const char* path, uid_t owner, gid_t group);
+IOResult<void, Mode> chmod(const char* path, uid_t owner, gid_t group);
 
 /**
  * Changes ownership of a file.
@@ -245,7 +245,7 @@ Result<void, Mode> chmod(const char* path, uid_t owner, gid_t group);
  * @warning Not implemented on Windows.
  */
 template <typename Mode = Block>
-Result<void, Mode> fchmod(int fd, uid_t owner, gid_t group);
+IOResult<void, Mode> fchmod(int fd, uid_t owner, gid_t group);
 
 ///@}
 

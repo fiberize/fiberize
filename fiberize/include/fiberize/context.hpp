@@ -1,3 +1,9 @@
+/**
+ * Global functions available in fibers.
+ *
+ * @file context.hpp
+ * @copyright 2015 Paweł Nowak
+ */
 #ifndef FIBERIZE_CONTEXT_HPP
 #define FIBERIZE_CONTEXT_HPP
 
@@ -19,7 +25,7 @@ namespace context {
 /**
  * @defgroup context Fiber context
  *
- * Global methods available inside any fiberized OS thread, fiber, actor, future or thread.
+ * Global functions available inside any fiberized OS thread, fiber, actor, future or thread.
  *
  */
 ///@{

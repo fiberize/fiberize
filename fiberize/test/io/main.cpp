@@ -11,7 +11,7 @@ std::string fileTest(std::string data, std::string path) {
     io::Buffer oub(outBuffer, n);
 
     int file = io::open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0777);
-    io::write<io::Async>(file, &inb, 1, 0)->await();
+    io::write<io::Async>(file, &inb, 1, 0).await();
     io::fsync(file);
     io::read<io::Block>(file, &oub, 1, 0);
     io::close(file);
