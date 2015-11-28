@@ -40,9 +40,9 @@ template <typename A>
 class FutureRefImpl : public virtual FiberRefImpl {
 public:
     /**
-     * Returns the result of this fiber, as a promise.
+     * Awaits for the result of this future.
      */
-    virtual Promise<A>* result() = 0;
+    virtual A await() = 0;
 };
 
 } // namespace detail

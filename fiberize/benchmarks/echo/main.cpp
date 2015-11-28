@@ -49,6 +49,6 @@ int main() {
     }
 
     for (FutureRef<void>& emitter : emitters)
-        emitter.result()->await();
+        emitter.await();
     return 0;
 }

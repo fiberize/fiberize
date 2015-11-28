@@ -43,6 +43,6 @@ TEST(PingPong, PingPong) {
     auto bobRef = system.future(bob).run();
     auto aliceRef = system.future(alice).run(bobRef);
     
-    bobRef.result()->await();
-    aliceRef.result()->await();
+    bobRef.await();
+    aliceRef.await();
 }

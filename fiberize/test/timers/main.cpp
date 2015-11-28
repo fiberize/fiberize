@@ -5,7 +5,7 @@
 using namespace fiberize;
 using namespace std::literals;
 
-uint32_t timers = 10000;
+uint32_t timers = 100000;
 
 TEST(Sleep, ShouldWork) {
     FiberSystem system;
@@ -14,17 +14,19 @@ TEST(Sleep, ShouldWork) {
     std::vector<FutureRef<void>> refs;
 
     auto sleeper = system.future([] () {
-        io::sleep(1s);
+        io::sleep(1ms);
     });
 
     for (size_t i = 0; i < timers; ++i) {
         refs.push_back(sleeper.copy().run());
     }
 
-    io::sleep<io::Block>(500ms);
-    io::sleep<io::Await>(500ms);
+    io::sleep<io::Block>(500ns);
+    io::sleep<io::Await>(500ns);
 
     for (FutureRef<void>& ref : refs) {
-        ref.result()->await();
+        ref.await();
     }
+
+    refs.clear();
 }

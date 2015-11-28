@@ -70,7 +70,7 @@ public:
     std::unique_ptr<Mailbox> mailbox;
 
     /**
-     * Whether the handlers were initialized.
+     * Whether the standard event handlers were initialized.
      */
     bool handlersInitialized;
 

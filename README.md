@@ -95,12 +95,12 @@ int main() {
     // Wait until both futures finish. The Killed exception is propagated throught
     // the result, so we have to catch it.
     try {
-        bobRef.result()->await();
+        bobRef.await();
     } catch (Killed&) {
         std::cout << "Bob is dead." << std::endl;
     }
     try {
-        aliceRef.result()->await();
+        aliceRef.await();
     } catch (Killed&) {
         std::cout << "Alice is dead." << std::endl;
     }

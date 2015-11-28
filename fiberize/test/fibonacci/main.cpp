@@ -13,7 +13,7 @@ uint64_t fibonacciFuture(uint64_t n) {
         auto fibonacci = system()->future(fibonacciFuture);
         auto x = fibonacci.copy().run(n-2);
         auto y = fibonacci.run(n-1);
-        return x.result()->await() + y.result()->await();
+        return x.await() + y.await();
     }
 }
 
@@ -28,8 +28,8 @@ uint64_t fibonacci(uint64_t n) {
 TEST(Fibonacci, ComputesFibonacciSequence) {
     FiberSystem system;
     system.fiberize();
-    
+
     for (uint64_t n = 0; n < 20; ++n) {
-        EXPECT_EQ(fibonacci(n), system.future(fibonacciFuture).run(n).result()->await());
+        EXPECT_EQ(fibonacci(n), system.future(fibonacciFuture).run(n).await());
     }
 }

@@ -56,7 +56,16 @@ namespace io {
  * @note You might have to use std::chrono::duration_cast to cast your duration to milliseconds.
  */
 template <typename Mode = Await>
-IOResult<void, Mode> sleep(const std::chrono::milliseconds& duration);
+IOResult<void, Mode> millisleep(const std::chrono::milliseconds& duration);
+
+/**
+ * Suspends the current fiber/thread for at least the given duration. In Block mode it will
+ * block the thread. In Async mode it will return an event that will fire after the given duration.
+ */
+template <typename Mode = Await, typename Rep, typename Period>
+IOResult<void, Mode> sleep(const std::chrono::duration<Rep, Period>& duration) {
+    return millisleep(std::chrono::duration_cast<std::chrono::milliseconds>(duration));
+}
 
 ///@}
 

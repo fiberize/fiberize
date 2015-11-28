@@ -12,5 +12,5 @@ TEST(Sleeper, ShouldDie) {
         context::processForever();
     }).run();
     sleeper.kill();
-    EXPECT_THROW(sleeper.result()->await(), Killed);
+    EXPECT_THROW(sleeper.await(), Killed);
 }

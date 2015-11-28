@@ -35,8 +35,8 @@ public:
         : LocalFiberRef(system, block) {}
 
     // FutureRefImpl<A>
-    Promise<A>* result() override {
-        return &static_cast<FutureControlBlock<A>*>(block)->result;
+    A await() override {
+        return static_cast<FutureControlBlock<A>*>(block)->result.await();
     }
 };
 

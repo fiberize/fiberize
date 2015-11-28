@@ -115,12 +115,12 @@ public:
      * Moves a future reference.
      */
     FutureRef& operator = (FutureRef&& ref) = default;
-    
+
     /**
-     * Returns the result of the fiber.
+     * Awaits for the result of this future.
      */
-    Promise<A>* result() const {
-        return futureImpl_->result();
+    A await() const {
+        return futureImpl_->await();
     }
 
 private:

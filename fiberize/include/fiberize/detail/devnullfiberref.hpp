@@ -2,6 +2,7 @@
 #define FIBERIZE_DETAIL_DEVNULLFIBERREF_HPP
 
 #include <fiberize/detail/fiberrefimpl.hpp>
+#include <fiberize/exceptions.hpp>
 
 namespace fiberize {
 
@@ -22,9 +23,8 @@ extern DevNullFiberRef devNullFiberRef;
 template <typename A>
 class DevNullFutureRef : public DevNullFiberRef, public FutureRefImpl<A> {
 public:
-    Promise<A>* result() override {
-        // TODO: this should return some dummy promise
-        return nullptr;
+    A await() override {
+        throw NullAwaitable();
     }
 };
 

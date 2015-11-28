@@ -29,7 +29,7 @@ int main() {
     }
 
     for (FutureRef<void>& ref : refs) {
-        ref.result()->await();
+        ref.await();
     }
     std::this_thread::sleep_for(5s);
 

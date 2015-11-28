@@ -16,6 +16,17 @@ public:
     Killed(Killed&&) = default;
 };
 
+/**
+ * Thrown when you await on a /dev/null future.
+ */
+class NullAwaitable : std::runtime_error {
+public:
+    explicit NullAwaitable();
+
+    NullAwaitable(const NullAwaitable&) = default;
+    NullAwaitable(NullAwaitable&&) = default;
+};
+
 } // namespace fiberize
 
 #endif // FIBERIZE_EXCEPTIONS_HPP
