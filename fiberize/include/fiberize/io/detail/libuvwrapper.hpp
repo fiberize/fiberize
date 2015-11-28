@@ -72,29 +72,38 @@ struct AwaitEnv : public fiberize::detail::ReferenceCountedAtomic {
         block->grab();
     }
 
-    ~AwaitEnv() {
+    virtual ~AwaitEnv() {
         block->drop();
         if (dirty)
             cleanup(&request);
     }
 
-    static void callback(Request* req) {
-        auto ctx = reinterpret_cast<AwaitEnv*>(req->data);
 
+    void completed() {
         /**
          * Set the condition to true and reschedule the fiber, if necesssary.
          */
-        {
-            boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(ctx->block->mutex);
-            ctx->condition = true;
-            if (ctx->block->status == fiberize::detail::Suspended) {
-                /// @todo what if the scheduler is destroyed? This isn't a big problem right now, because it only
-                ///       happens after shutdown. This should be fixed for the graceful shutdown patch.
-                ctx->scheduler->enable(ctx->block, std::move(lock));
-            }
+        boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(block->mutex);
+        condition = true;
+        if (block->status == fiberize::detail::Suspended) {
+            /// @todo what if the scheduler is destroyed? This isn't a big problem right now, because it only
+            ///       happens after shutdown. This should be fixed for the graceful shutdown patch.
+            scheduler->enable(block, std::move(lock));
         }
+    }
 
+    static void callback(Request* req) {
+        auto ctx = reinterpret_cast<AwaitEnv*>(req->data);
+        ctx->completed();
         ctx->drop();
+    }
+
+    static void callbackHandle(Request* req) {
+        auto ctx = reinterpret_cast<AwaitEnv*>(req->data);
+        ctx->completed();
+        uv_close(reinterpret_cast<uv_handle_t*>(req), [] (uv_handle_t* handle) {
+            reinterpret_cast<AwaitEnv*>(handle->data)->drop();
+        });
     }
 
     Request request;
@@ -134,34 +143,42 @@ struct AsyncEnv : public fiberize::detail::ReferenceCountedAtomic {
         scheduler = context::scheduler();
     }
 
-    ~AsyncEnv() {
+    virtual ~AsyncEnv() {
         if (dirty)
             cleanup(&request);
     }
 
+    void completed() {
+        /**
+         * Temporarily swap the current scheduler.
+         * @todo what if the scheduler is destroyed?
+         */
+        SwapScheduler swapScheduler(scheduler);
+
+        /**
+         * Send the result as an event.
+         */
+        if (request.result >= 0) {
+            ExtractAndSend<Value, Request, extractor>::execute(self, event, &request);
+        } else {
+            self.send(event, std::make_exception_ptr(
+                std::system_error(-request.result, std::system_category())
+            ));
+        }
+    }
+
     static void callback(Request* req) {
         auto ctx = reinterpret_cast<AsyncEnv*>(req->data);
-
-        {
-            /**
-             * Temporarily swap the current scheduler.
-             * @todo what if the scheduler is destroyed?
-             */
-            SwapScheduler swapScheduler(ctx->scheduler);
-
-            /**
-             * Send the result as an event.
-             */
-            if (req->result >= 0) {
-                ExtractAndSend<Value, Request, extractor>::execute(ctx->self, ctx->event, req);
-            } else {
-                ctx->self.send(ctx->event, std::make_exception_ptr(
-                    std::system_error(-req->result, std::system_category())
-                ));
-            }
-        }
-
+        ctx->completed();
         ctx->drop();
+    }
+
+    static void callbackHandle(Request* req) {
+        auto ctx = reinterpret_cast<AsyncEnv*>(req->data);
+        ctx->completed();
+        uv_close(static_cast<uv_handle_t*>(req), [] (uv_handle_t* handle) {
+            reinterpret_cast<AsyncEnv*>(handle->data)->drop();
+        });
     }
 
     Request request;

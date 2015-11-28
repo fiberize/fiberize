@@ -8,13 +8,13 @@ using namespace std::literals;
 uint32_t timers = 100000;
 
 TEST(Sleep, ShouldWork) {
-    FiberSystem system;
-    FiberRef self = system.fiberize();
+    FiberSystem fiberSystem;
+    FiberRef self = fiberSystem.fiberize();
 
     std::vector<FutureRef<void>> refs;
 
-    auto sleeper = system.future([] () {
-        io::sleep(1ms);
+    auto sleeper = fiberSystem.future([] () {
+        io::sleep(1s);
     });
 
     for (size_t i = 0; i < timers; ++i) {

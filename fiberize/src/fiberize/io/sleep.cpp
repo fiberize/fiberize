@@ -42,16 +42,11 @@ void millisleep<Await>(const std::chrono::milliseconds& duration) {
      * Grab a reference for the callback and start the timer.
      */
     env->grab();
-    code = uv_timer_start(&env->request, Env::callback, duration.count(), std::numeric_limits<uint64_t>::max());
+    code = uv_timer_start(&env->request, Env::callbackHandle, duration.count(), std::numeric_limits<uint64_t>::max());
     if (code < 0) {
         env->drop();
         throw std::system_error(-code, std::system_category());
     }
-
-    /**
-     * Mark the timer as dirty.
-     */
-    env->dirty = true;
 
     /**
      * Wait until the callback fires.
