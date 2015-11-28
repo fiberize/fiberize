@@ -33,7 +33,7 @@ Builder<EntityTraits, Entity, MailboxType>::run(Args&&... args) {
          */
         Path path = PrefixedPath(system->uuid(), ident());
         std::unique_ptr<Mailbox> mailbox(new MailboxType(std::move(mailbox_)));
-        auto block = Traits::newControlBlock(std::move(path), std::move(mailbox), bond_,
+        auto block = Traits::newControlBlock(std::move(path), std::move(mailbox), pin_,
             detail::bind<Entity, Args...>(std::move(entity_), std::forward<Args>(args)...));
         block->grab();
         boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
@@ -60,7 +60,7 @@ void Builder<EntityTraits, Entity, MailboxType>::run_(Args&&... args) {
          */
         Path path = PrefixedPath(system->uuid(), ident());
         std::unique_ptr<Mailbox> mailbox(new MailboxType(std::move(mailbox_)));
-        auto block = Traits::newControlBlock(std::move(path), std::move(mailbox), bond_,
+        auto block = Traits::newControlBlock(std::move(path), std::move(mailbox), pin_,
             detail::bind<Entity, Args...>(std::move(entity_), std::forward<Args>(args)...));
         block->grab();
         boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);

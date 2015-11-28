@@ -40,11 +40,11 @@ public:
         boost::optional<std::string> name,
         Entity entity,
         MailboxType mailbox,
-        Scheduler* bond)
+        Scheduler* pin)
         : name_(std::move(name))
         , entity_(std::move(entity))
         , mailbox_(std::move(mailbox))
-        , bond_(bond)
+        , pin_(pin)
         {}
 
     /**
@@ -103,10 +103,10 @@ public:
     }
 
     /**
-     * Scheduler the entities built by this builder are bound to.
+     * Scheduler the entities built by this builder are pinned to.
      */
-    Scheduler*& bond() const {
-        return bond_;
+    Scheduler*& pin() const {
+        return pin_;
     }
 
     ///@}
@@ -122,26 +122,26 @@ public:
     ///@{
 
     /**
-     * Creates a new builder that is going to build an entity bound to the currently running scheduler.
+     * Creates a new builder that is going to build an entity pinned to the currently running scheduler.
      * @warning This invalidates the current builder.
      */
-    Builder bound() {
+    Builder pinned() {
         return Builder(std::move(name_), std::move(entity_), std::move(mailbox_), Scheduler::current());
     }
 
     /**
-     * Creates a new builder that is going to build an entity bound to the the given scheduler.
+     * Creates a new builder that is going to build an entity pinned to the the given scheduler.
      * @warning This invalidates the current builder.
      */
-    Builder bound(Scheduler* scheduler) {
+    Builder pinned(Scheduler* scheduler) {
         return Builder(std::move(name_), std::move(entity_), std::move(mailbox_), scheduler);
     }
 
     /**
-     * Creates a new builder that is going to build an entity not bound to any scheduler.
+     * Creates a new builder that is going to build an entity not pinned to any scheduler.
      * @warning This invalidates the current builder.
      */
-    Builder unbound() const {
+    Builder detached() const {
         return Builder(std::move(name_), std::move(entity_), std::move(mailbox_), nullptr);
     }
 
@@ -150,7 +150,7 @@ public:
      * @warning This invalidates the current builder.
      */
     Builder named(std::string name) const {
-        return Builder(std::move(name), std::move(entity_), std::move(mailbox_), bond_);
+        return Builder(std::move(name), std::move(entity_), std::move(mailbox_), pin_);
     }
 
     /**
@@ -158,7 +158,7 @@ public:
      * @warning This invalidates the current builder.
      */
     Builder unnamed() const {
-        return Builder(boost::none_t{}, std::move(entity_), std::move(mailbox_), bond_);
+        return Builder(boost::none_t{}, std::move(entity_), std::move(mailbox_), pin_);
     }
 
     /**
@@ -171,7 +171,7 @@ public:
             "The given mailbox type must be derived from Maiblox.");
         mailbox_.reset();
         return Builder<EntityTraits, Entity, NewMailboxType>(
-            std::move(name_), std::move(entity_), std::move(newMailbox), bond_
+            std::move(name_), std::move(entity_), std::move(newMailbox), pin_
         );
     }
 
@@ -219,7 +219,7 @@ private:
     boost::optional<std::string> name_;
     Entity entity_;
     MailboxType mailbox_;
-    Scheduler* const bond_;
+    Scheduler* const pin_;
 };
 
 } // namespace fiberize

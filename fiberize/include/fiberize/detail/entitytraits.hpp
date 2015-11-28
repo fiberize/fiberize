@@ -33,9 +33,9 @@ struct FiberTraits {
 
             template <typename Runnable>
             inline static ControlBlockType*
-            newControlBlock(const Path& path, std::unique_ptr<Mailbox> mailbox, Scheduler* bond, Runnable runnable) {
+            newControlBlock(const Path& path, std::unique_ptr<Mailbox> mailbox, Scheduler* pin, Runnable runnable) {
                 auto block = new detail::FiberControlBlock;
-                block->bound = bond;
+                block->pin = pin;
                 block->path = path;
                 block->mailbox = std::move(mailbox);
                 block->runnable = makeRunnable([runnable = std::move(runnable)] () mutable {
@@ -91,9 +91,9 @@ struct FutureTraits {
 
             template <typename Runnable>
             static ControlBlockType*
-            newControlBlock(const Path& path, std::unique_ptr<Mailbox> mailbox, Scheduler* bond, Runnable runnable) {
+            newControlBlock(const Path& path, std::unique_ptr<Mailbox> mailbox, Scheduler* pin, Runnable runnable) {
                 auto block = new detail::FutureControlBlock<Result>;
-                block->bound = bond;
+                block->pin = pin;
                 block->path = path;
                 block->mailbox = std::move(mailbox);
                 block->runnable = makeRunnable([runnable = std::move(runnable)] () mutable {

@@ -13,6 +13,7 @@
 #include <fiberize/detail/controlblock.hpp>
 #include <fiberize/detail/refrencecounted.hpp>
 #include <fiberize/context.hpp>
+#include <fiberize/scopedpin.hpp>
 
 #include <system_error>
 
@@ -199,6 +200,7 @@ struct LibUVWrapper {
     template <typename... Args>
     static Result<Value, Await> execute(Await, Args&&... args) {
         using Env = AwaitEnv<Request, cleanup>;
+        ScopedPin pin;
 
         /**
          * Create the environment for the request. The environment cannot be located on the stack, because
@@ -240,6 +242,8 @@ struct LibUVWrapper {
 
     template <typename... Args>
     static Result<Value, Block> execute(Block, Args&&... args) {
+        ScopedPin pin;
+
         /**
          * Create the request on the stack, as there are not async callbacks.
          */
@@ -272,6 +276,7 @@ struct LibUVWrapper {
     template <typename... Args>
     static Result<Value, Async> execute(Async, Args&&... args) {
         using Env = AsyncEnv<Value, Request, cleanup, extractor>;
+        ScopedPin pin;
 
         /**
          * Create the promise that will hold the result.

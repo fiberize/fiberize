@@ -59,9 +59,9 @@ public:
     Path path;
 
     /**
-     * Scheduler this task is bound to, or nullptr.
+     * Scheduler this task is pinned to, or nullptr.
      */
-    Scheduler* bound;
+    Scheduler* pin;
     
     /**
      * Mailbox attached to this control block.

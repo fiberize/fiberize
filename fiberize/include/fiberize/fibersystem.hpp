@@ -45,7 +45,7 @@ public:
     
     /**
      * Creates a new fiber builder using the given fiber instance and optionally a mailbox.
-     * By default the fiber is unnamed, unbound and has a DequeMailbox.
+     * By default the fiber is unnamed, not pinned and has a DequeMailbox.
      */
     template <typename Fiber, typename MailboxType = DequeMailbox>
     Builder<detail::FiberTraits, Fiber, DequeMailbox> fiber(Fiber fiber, MailboxType mailbox = {}) {
@@ -61,7 +61,7 @@ public:
 
     /**
      * Creates a new future builder using the given future instance and optionally a mailbox.
-     * By default the future is unnamed, unbound and has a DequeMailbox.
+     * By default the future is unnamed, not pinned and has a DequeMailbox.
      */
     template <typename Future, typename MailboxType = DequeMailbox>
     Builder<detail::FutureTraits, Future, DequeMailbox> future(Future future, MailboxType mailbox = {}) {
@@ -111,9 +111,9 @@ public:
         scheduler->makeCurrent();
 
         /**
-         * Bind the thread's control block to the thread's scheduler.
+         * Pin the thread's control block to the thread's scheduler.
          */
-        controlBlock->bound = scheduler;
+        controlBlock->pin = scheduler;
 
         return FiberRef(std::make_shared<detail::LocalFiberRef>(this, controlBlock));
     }
@@ -130,7 +130,7 @@ private:
     template <typename MailboxImpl = DequeMailbox>
     detail::FiberizedControlBlock* createFiberizedControlBlock() {
         auto block = new detail::FiberizedControlBlock;
-        block->bound = nullptr;
+        block->pin = nullptr;
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
         block->mailbox.reset(new MailboxImpl);
         block->status = detail::Running;

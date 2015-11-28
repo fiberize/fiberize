@@ -6,13 +6,14 @@
 namespace fiberize {
 
 class FiberSystem;
+class Scheduler;
 
 namespace context {
 
 /**
  * @defgroup context Fiber context
  *
- * Global methods available inside any fiberized thread or fiber
+ * Global methods available inside any fiberized thread or fiber.
  *
  */
 ///@{
@@ -21,6 +22,11 @@ namespace context {
  * Returns the fiber system.
  */
 FiberSystem* system();
+
+/**
+ * Scheduler executing this fiber.
+ */
+Scheduler* scheduler();
 
 /**
  * Suspends and reschedules this fiber, allowing other fibers to be run.

@@ -6,6 +6,7 @@
 #include <fiberize/handler.hpp>
 #include <fiberize/mailbox.hpp>
 #include <fiberize/result.hpp>
+#include <fiberize/scopedpin.hpp>
 
 // Cyclic dependency.
 #include <fiberize/event.hpp>

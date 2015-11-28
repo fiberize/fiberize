@@ -9,6 +9,10 @@ FiberSystem* system() {
     return EventContext::current()->system;
 }
 
+Scheduler* scheduler() {
+    return Scheduler::current();
+}
+
 void yield() {
     boost::unique_lock<detail::ControlBlockMutex> lock(EventContext::current()->controlBlock()->mutex);
     Scheduler::current()->yield(std::move(lock));

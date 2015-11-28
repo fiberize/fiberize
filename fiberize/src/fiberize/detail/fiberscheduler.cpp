@@ -81,11 +81,11 @@ void FiberScheduler::terminate() {
 
 bool FiberScheduler::tryToStealTask(FiberControlBlock*& controlBlock) {
     boost::unique_lock<boost::mutex> lock(tasksMutex);
-    if (tasks.size() > 0 && !tasks[0]->bound) {
+    if (tasks.size() > 0 && !tasks[0]->pin) {
         controlBlock = tasks.front();
         tasks.pop_front();
         return true;
-    } if (tasks.size() > 1 && !tasks[1]->bound) {
+    } else if (tasks.size() > 1 && !tasks[1]->pin) {
         controlBlock = tasks[1];
         tasks[1] = tasks[0];
         tasks.pop_front();
