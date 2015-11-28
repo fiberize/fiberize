@@ -1,7 +1,6 @@
 #include <fiberize/detail/fiberscheduler.hpp>
 #include <fiberize/detail/stackpool.hpp>
 #include <fiberize/fibersystem.hpp>
-#include <fiberize/runnable.hpp>
 
 #include <thread>
 #include <chrono>
@@ -66,7 +65,6 @@ void FiberScheduler::terminate() {
      */
     currentControlBlock_->status = detail::Dead;
     stackPool->delayedDeallocate(currentControlBlock_->stack);
-    currentControlBlock_->runnable.reset();
     currentControlBlock_->drop();
     currentControlBlock_ = nullptr;
 
@@ -291,19 +289,20 @@ void FiberScheduler::fiberRunner(intptr_t) {
      * because terminate() doesn't return.
      */
     {
-        auto controlBlock = current()->currentControlBlock();
+        auto controlBlock = static_cast<FiberScheduler*>(current())->currentControlBlock_;
 
         /**
          * Prepare the event context.
          */
-        EventContext ectx(current()->system(), current()->currentControlBlock());
+        EventContext ectx(current()->system(), controlBlock);
         controlBlock->eventContext = &ectx;
         ectx.makeCurrent();
 
         /**
          * Execute the fiber.
          */
-        static_cast<FiberScheduler*>(current())->currentControlBlock_->runnable->operator()();
+        controlBlock->runnable->run();
+        controlBlock->runnable.reset();
     }
 
     /**

@@ -7,7 +7,7 @@
 namespace fiberize {
 namespace detail {
 
-ThreadScheduler::ThreadScheduler(FiberSystem* system, uint64_t seed, ThreadControlBlock* controlBlock)
+ThreadScheduler::ThreadScheduler(FiberSystem* system, uint64_t seed, FiberizedControlBlock* controlBlock)
     : Scheduler(system, seed), controlBlock_(controlBlock)
     {}
 

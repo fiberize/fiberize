@@ -22,163 +22,203 @@ class Mailbox;
  *
  * A builder class used to configure runnable entities, like fibers,
  * futures, threads or actors. After configuration you can start the
- * entity with the run (or run_) function.
+ * entity with the run (or run_) function. The builder itself is
+ * immutable and modyfing paremeters returns a new builder.
  */
-template <typename Entity, typename EntityTraits>
+template <typename EntityTraits, typename Entity, typename MailboxType>
 class Builder {
 public:
-    static_assert(boost::is_base_of<Runnable, Entity>{},
-        "The constructed entity type must be derived from Runnable.");
-
     /**
-     * Initializes the builder with default values.
-     *
-     * By default the constructed entities are unnamed and unbound.
-     * The default mailbox is the deque mailbox.
+     * @name Construction and copying
      */
-    Builder()
-        : name_(boost::none_t{})
-        , mailboxFactory_([] () { return std::unique_ptr<Mailbox>(new DequeMailbox()); })
-        , bond_(nullptr)
-        {}
+    ///@{
 
     /**
      * Initializes a builder with the given values.
      */
     Builder(
-        const boost::optional<std::string>& name,
-        const std::function<std::unique_ptr<Mailbox>()>& mailboxFactory,
+        boost::optional<std::string> name,
+        Entity entity,
+        MailboxType mailbox,
         Scheduler* bond)
-        : name_(name)
-        , mailboxFactory_(mailboxFactory)
+        : name_(std::move(name))
+        , entity_(std::move(entity))
+        , mailbox_(std::move(mailbox))
         , bond_(bond)
         {}
 
     /**
      * Copies a builder.
      */
-    /// @{
     Builder(const Builder&) = default;
+
+    /**
+     * Copies a builder.
+     */
     Builder& operator = (const Builder&) = default;
-    /// @}
 
     /**
-     * Moves a builder
+     * Moves a builder.
      */
-    /// @{
     Builder(Builder&&) = default;
+
+    /**
+     * Moves a builder.
+     */
     Builder& operator = (Builder&&) = default;
-    /// @}
 
     /**
-     * Creates a new builder that is going to build entities
-     * bound to the currently running scheduler.
+     * Returns a copy of this builder.
      */
-    Builder bound() const {
-        return Builder(name(), mailboxFactory(), Scheduler::current());
+    Builder copy() const {
+        return Builder(*this);
     }
 
-    /**
-     * Creates a new builder that is going to build entities
-     * bound to the the given scheduler.
-     */
-    Builder bound(Scheduler* scheduler) const {
-        return Builder(name(), mailboxFactory(), scheduler);
-    }
+    ///@}
 
     /**
-     * Creates a new builder that is going to build entities
-     * not bound to any scheduler.
+     * @name Accessing fields
      */
-    Builder unbound() const {
-        return Builder(name(), mailboxFactory(), nullptr);
-    }
+    ///@{
 
     /**
-     * Creates a new builder that is going to build named entities.
+     * The name of the entities built by this builder, if they are named.
      */
-    Builder named(const std::string& name) const {
-        return Builder(name, mailboxFactory(), bound());
-    }
-
-    /**
-     * Creates a new builder that is going to build unnamed entities.
-     */
-    Builder unnamed() const {
-        return Builder(boost::none_t{}, mailboxFactory(), bound());
-    }
-
-    /**
-     * Creates a new builder that is going to build entities with the
-     * given mailbox type.
-     *
-     * @todo Forward parameters to the mailbox.
-     */
-    template <typename MailboxType>
-    Builder withMailbox() const {
-        static_assert(boost::is_base_of<Mailbox, MailboxType>::value_type,
-            "The given mailbox type must be derived from Maiblox.");
-        return Builder(name(), [] () {
-            return std::unique_ptr<Mailbox>(new MailboxType);
-        }, bound());
-    }
-
-    /**
-     * The name of the entities built by this builder, if they are
-     * named. By default they are unnamed.
-     */
-    boost::optional<std::string> name() const {
+    boost::optional<std::string>& name() const {
         return name_;
     }
 
     /**
-     * Returns the mailbox factory used to construct the mailbox
-     * for the runnable entity.
+     * Returns the entity.
      */
-    std::function<std::unique_ptr<Mailbox>()> mailboxFactory() const {
-        return mailboxFactory_;
+    Entity& entity() const {
+        return entity_;
+    }
+
+    /**
+     * Returns the mailbox.
+     */
+    MailboxType& mailbox() const {
+        return mailbox_;
     }
 
     /**
      * Scheduler the entities built by this builder are bound to.
-     * By default this is nullptr.
      */
-    Scheduler* bond() const {
+    Scheduler*& bond() const {
         return bond_;
     }
 
+    ///@}
+
+    /**
+     * @name Modyfing the builder.
+     *
+     * Methods in this section are used to modify the parameters of the runnable entity.
+     * Instead of modyfing the builder directly, they return a new one, with old variables
+     * moved (instead of copied) to the new one. This invalidates the old builder. If you
+     * want to use a builder more then once, you have to copy() it.
+     */
+    ///@{
+
+    /**
+     * Creates a new builder that is going to build an entity bound to the currently running scheduler.
+     * @warning This invalidates the current builder.
+     */
+    Builder bound() {
+        return Builder(std::move(name_), std::move(entity_), std::move(mailbox_), Scheduler::current());
+    }
+
+    /**
+     * Creates a new builder that is going to build an entity bound to the the given scheduler.
+     * @warning This invalidates the current builder.
+     */
+    Builder bound(Scheduler* scheduler) {
+        return Builder(std::move(name_), std::move(entity_), std::move(mailbox_), scheduler);
+    }
+
+    /**
+     * Creates a new builder that is going to build an entity not bound to any scheduler.
+     * @warning This invalidates the current builder.
+     */
+    Builder unbound() const {
+        return Builder(std::move(name_), std::move(entity_), std::move(mailbox_), nullptr);
+    }
+
+    /**
+     * Creates a new builder that is going to build a named entity.
+     * @warning This invalidates the current builder.
+     */
+    Builder named(std::string name) const {
+        return Builder(std::move(name), std::move(entity_), std::move(mailbox_), bond_);
+    }
+
+    /**
+     * Creates a new builder that is going to build an unnamed entity.
+     * @warning This invalidates the current builder.
+     */
+    Builder unnamed() const {
+        return Builder(boost::none_t{}, std::move(entity_), std::move(mailbox_), bond_);
+    }
+
+    /**
+     * Creates a new builder that is going to build an entity with the given mailbox.
+     * @warning This invalidates the current builder.
+     */
+    template <typename NewMailboxType>
+    Builder<EntityTraits, Entity, NewMailboxType> withMailbox(std::unique_ptr<NewMailboxType> newMailbox) const {
+        static_assert(boost::is_base_of<Mailbox, MailboxType>::value_type,
+            "The given mailbox type must be derived from Maiblox.");
+        mailbox_.reset();
+        return Builder<EntityTraits, Entity, NewMailboxType>(
+            std::move(name_), std::move(entity_), std::move(newMailbox), bond_
+        );
+    }
+
+    ///@}
+
+    /**
+     * @name Running
+     */
+    ///@{
+
+    /**
+     * Runs the entity using the given arguments and returns a reference.
+     * @warning This invalidates the builder.
+     * @warning This must be executed on a thread with an attached scheduler.
+     */
+    template <typename... Args>
+    typename EntityTraits::template For<Entity>::template WithArgs<Args...>::RefType
+    run(Args&&... args);
+
+    /**
+     * Runs the entity using the given arguments.
+     * @warning This invalidates the builder.
+     * @warning This must be executed on a thread with an attached scheduler.
+     */
+    template <typename... Args>
+    void run_(Args&&... args);
+
+    ///@}
+
+private:
     /**
      * Creates an identifier from this builder's name. If the name is not
      * set then this returns an newly generated unique id.
+     * @warning Moves the name.
+     * @internal
      */
     Ident ident() const {
         if (name_.is_initialized()) {
-            return name_.get();
+            return std::move(name_.get());
         } else {
             return uniqueIdentGenerator.generate();
         }
     }
 
-    /**
-     * Runs a new entity constructed using the given arguments and
-     * returns its reference.
-     *
-     * @warning This must be executed on a thread with an attached scheduler.
-     */
-    template <typename... Args>
-    typename EntityTraits::RefType run(Args&&... args) const;
-
-    /**
-     * Runs a new entity constructed using the given arguments.
-     *
-     * @warning This must be executed on a thread with an attached scheduler.
-     */
-    template <typename... Args>
-    void run_(Args&&... args) const;
-
-private:
-    const boost::optional<std::string> name_;
-    const std::function<std::unique_ptr<Mailbox>()> mailboxFactory_;
+    boost::optional<std::string> name_;
+    Entity entity_;
+    MailboxType mailbox_;
     Scheduler* const bond_;
 };
 

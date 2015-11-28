@@ -6,50 +6,61 @@
 
 namespace fiberize {
 
-template <typename Entity, typename EntityTraits>
+namespace detail {
+
+template <typename Entity, typename... Args>
+auto bind(Entity&& entity, Args&&... args) {
+    return std::bind(std::forward<Entity>(entity), std::forward<Args>(args)...);
+}
+
+template <typename Entity>
+auto bind(Entity&& entity) {
+    return std::forward<Entity>(entity);
+}
+
+} // namespace detail
+
+template <typename EntityTraits, typename Entity, typename MailboxType>
 template <typename... Args>
-typename EntityTraits::RefType Builder<Entity, EntityTraits>::run(Args&&... args) const {
+typename EntityTraits::template For<Entity>::template WithArgs<Args...>::RefType
+Builder<EntityTraits, Entity, MailboxType>::run(Args&&... args) {
+    using Traits = typename EntityTraits::template For<Entity>::template WithArgs<Args...>;
+
     FiberSystem* system = Scheduler::current()->system();
     if (!system->shuttingDown()) {
         /**
-         * Prepare the arguments.
-         */
-        Path path = PrefixedPath(system->uuid(), ident());
-        std::unique_ptr<Mailbox> mailbox(mailboxFactory_());
-        std::unique_ptr<Runnable> runnable(new Entity(std::forward<Args>(args)...));
-
-        /**
          * Create an schedule the block
          */
-        auto block = EntityTraits::newControlBlock(path, bond(), std::move(mailbox), std::move(runnable));
+        Path path = PrefixedPath(system->uuid(), ident());
+        std::unique_ptr<Mailbox> mailbox(new MailboxType(std::move(mailbox_)));
+        auto block = Traits::newControlBlock(std::move(path), std::move(mailbox), bond_,
+            detail::bind<Entity, Args...>(std::move(entity_), std::forward<Args>(args)...));
         boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
         Scheduler::current()->enableFiber(block, std::move(lock));
 
         /**
          * Create the reference.
          */
-        return EntityTraits::localRef(system, block);
+        return Traits::localRef(system, block);
     } else {
-        return EntityTraits::devNullRef();
+        return Traits::devNullRef();
     }
 }
 
-template <typename Entity, typename EntityTraits>
+template <typename EntityTraits, typename Entity, typename MailboxType>
 template <typename... Args>
-void Builder<Entity, EntityTraits>::run_(Args&&... args) const {
+void Builder<EntityTraits, Entity, MailboxType>::run_(Args&&... args) {
+    using Traits = typename EntityTraits::template For<Entity>::template WithArgs<Args...>;
+
     FiberSystem* system = Scheduler::current()->system();
     if (!system->shuttingDown()) {
         /**
          * Prepare the arguments.
          */
         Path path = PrefixedPath(system->uuid(), ident());
-        std::unique_ptr<Mailbox> mailbox(mailboxFactory_());
-        std::unique_ptr<Runnable> runnable(new Entity(std::forward<Args>(args)...));
-
-        /**
-         * Create an schedule the block.
-         */
-        auto block = EntityTraits::newControlBlock(path, bond(), std::move(mailbox), std::move(runnable));
+        std::unique_ptr<Mailbox> mailbox(new MailboxType(std::move(mailbox_)));
+        auto block = Traits::newControlBlock(std::move(path), std::move(mailbox), bond_,
+            detail::bind<Entity, Args...>(std::move(entity_), std::forward<Args>(args)...));
         boost::unique_lock<detail::ControlBlockMutex> lock(block->mutex);
         Scheduler::current()->enableFiber(block, std::move(lock));
     }

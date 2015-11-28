@@ -3,7 +3,6 @@
 #include <fiberize/fiberref.hpp>
 #include <fiberize/event-inl.hpp>
 #include <fiberize/fiberref-inl.hpp>
-#include <fiberize/future.hpp>
 #include <fiberize/fibersystem.hpp>
 #include <fiberize/builder-inl.hpp>
 

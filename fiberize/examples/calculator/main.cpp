@@ -5,7 +5,7 @@ using namespace fiberize;
 
 struct InvalidSyntax {};
 
-struct Calculator : public Fiber {
+struct Calculator {
     static Event<std::string> feed;
     static Event<uint> result;
     static Event<FiberRef> subscribe;
@@ -93,7 +93,9 @@ struct Calculator : public Fiber {
     
     std::vector<FiberRef> subscribers;
     
-    void run() override {
+    void operator () () {
+        using namespace context;
+
         auto _handleSubscription = subscribe.bind([this] (const FiberRef& fiber) {
             subscribers.push_back(fiber);
         });
@@ -124,7 +126,7 @@ int main() {
     FiberSystem fiberSystem;
     
     FiberRef self = fiberSystem.fiberize();
-    FiberRef calc = fiberSystem.fiber<Calculator>().run();
+    FiberRef calc = fiberSystem.fiber(Calculator{}).run();
     calc.send(Calculator::subscribe, self);
     
     auto _printResults = Calculator::result.bind([] (uint value) {

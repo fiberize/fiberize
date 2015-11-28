@@ -4,18 +4,13 @@
 using namespace fiberize;
 using ::testing::TestWithParam;
 
-class Sleeper : public Future<void> {
-public:
-    void run () {
-        processForever();
-    }
-};
-
 TEST(Sleeper, ShouldDie) {
     FiberSystem system;
     system.fiberize();
 
-    auto sleeper = system.future<Sleeper>().run();
+    auto sleeper = system.future([] () {
+        context::processForever();
+    }).run();
     sleeper.kill();
     EXPECT_THROW(sleeper.result()->await(), Killed);
 }

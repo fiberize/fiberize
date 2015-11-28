@@ -7,7 +7,7 @@
 namespace fiberize {
 
 template<typename A, typename... Args>
-void FiberRef::send(const Event<A>& event, Args&&... args) {
+void FiberRef::send(const Event<A>& event, Args&&... args) const {
     if (impl_->locality() != DevNull && event.path() != Path(DevNullPath{})) {
         PendingEvent pendingEvent;
         pendingEvent.path = event.path();
@@ -18,7 +18,7 @@ void FiberRef::send(const Event<A>& event, Args&&... args) {
 }
 
 template <>
-void FiberRef::send<void>(const Event<void>& event);
+void FiberRef::send<void>(const Event<void>& event) const;
 
 } // namespace fiberize
 

@@ -7,7 +7,7 @@ namespace fiberize {
 FiberRef::FiberRef() : impl_(std::shared_ptr<detail::FiberRefImpl>(), &detail::devNullFiberRef) {}
 
 template <>
-void FiberRef::send<void>(const Event<void>& event) {
+void FiberRef::send<void>(const Event<void>& event) const {
     if (impl_->locality() != DevNull && event.path() != Path(DevNullPath{})) {
         PendingEvent pendingEvent;
         pendingEvent.path = event.path();
@@ -17,7 +17,7 @@ void FiberRef::send<void>(const Event<void>& event) {
     }
 }
 
-void FiberRef::kill() {
+void FiberRef::kill() const {
     send(fiberize::kill);
 }
 

@@ -5,6 +5,7 @@
 #include <fiberize/mailbox.hpp>
 #include <fiberize/fiberref.hpp>
 #include <fiberize/promise.hpp>
+#include <fiberize/detail/runnable.hpp>
 
 #include <iostream>
 #include <limits>
@@ -90,7 +91,15 @@ public:
     }
 };
 
-class FiberControlBlock : public ControlBlock {
+class RunnableControlBlock : public ControlBlock {
+public:
+    /**
+     * Function used to execute this runnable.
+     */
+    std::unique_ptr<detail::ErasedRunnable> runnable;
+};
+
+class FiberControlBlock : public RunnableControlBlock {
 public:
     /**
      * The stack of this fiber.
@@ -103,11 +112,6 @@ public:
     boost::context::fcontext_t context;
 
     /**
-     * The fiber implementation.
-     */
-    std::unique_ptr<Runnable> runnable;
-
-    /**
      * Whether a block should be rescheduled after a jump.
      */
     bool reschedule;
@@ -117,12 +121,12 @@ template <typename A>
 class FutureControlBlock : public FiberControlBlock {
 public:
     /**
-     * Promise that will contain the result of this fiber.
+     * Promise that will contain the result of this future.
      */
     Promise<A> result;
 };
 
-class ThreadControlBlock : public ControlBlock {
+class FiberizedControlBlock : public ControlBlock {
 };
 
 } // namespace detail

@@ -4,33 +4,21 @@
 using namespace fiberize;
 using namespace fiberize::io;
 
-class Writer : public Future<std::string> {
-public:
-    Writer(const std::string& data, const std::string& path)
-        : data(strdup(data.c_str())), n(data.size() + 1), path(path)
-        {}
+std::string fileTest(std::string data, std::string path) {
+    int n = data.size() + 1;
+    char* inBuffer = strdup(data.c_str());
+    char* outBuffer = new char[n];
+    Buffer inb(inBuffer, n);
+    Buffer oub(outBuffer, n);
 
-    ~Writer() {
-        free(data);
-    }
+    File file = File::open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0777);
+    file.write<Async>(&inb, 1, 0)->await();
+    file.read<Await>(&oub, 1, 0);
+    file.close();
 
-    char* data;
-    size_t n;
-    std::string path;
-
-    std::string run() override {
-        char* buffer = new char[n];
-        Buffer wrb(data, n);
-        Buffer rdb(buffer, n);
-
-        File file = File::open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0777);
-        file.write<Async>(&wrb, 1, 0)->await();
-        file.read<Await>(&rdb, 1, 0);
-        file.close();
-
-        return buffer;
-    }
-};
+    free(inBuffer);
+    return outBuffer;
+}
 
 FiberSystem fiberSystem;
 
@@ -38,11 +26,11 @@ std::string data = "Hello world!";
 std::string path = "/tmp/jiqomfio3n9g0j";
 
 TEST(File, ThreadReadsAndWrites) {
-    EXPECT_EQ(data, Writer(data, path).run());
+    EXPECT_EQ(data, fileTest(data, path));
 }
 
 TEST(File, FiberReadsAndWrites) {
-    EXPECT_EQ(data, fiberSystem.future<Writer>().run(data, path).result()->await());
+    EXPECT_EQ(data, fiberSystem.future(fileTest).run(data, path).result()->await());
 }
 
 int main(int argc, char **argv) {

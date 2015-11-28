@@ -58,18 +58,18 @@ public:
     /**
      * Kills this fiber.
      */
-    void kill();
+    void kill() const;
 
     /**
      * Emits an event.
      */
     template<typename A, typename... Args>
-    void send(const Event<A>& event, Args&&... args);
+    void send(const Event<A>& event, Args&&... args) const;
 
     /**
      * The internal implementation.
      */
-    inline std::shared_ptr<detail::FiberRefImpl> impl() {
+    inline std::shared_ptr<detail::FiberRefImpl> impl() const {
         return impl_;
     }
 
@@ -119,7 +119,7 @@ public:
     /**
      * Returns the result of the fiber.
      */
-    Promise<A>* result() {
+    Promise<A>* result() const {
         return futureImpl_->result();
     }
 

@@ -7,8 +7,6 @@
 #include <boost/context/all.hpp>
 #include <boost/type_traits.hpp>
 
-#include <fiberize/fiber.hpp>
-#include <fiberize/future.hpp>
 #include <fiberize/promise.hpp>
 #include <fiberize/builder.hpp>
 #include <fiberize/fiberref.hpp>
@@ -46,27 +44,36 @@ public:
     ~FiberSystem();
     
     /**
-     * Creates a new builder with default configuration, that will construct a fiber
-     * of the specified type.
+     * Creates a new fiber builder using the given fiber instance and optionally a mailbox.
+     * By default the fiber is unnamed, unbound and has a DequeMailbox.
      */
-    template <typename FiberType>
-    Builder<FiberType, detail::FiberTraits> fiber() {
-        static_assert(boost::is_base_of<Fiber, FiberType>{},
-            "The specified type must be derived from Fiber.");
-        return Builder<FiberType, detail::FiberTraits>();
+    template <typename Fiber, typename MailboxType = DequeMailbox>
+    Builder<detail::FiberTraits, Fiber, DequeMailbox> fiber(Fiber fiber, MailboxType mailbox = {}) {
+        static_assert(std::is_move_constructible<Fiber>{}, "Fiber must be move constructible.");
+        return Builder<detail::FiberTraits, Fiber, DequeMailbox>(
+            boost::none,
+            std::move(fiber),
+            std::move(mailbox),
+            nullptr
+        );
     }
 
+
     /**
-     * Creates a new builder with default configuration, that will construct a future
-     * of the specified type.
+     * Creates a new future builder using the given future instance and optionally a mailbox.
+     * By default the future is unnamed, unbound and has a DequeMailbox.
      */
-    template <typename FutureType, typename Result = decltype(std::declval<FutureType>().run())>
-    Builder<FutureType, detail::FutureTraits<Result>> future() {
-        static_assert(boost::is_base_of<Future<Result>, FutureType>{},
-            "The specified type must be derived from Future.");
-        return Builder<FutureType, detail::FutureTraits<Result>>();
+    template <typename Future, typename MailboxType = DequeMailbox>
+    Builder<detail::FutureTraits, Future, DequeMailbox> future(Future future, MailboxType mailbox = {}) {
+        static_assert(std::is_move_constructible<Future>{}, "Future must be move constructible.");
+        return Builder<detail::FutureTraits, Future, DequeMailbox>(
+            boost::none,
+            std::move(future),
+            std::move(mailbox),
+            nullptr
+        );
     }
-    
+
     /**
      * Shut down the system.
      */
@@ -90,7 +97,7 @@ public:
      */
     template <typename MailboxImpl = DequeMailbox>
     FiberRef fiberize() {
-        auto controlBlock = createThreadControlBlock<MailboxImpl>();
+        auto controlBlock = createFiberizedControlBlock<MailboxImpl>();
         controlBlock->eventContext = new EventContext(this, controlBlock);
         controlBlock->eventContext->makeCurrent();
 
@@ -120,8 +127,8 @@ private:
      * Creates a block for a thread that is not running an executor.
      */
     template <typename MailboxImpl = DequeMailbox>
-    detail::ThreadControlBlock* createThreadControlBlock() {
-        auto block = new detail::ThreadControlBlock;
+    detail::FiberizedControlBlock* createFiberizedControlBlock() {
+        auto block = new detail::FiberizedControlBlock;
         block->refCount = 1;
         block->bound = nullptr;
         block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());

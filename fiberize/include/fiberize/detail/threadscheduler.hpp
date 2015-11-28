@@ -11,7 +11,7 @@ namespace detail {
 
 class ThreadScheduler : public Scheduler {
 public:
-    ThreadScheduler(FiberSystem* system, uint64_t seed, ThreadControlBlock* controlBlock);
+    ThreadScheduler(FiberSystem* system, uint64_t seed, FiberizedControlBlock* controlBlock);
     virtual ~ThreadScheduler();
 
     void enable(ControlBlock* controlBlock, boost::unique_lock<ControlBlockMutex>&& lock) override;
@@ -23,7 +23,7 @@ public:
     detail::ControlBlock* currentControlBlock() override;
 
 private:
-    ThreadControlBlock* controlBlock_;
+    FiberizedControlBlock* controlBlock_;
 };
 
 } // namespace detail
