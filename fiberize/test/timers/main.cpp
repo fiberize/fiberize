@@ -21,8 +21,9 @@ TEST(Sleep, ShouldWork) {
         refs.push_back(sleeper.copy().run());
     }
 
-    io::sleep<io::Block>(500ns);
-    io::sleep<io::Await>(500ns);
+    io::sleep<io::Block>(500ms);
+    io::sleep<io::Await>(500ms);
+    io::sleep<io::Async>(500ms).await();
 
     for (FutureRef<void>& ref : refs) {
         ref.await();

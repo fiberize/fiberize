@@ -62,8 +62,8 @@ struct ExtractAndSend<void, Request, extractor> {
  * Closure enviroment used for Await mode operations.
  */
 template <typename Request, void (*cleanup)(Request*)>
-struct AwaitEnv : public fiberize::detail::ReferenceCountedAtomic {
-    AwaitEnv() {
+struct AwaitRequestEnv : public fiberize::detail::ReferenceCountedAtomic {
+    AwaitRequestEnv() {
         request.data = this;
         condition = false;
         dirty = false;
@@ -72,7 +72,7 @@ struct AwaitEnv : public fiberize::detail::ReferenceCountedAtomic {
         block->grab();
     }
 
-    virtual ~AwaitEnv() {
+    virtual ~AwaitRequestEnv() {
         block->drop();
         if (dirty)
             cleanup(&request);
@@ -93,17 +93,9 @@ struct AwaitEnv : public fiberize::detail::ReferenceCountedAtomic {
     }
 
     static void callback(Request* req) {
-        auto ctx = reinterpret_cast<AwaitEnv*>(req->data);
+        auto ctx = reinterpret_cast<AwaitRequestEnv*>(req->data);
         ctx->completed();
         ctx->drop();
-    }
-
-    static void callbackHandle(Request* req) {
-        auto ctx = reinterpret_cast<AwaitEnv*>(req->data);
-        ctx->completed();
-        uv_close(reinterpret_cast<uv_handle_t*>(req), [] (uv_handle_t* handle) {
-            reinterpret_cast<AwaitEnv*>(handle->data)->drop();
-        });
     }
 
     Request request;
@@ -113,16 +105,57 @@ struct AwaitEnv : public fiberize::detail::ReferenceCountedAtomic {
     Scheduler* scheduler;
 };
 
+template <typename Handle>
+struct AwaitHandleEnv : public fiberize::detail::ReferenceCounted {
+    AwaitHandleEnv() {
+        handle.data = this;
+        condition = false;
+        scheduler = Scheduler::current();
+        block = scheduler->currentControlBlock();
+        block->grab();
+    }
+
+    virtual ~AwaitHandleEnv() {
+        block->drop();
+    }
+
+    void completed() {
+        /**
+         * Set the condition to true and reschedule the fiber, if necesssary.
+         */
+        boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(block->mutex);
+        condition = true;
+        if (block->status == fiberize::detail::Suspended) {
+            /// @todo what if the scheduler is destroyed? This isn't a big problem right now, because it only
+            ///       happens after shutdown. This should be fixed for the graceful shutdown patch.
+            scheduler->enable(block, std::move(lock));
+        }
+    }
+
+    static void callback(Handle* handle) {
+        auto ctx = reinterpret_cast<AwaitHandleEnv*>(handle->data);
+        ctx->completed();
+        uv_close(reinterpret_cast<uv_handle_t*>(handle), [] (uv_handle_t* handle) {
+            reinterpret_cast<AwaitHandleEnv*>(handle->data)->drop();
+        });
+    }
+
+    Handle handle;
+    bool condition;
+    fiberize::detail::ControlBlock* block;
+    Scheduler* scheduler;
+};
+
 /**
  * Environment for blocking mode. All it does is handle the cleanup.
  */
 template <typename Request, void (*cleanup)(Request*)>
-struct BlockEnv {
-    BlockEnv() {
+struct BlockRequestEnv {
+    BlockRequestEnv() {
         dirty = false;
     }
 
-    ~BlockEnv() {
+    ~BlockRequestEnv() {
         if (dirty)
             cleanup(&request);
     }
@@ -131,19 +164,34 @@ struct BlockEnv {
     Request request;
 };
 
+template <typename Handle>
+struct BlockHandleEnv {
+    BlockHandleEnv() {
+        handle.data = this;
+    }
+
+    void cleanup() {
+        uv_close(reinterpret_cast<uv_handle_t*>(handle), [] (uv_handle_t* handle) {
+            delete reinterpret_cast<BlockHandleEnv*>(handle->data);
+        });
+    }
+
+    Handle handle;
+};
+
 /**
  * Closure environment for the Async mode.
  */
 template <typename Value, typename Request, void (*cleanup)(Request*), Value (*extractor)(Request*)>
-struct AsyncEnv : public fiberize::detail::ReferenceCountedAtomic {
-    AsyncEnv() {
+struct AsyncRequestEnv : public fiberize::detail::ReferenceCountedAtomic {
+    AsyncRequestEnv() {
         request.data = this;
         dirty = false;
         self = context::self();
         scheduler = context::scheduler();
     }
 
-    virtual ~AsyncEnv() {
+    virtual ~AsyncRequestEnv() {
         if (dirty)
             cleanup(&request);
     }
@@ -168,21 +216,48 @@ struct AsyncEnv : public fiberize::detail::ReferenceCountedAtomic {
     }
 
     static void callback(Request* req) {
-        auto ctx = reinterpret_cast<AsyncEnv*>(req->data);
+        auto ctx = reinterpret_cast<AsyncRequestEnv*>(req->data);
         ctx->completed();
         ctx->drop();
     }
 
-    static void callbackHandle(Request* req) {
-        auto ctx = reinterpret_cast<AsyncEnv*>(req->data);
+    Request request;
+    bool dirty;
+    Event<Result<Value>> event;
+    FiberRef self;
+    Scheduler* scheduler;
+};
+
+template <typename Value, typename Handle, Value (*extractor)(Handle*)>
+struct AsyncHandleEnv : public fiberize::detail::ReferenceCounted {
+     AsyncHandleEnv() {
+        handle.data = this;
+        self = context::self();
+        scheduler = context::scheduler();
+    }
+
+    void completed() {
+        /**
+         * Temporarily swap the current scheduler.
+         * @todo what if the scheduler is destroyed?
+         */
+        SwapScheduler swapScheduler(scheduler);
+
+        /**
+         * Send the result as an event.
+         */
+        ExtractAndSend<Value, Handle, extractor>::execute(self, event, &handle);
+    }
+
+    static void callback(Handle* handle) {
+        auto ctx = reinterpret_cast<AsyncHandleEnv*>(handle->data);
         ctx->completed();
-        uv_close(static_cast<uv_handle_t*>(req), [] (uv_handle_t* handle) {
-            reinterpret_cast<AsyncEnv*>(handle->data)->drop();
+        uv_close(reinterpret_cast<uv_handle_t*>(handle), [] (uv_handle_t* handle) {
+            reinterpret_cast<AsyncHandleEnv*>(handle->data)->drop();
         });
     }
 
-    Request request;
-    bool dirty;
+    Handle handle;
     Event<Result<Value>> event;
     FiberRef self;
     Scheduler* scheduler;
@@ -213,7 +288,7 @@ struct LibUVWrapper {
      */
     template <typename... Args>
     static IOResult<Value, Await> execute(Await, Args&&... args) {
-        using Env = AwaitEnv<Request, cleanup>;
+        using Env = AwaitRequestEnv<Request, cleanup>;
         ScopedPin pin;
 
         /**
@@ -256,12 +331,13 @@ struct LibUVWrapper {
 
     template <typename... Args>
     static IOResult<Value, Block> execute(Block, Args&&... args) {
+        using Env = BlockRequestEnv<Request, cleanup>;
         ScopedPin pin;
 
         /**
          * Create the request on the stack, as there are not async callbacks.
          */
-        BlockEnv<Request, cleanup> env;
+        Env env;
 
         /**
          * Do the IO operation.
@@ -289,7 +365,7 @@ struct LibUVWrapper {
 
     template <typename... Args>
     static IOResult<Value, Async> execute(Async, Args&&... args) {
-        using Env = AsyncEnv<Value, Request, cleanup, extractor>;
+        using Env = AsyncRequestEnv<Value, Request, cleanup, extractor>;
         ScopedPin pin;
 
         /**

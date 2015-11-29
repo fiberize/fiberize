@@ -64,7 +64,7 @@ IOResult<void, Mode> millisleep(const std::chrono::milliseconds& duration);
  */
 template <typename Mode = Await, typename Rep, typename Period>
 IOResult<void, Mode> sleep(const std::chrono::duration<Rep, Period>& duration) {
-    return millisleep(std::chrono::duration_cast<std::chrono::milliseconds>(duration));
+    return millisleep<Mode>(std::chrono::duration_cast<std::chrono::milliseconds>(duration));
 }
 
 ///@}
