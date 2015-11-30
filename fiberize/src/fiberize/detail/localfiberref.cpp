@@ -1,5 +1,5 @@
 #include <fiberize/detail/localfiberref.hpp>
-#include <fiberize/detail/controlblock.hpp>
+#include <fiberize/detail/task.hpp>
 #include <fiberize/fibersystem.hpp>
 #include <fiberize/context.hpp>
 
@@ -8,13 +8,13 @@
 namespace fiberize {
 namespace detail {
         
-LocalFiberRef::LocalFiberRef(FiberSystem* system, ControlBlock* block)
-    : system(system), block(std::move(block)) {
-    block->grab();
+LocalFiberRef::LocalFiberRef(FiberSystem* system, Task* task)
+    : system(system), task(task) {
+    task->grab();
 }
 
 LocalFiberRef::~LocalFiberRef() {
-    block->drop();
+    task->drop();
 }
 
 Locality LocalFiberRef::locality() const {
@@ -22,16 +22,13 @@ Locality LocalFiberRef::locality() const {
 }
 
 Path LocalFiberRef::path() const {
-    return block->path;
+    return task->path;
 }
 
 void LocalFiberRef::send(const PendingEvent& pendingEvent) {
-    boost::unique_lock<ControlBlockMutex> lock(block->mutex);
-    block->mailbox->enqueue(pendingEvent);
-
-    if (block->status == Suspended) {
-        context::detail::resume(block, std::move(lock));
-    }
+    std::unique_lock<TaskMutex> lock(task->mutex);
+    task->mailbox->enqueue(pendingEvent);
+    context::detail::resume(task, std::move(lock));
 }
 
 } // namespace detail

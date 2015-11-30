@@ -2,8 +2,11 @@
 #include <fiberize/scheduler.hpp>
 #include <fiberize/exceptions.hpp>
 #include <fiberize/events.hpp>
-#include <fiberize/detail/controlblock.hpp>
+#include <fiberize/detail/task.hpp>
 #include <fiberize/detail/localfiberref.hpp>
+#include <fiberize/detail/singletaskscheduler.hpp>
+#include <fiberize/detail/multitaskscheduler.hpp>
+#include <fiberize/fibersystem.hpp>
 
 namespace fiberize {
 namespace context {
@@ -17,15 +20,14 @@ Scheduler* scheduler() {
 }
 
 void yield() {
-    boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(detail::controlBlock()->mutex);
-    Scheduler::current()->yield(std::move(lock));
+    Scheduler::current()->yield(std::unique_lock<fiberize::detail::TaskMutex>(detail::task()->mutex));
 }
 
 void process() {
     PendingEvent event;
-    auto block = detail::controlBlock();
-    boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(block->mutex);
-    while (block->mailbox->dequeue(event)) {
+    auto task = detail::task();
+    std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
+    while (task->mailbox->dequeue(event)) {
         lock.unlock();
         try {
             detail::dispatchEvent(event);
@@ -54,26 +56,26 @@ static void initializeHandlers() {
     /**
      * This probably could be improved a lot.
      */
-    auto block = detail::controlBlock();
+    auto task = detail::task();
     std::unique_ptr<fiberize::detail::Handler> killHandler(new fiberize::detail::TypedHandler<void>([] () {
         throw Killed();
     }));
     killHandler->grab();
-    block->handlers[kill.path()].emplace_back(std::move(killHandler));
-    block->handlersInitialized = true;
+    task->handlers[kill.path()].emplace_back(std::move(killHandler));
+    task->handlersInitialized = true;
 }
 
 void processUntil(const bool& condition) {
-    auto block = detail::controlBlock();
+    auto task = detail::task();
     PendingEvent event;
     while (!condition) {
         /**
          * First, process all pending events.
          */
         PendingEvent event;
-        boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(block->mutex);
-        while (block->mailbox->dequeue(event)) {
-            if (!block->handlersInitialized)
+        std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
+        while (task->mailbox->dequeue(event)) {
+            if (!task->handlersInitialized)
                 initializeHandlers();
 
             lock.unlock();
@@ -105,13 +107,13 @@ void processUntil(const bool& condition) {
 }
 
 FiberRef self() {
-    return FiberRef(std::make_shared<fiberize::detail::LocalFiberRef>(system(), detail::controlBlock()));
+    return FiberRef(std::make_shared<fiberize::detail::LocalFiberRef>(system(), detail::task()));
 }
 
 namespace detail {
 
-fiberize::detail::ControlBlock* controlBlock() {
-    return scheduler()->currentControlBlock();
+fiberize::detail::Task* task() {
+    return scheduler()->currentTask();
 }
 
 static void collectGarbage(fiberize::detail::HandlerBlock& block) {
@@ -129,34 +131,34 @@ static void collectGarbage(fiberize::detail::HandlerBlock& block) {
 }
 
 void dispatchEvent(const PendingEvent& event) {
-    auto block = controlBlock();
+    auto task = detail::task();
 
     /**
      * Find a handler block.
      */
-    auto handlersIt = block->handlers.find(event.path);
-    if (handlersIt == block->handlers.end())
+    auto blockIt = task->handlers.find(event.path);
+    if (blockIt == task->handlers.end())
         return;
-    fiberize::detail::HandlerBlock& handlers = handlersIt->second;
+    fiberize::detail::HandlerBlock& block = blockIt->second;
 
     /**
      * GC dead handlers.
      */
-    collectGarbage(handlers);
+    collectGarbage(block);
 
     /**
      * There are no alive handlers, remove the handler block.
      */
-    if (handlers.empty()) {
-        block->handlers.erase(handlersIt);
+    if (block.empty()) {
+        task->handlers.erase(blockIt);
         return;
     }
 
     /**
      * Execute the handlers.
      */
-    auto it = handlers.rbegin();
-    auto end = handlers.rend();
+    auto it = block.rbegin();
+    auto end = block.rend();
     while (it != end) {
         (*it)->execute(event.data);
         ++it;
@@ -165,13 +167,51 @@ void dispatchEvent(const PendingEvent& event) {
 
 HandlerRef bind(const Path& path, std::unique_ptr<fiberize::detail::Handler> handler) {
     HandlerRef ref(handler.get());
-    controlBlock()->handlers[path].emplace_back(std::move(handler));
+    task()->handlers[path].emplace_back(std::move(handler));
     return ref;
 }
 
-void resume(fiberize::detail::ControlBlock* controlBlock, boost::unique_lock<fiberize::detail::ControlBlockMutex> lock) {
-    /// @todo mvoe more functionality here
-    scheduler()->enable(controlBlock, std::move(lock));
+void resume(fiberize::detail::Task* task, std::unique_lock<fiberize::detail::TaskMutex> lock) {
+    assert(lock.owns_lock());
+
+    Scheduler* sched;
+    bool knownMultiTasking = false;
+
+    /**
+     * Do not resume a scheduled or running task.
+     */
+    if ((task->status != fiberize::detail::Suspended && task->status != fiberize::detail::Starting) || task->scheduled)
+        return;
+
+    if (task->pin != nullptr) {
+        /**
+         * Forward pinned tasks to their scheduler.
+         */
+        sched = task->pin;
+    } else {
+        /**
+         * If the current scheduler is a multi tasking one, us it. Otherwise pick a random
+         * multitasking scheduler.
+         */
+        if (scheduler()->isMultiTasking()) {
+            sched = scheduler();
+        } else {
+            std::uniform_int_distribution<size_t> dist(0, system()->schedulers().size() - 1);
+            size_t index = dist(scheduler()->random());
+            sched = system()->schedulers()[index];
+        }
+        knownMultiTasking = true;
+    }
+
+    if (knownMultiTasking || sched->isMultiTasking()) {
+        static_cast<fiberize::detail::MultiTaskScheduler*>(sched)->resume(task, std::move(lock));
+    } else {
+        static_cast<fiberize::detail::SingleTaskScheduler*>(sched)->resume(std::move(lock));
+    }
+}
+
+void terminate() {
+    scheduler()->terminate();
 }
 
 } // namespace detail

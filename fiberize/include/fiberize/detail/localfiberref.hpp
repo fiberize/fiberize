@@ -2,6 +2,7 @@
 #define FIBERIZE_DETAIL_LOCALFIBERREF_HPP
 
 #include <fiberize/detail/fiberrefimpl.hpp>
+#include <fiberize/detail/task.hpp>
 
 namespace fiberize {
 
@@ -9,14 +10,14 @@ class FiberSystem;
 
 namespace detail {
 
-class ControlBlock;
+class Task;
 
 template <typename>
-class FutureControlBlock;
+class Future;
 
-class LocalFiberRef : public virtual FiberRefImpl {
+class LocalFiberRef : public FiberRefImpl {
 public:
-    LocalFiberRef(FiberSystem* system, ControlBlock* block);
+    LocalFiberRef(FiberSystem* system, Task* task);
     virtual ~LocalFiberRef();
 
     // FiberRefImpl
@@ -25,19 +26,43 @@ public:
     void send(const PendingEvent& pendingEvent) override;
 
     FiberSystem* const system;
-    ControlBlock* block;
+    Task* task;
 };
 
 template <typename A>
-class LocalFutureRef : public LocalFiberRef, public FutureRefImpl<A> {
+class LocalFutureRef : public FutureRefImpl<A> {
 public:
-    LocalFutureRef(FiberSystem* system, FutureControlBlock<A>* block)
-        : LocalFiberRef(system, block) {}
+    LocalFutureRef(FiberSystem* system, Future<A>* future)
+        : system(system), future(future) {
+            future->grab();
+        }
+
+    virtual ~LocalFutureRef() {
+        future->drop();
+    }
 
     // FutureRefImpl<A>
-    A await() override {
-        return static_cast<FutureControlBlock<A>*>(block)->result.await();
+
+    Locality locality() const override {
+        return Local;
     }
+
+    Path path() const override {
+        return future->path;
+    }
+
+    void send(const PendingEvent& pendingEvent) override {
+        std::unique_lock<TaskMutex> lock(future->mutex);
+        future->mailbox->enqueue(pendingEvent);
+        context::detail::resume(future, std::move(lock));
+    }
+
+    Result<A> await() override {
+        return future->result.await();
+    }
+
+    FiberSystem* const system;
+    Future<A>* future;
 };
 
 } // namespace detail

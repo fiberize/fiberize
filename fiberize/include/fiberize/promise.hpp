@@ -11,247 +11,127 @@
 #include <fiberize/fiberref.hpp>
 #include <fiberize/event-inl.hpp>
 #include <fiberize/context.hpp>
+#include <fiberize/result.hpp>
 
 namespace fiberize {
+
 namespace detail {
 
 template <typename A>
-class Success;
-
-template <typename A>
-class Failure;
-
-/**
- * Quick and dirty result class. It would be better if it didn't use virtual tables.
- * TODO: use mach7 or whatever C++ implementation of pattern matching, or just
- * write a nice low level implementation.
- */
-template <typename A>
-class Result {
-public:
-    virtual ~Result() {};
-
-    virtual bool isSuccess() = 0;
-    virtual bool isFailure() = 0;
-
-    virtual Success<A>* asSuccess() = 0;
-    virtual Failure<A>* asFailure() = 0;
-};
-
-template <typename A>
-class Success : public Result<A> {
-public:
+struct Box {
     template <typename... Args>
-    Success(Args&&... args) : value(std::forward<Args>(args)...) {};
+    Box(Args&&... args) : value(std::forward<Args>(args)...) {}
 
-    bool isSuccess() override { return true; }
-    bool isFailure() override { return false; }
-
-    Success<A>* asSuccess() override { return this; }
-    Failure<A>* asFailure() override { return nullptr; }
+    A get() const {
+        return value;
+    }
 
     A value;
 };
 
 template <>
-class Success<void> : public Result<void> {
-public:
-    Success() {};
-
-    bool isSuccess() override { return true; }
-    bool isFailure() override { return false; }
-
-    Success<void>* asSuccess() override { return this; }
-    Failure<void>* asFailure() override { return nullptr; }
-};
-
-template <typename A>
-class Failure : public Result<A> {
-public:
-    Failure(std::exception_ptr exception) : exception(exception) {};
-
-    bool isSuccess() override { return false; }
-    bool isFailure() override { return true; }
-
-    Success<A>* asSuccess() override { return nullptr; }
-    Failure<A>* asFailure() override { return this; }
-
-    std::exception_ptr exception;
+struct Box<void> {
+    void get() const {}
 };
 
 } // namespace detail
 
 /**
- * Local implementation of a promise, using a mutex. This will likely have to change
- * in the future to support remote promises.
+ * A promise that will contain a value of type A.
+ *
+ * @warning The copy constructor of A must be thread-safe.
  */
 template <typename A>
 class Promise {
-public:
-    Promise() = default;
-    explicit Promise(const Event<A>& watched) {
-        handler = watched.bind([this] (const A& value) {
-            tryToComplete(value);
-            handler.release();
-        });
-    }
-    Promise(const Promise&) = delete;
-    Promise(Promise&&) = default;
+private:
+    enum State : uint8_t {
+        Empty,
+        Completing,
+        Complete
+    };
 
-    Promise& operator = (const Promise&) = delete;
-    Promise& operator = (Promise&&) = delete;
+public:
+    /**
+     * Creates an empty promise.
+     */
+    Promise() : isCompleted(false) {}
 
     /**
-     * Tries to complete the promise.
+     * Destroys the promise.
+     */
+    ~Promise() {
+        std::unique_lock<std::mutex> lock(mutex);
+        if (isCompleted) {
+            result.~Box();
+        }
+    }
+
+    /**
+     * Tries to complete the promise with a value.
      */
     template <typename... Args>
-    bool tryToComplete(Args&&... args) {
-        std::lock_guard<std::mutex> lock(mutex);
-        if (!result) {
-            try {
-                result.reset(new detail::Success<A>(std::forward<Args>(args)...));
-            } catch (...) {
-                result.reset(new detail::Failure<A>(std::current_exception()));
-            }
-            wakup();
-            return true;
-        } else {
+    bool complete(Args&&... args) {
+        std::unique_lock<std::mutex> lock(mutex);
+
+        /**
+         * Check if the promise was empty.
+         */
+        if (isCompleted)
+            return false;
+
+        /**
+         * Try to construct the result.
+         */
+        try {
+            new (&result) detail::Box<A>{std::forward<Args>(args)...};
+            isCompleted = true;
+        } catch (...) {
+            // We failed to complete the promise.
             return false;
         }
-    }
-    
-    /**
-     * Tries to fail this promise.
-     */
-    bool tryToFail(std::exception_ptr error) {
-        std::lock_guard<std::mutex> lock(mutex);
-        if (!result) {
-            result.reset(new detail::Failure<A>(error));
-            wakup();
-            return true;
-        } else {
-            return false;
+
+        /**
+         * Wake up tasks awaiting this promise.
+         */
+        for (FiberRef& ref : awaiting) {
+            ref.send(completed);
         }
+        awaiting.clear();
+
+        return true;
     }
-    
+
     /**
-     * Awaits until the promise is completed or failed. If the promise
-     * failed it will rethrow the exception.
-     * TODO: optimize
+     * Awaits
      */
     A await() {
         std::unique_lock<std::mutex> lock(mutex);
-        if (result) {
-            detail::Success<A>* success = result->asSuccess();
-            if (success != nullptr) {
-                return success->value;
-            } else {
-                std::rethrow_exception(result->asFailure()->exception);
-            }
-        } else {
-            waiting.push_back(context::self());
+
+        /**
+         * If the promise is empty we have to sleep until it is completed.
+         */
+        if (!isCompleted) {
+            /**
+             * Add this task to the awaiting list and wait for the result.
+             */
+            awaiting.push_back(context::self());
             lock.unlock();
-            condition.await();
-            return await();
+            completed.await();
+            lock.lock();
         }
-    }
-    
-private:
-    void wakup() {
-        for (FiberRef& ref : waiting)
-            ref.send(condition);
-        waiting = std::vector<FiberRef>();
-    }
 
-    std::mutex mutex;
-    std::vector<FiberRef> waiting;
-    std::unique_ptr<detail::Result<A>> result;
-    Event<void> condition;
-    HandlerRef handler;
-};
-
-template <>
-class Promise<void> {
-public:
-    Promise() = default;
-    explicit Promise(const Event<void>& watched) {
-        handler = watched.bind([this] () {
-            tryToComplete();
-            handler.release();
-        });
-    }
-    Promise(const Promise&) = delete;
-    Promise(Promise&&) = default;
-
-    Promise& operator = (const Promise&) = delete;
-    Promise& operator = (Promise&&) = delete;
-
-    /**
-     * Tries to complete the promise.
-     */
-    bool tryToComplete() {
-        std::lock_guard<std::mutex> lock(mutex);
-        if (!result) {
-            try {
-                result.reset(new detail::Success<void>());
-            } catch (...) {
-                result.reset(new detail::Failure<void>(std::current_exception()));
-            }
-            wakup();
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    /**
-     * Tries to fail this promise.
-     */
-    bool tryToFail(std::exception_ptr error) {
-        std::lock_guard<std::mutex> lock(mutex);
-        if (!result) {
-            result.reset(new detail::Failure<void>(error));
-            wakup();
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    /**
-     * Awaits until the promise is completed or failed. If the promise
-     * failed it will rethrow the exception.
-     * TODO: optimize
-     */
-    void await() {
-        std::unique_lock<std::mutex> lock(mutex);
-        if (result) {
-            detail::Success<void>* success = result->asSuccess();
-            if (success != nullptr) {
-                return;
-            } else {
-                std::rethrow_exception(result->asFailure()->exception);
-            }
-        } else {
-            waiting.push_back(context::self());
-            lock.unlock();
-            condition.await();
-            return await();
-        }
+        return result.get();
     }
 
 private:
-    void wakup() {
-        for (FiberRef& ref : waiting)
-            ref.send(condition);
-        waiting = std::vector<FiberRef>();
-    }
-
+    Event<void> completed;
     std::mutex mutex;
-    std::vector<FiberRef> waiting;
-    std::unique_ptr<detail::Result<void>> result;
-    Event<void> condition;
-    HandlerRef handler;
+    std::vector<FiberRef> awaiting;
+    bool isCompleted;
+
+    union {
+        detail::Box<A> result;
+    };
 };
 
 } // namespace fiberize

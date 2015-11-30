@@ -10,7 +10,11 @@ TEST(Sleeper, ShouldDie) {
 
     auto sleeper = system.future([] () {
         context::processForever();
-    }).run();
-    sleeper.kill();
-    EXPECT_THROW(sleeper.await(), Killed);
+    });
+
+    for (int i = 0; i < 100000; ++i) {
+        auto ref = sleeper.copy().run();
+        ref.kill();
+        EXPECT_THROW(ref.await().get(), Killed);
+    }
 }

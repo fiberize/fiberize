@@ -46,7 +46,7 @@ inline std::size_t hash_value(const NamedIdent& ident) {
  */
 struct UniqueIdent {
 public:
-    inline UniqueIdent(uint64_t token): token_(token) {};
+    explicit inline UniqueIdent(uint64_t token): token_(token) {};
     UniqueIdent(const UniqueIdent&) = default;
     UniqueIdent(UniqueIdent&&) = default;
     
@@ -76,6 +76,11 @@ inline std::size_t hash_value(const UniqueIdent& ident) {
  * A part of Path identifying a resource on a specific system.
  */
 typedef boost::variant<NamedIdent, UniqueIdent> Ident;
+
+/**
+ * Converts an ident to a string.
+ */
+std::string toString(const Ident& ident);
 
 /**
  * The /dev/null path, representing a resource that doesn't exist.
@@ -124,6 +129,14 @@ public:
         boost::hash_combine(seed, boost::hash_value(ident_));
         return seed;
     }
+
+    inline boost::uuids::uuid prefix() const {
+        return prefix_;
+    }
+
+    inline Ident ident() const {
+        return ident_;
+    }
     
 private:
     boost::uuids::uuid prefix_;
@@ -154,6 +167,10 @@ public:
         return boost::hash_value(ident_);
     }
 
+    inline Ident ident() const {
+        return ident_;
+    }
+
 private:
     Ident ident_;
 };
@@ -171,6 +188,11 @@ inline std::size_t hash_value(const GlobalPath& path) {
  * Global paths should be used for events shared between systems and for singleton fibers.
  */
 typedef boost::variant<DevNullPath, PrefixedPath, GlobalPath> Path;
+
+/**
+ * Converts a path to a string.
+ */
+std::string toString(const Path& path);
 
 /**
  * Singleton for the /dev/null path.

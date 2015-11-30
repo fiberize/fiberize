@@ -21,10 +21,22 @@ public:
 extern DevNullFiberRef devNullFiberRef;
 
 template <typename A>
-class DevNullFutureRef : public DevNullFiberRef, public FutureRefImpl<A> {
+class DevNullFutureRef : public FutureRefImpl<A> {
 public:
-    A await() override {
-        throw NullAwaitable();
+    Locality locality() const override {
+        return DevNull;
+    }
+
+    void send(const PendingEvent&) override {
+        // Ignore the event.
+    }
+
+    Path path() const override {
+        return DevNullPath{};
+    }
+
+    Result<A> await() override {
+        return std::make_exception_ptr(NullAwaitable{});
     }
 };
 

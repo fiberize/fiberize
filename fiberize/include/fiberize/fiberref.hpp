@@ -119,7 +119,7 @@ public:
     /**
      * Awaits for the result of this future.
      */
-    A await() const {
+    Result<A> await() const {
         return futureImpl_->await();
     }
 

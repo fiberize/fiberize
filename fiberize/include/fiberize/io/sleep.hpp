@@ -18,7 +18,7 @@ namespace fiberize {
 namespace io {
 
 /**
- * @defgroup io_sleep Sleeping and timers.
+ * @defgroup io_sleep Sleeping and timers
  * @ingroup io
  *
  * Sleeping and timers.

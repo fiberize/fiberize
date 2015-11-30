@@ -1,13 +1,22 @@
+/**
+ * Task scheduler.
+ *
+ * @file scheduler.hpp
+ * @copyright 2015 Paweł Nowak
+ */
 #ifndef FIBERIZE_SCHEDULER_HPP
 #define FIBERIZE_SCHEDULER_HPP
 
-#include <fiberize/detail/controlblock.hpp>
+#include <fiberize/detail/task.hpp>
 #include <fiberize/io/detail/iocontext.hpp>
 
 namespace fiberize {
 
 class FiberSystem;
 
+/**
+ * @ingroup lifecycle
+ */
 class Scheduler {
 public:
     /**
@@ -31,39 +40,29 @@ public:
     static void resetCurrent();
 
     /**
-     * Enable a suspended control block.
+     * Suspend the currently running task.
      */
-    virtual void enable(detail::ControlBlock* controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock);
+    virtual void suspend(std::unique_lock<detail::TaskMutex> lock) = 0;
 
     /**
-     * Enable a suspended fiber control block.
+     * Yield CPU to other tasks or the OS, but eventually reschedule this task.
      */
-    virtual void enableFiber(detail::FiberControlBlock* controlBlock, boost::unique_lock<detail::ControlBlockMutex>&& lock) = 0;
+    virtual void yield(std::unique_lock<detail::TaskMutex> lock) = 0;
 
     /**
-     * Suspend the currently running fiber/thread.
-     */
-    virtual void suspend(boost::unique_lock<detail::ControlBlockMutex>&& lock) = 0;
-
-    /**
-     * Yield CPU to other fibers or the OS.
-     */
-    virtual void yield(boost::unique_lock<detail::ControlBlockMutex>&& lock) = 0;
-
-    /**
-     * Terminate the currently running fiber/thread.
+     * Terminate the currently running task.
      */
     [[ noreturn ]] virtual void terminate() = 0;
 
     /**
-     * Tries to steal a fiber from this task.
+     * Returns the currently executing task.
      */
-    virtual bool tryToStealTask(detail::FiberControlBlock*& controlBlock) = 0;
+    virtual detail::Task* currentTask() = 0;
 
     /**
-     * Returns the currently executing control block. Not thread safe.
+     * Whether the current scheduler is a MultiTaskScheduler.
      */
-    virtual detail::ControlBlock* currentControlBlock() = 0;
+    virtual bool isMultiTasking() = 0;
 
     /**
      * Returns the fiber system this scheduler is attached to.

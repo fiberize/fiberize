@@ -10,7 +10,7 @@
 #define FIBERIZE_IO_IO_HPP
 
 /**
- * @defgroup io Low level IO system.
+ * @defgroup io Low level IO system
  * @ingroup fiberize
  *
  * Provides portable blocking, nonblocking and asynchronous IO.

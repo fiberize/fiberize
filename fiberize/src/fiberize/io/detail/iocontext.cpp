@@ -46,7 +46,9 @@ void IOContext::runLoop() {
     stopped = false;
     while (!stopped) {
         uv_run(loop(), UV_RUN_DEFAULT);
-        std::this_thread::sleep_for(1ms);
+        if (stopped)
+            return;
+        std::this_thread::sleep_for(1ns);
     }
 }
 

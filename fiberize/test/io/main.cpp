@@ -28,11 +28,15 @@ std::string data = "Hello world!";
 std::string path = "/tmp/jiqomfio3n9g0j";
 
 TEST(File, ThreadReadsAndWrites) {
-    EXPECT_EQ(data, fileTest(data, path));
+    for (int i = 0; i < 1000; ++i) {
+        EXPECT_EQ(data, fileTest(data, path));
+    }
 }
 
 TEST(File, FiberReadsAndWrites) {
-    EXPECT_EQ(data, fiberSystem.future(fileTest).run(data, path).await());
+    for (int i = 0; i < 1000; ++i) {
+        EXPECT_EQ(data, fiberSystem.future(fileTest).run(data, path).await().get());
+    }
 }
 
 int main(int argc, char **argv) {

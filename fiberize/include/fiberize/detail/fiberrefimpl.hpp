@@ -3,6 +3,7 @@
 
 #include <fiberize/locality.hpp>
 #include <fiberize/path.hpp>
+#include <fiberize/result.hpp>
 
 namespace fiberize {
 
@@ -37,12 +38,12 @@ public:
 };
 
 template <typename A>
-class FutureRefImpl : public virtual FiberRefImpl {
+class FutureRefImpl : public FiberRefImpl {
 public:
     /**
      * Awaits for the result of this future.
      */
-    virtual A await() = 0;
+    virtual Result<A> await() = 0;
 };
 
 } // namespace detail

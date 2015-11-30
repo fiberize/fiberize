@@ -1,12 +1,12 @@
 #include <fiberize/scopedpin.hpp>
 #include <fiberize/scheduler.hpp>
-#include <fiberize/detail/controlblock.hpp>
+#include <fiberize/detail/task.hpp>
 
 namespace fiberize {
 
 ScopedPin::ScopedPin() {
-    if (context::scheduler()->currentControlBlock()->pin == nullptr) {
-        context::scheduler()->currentControlBlock()->pin = context::scheduler();
+    if (context::scheduler()->currentTask()->pin == nullptr) {
+        context::scheduler()->currentTask()->pin = context::scheduler();
         wasPinned = false;
     } else {
         wasPinned = true;
@@ -15,7 +15,7 @@ ScopedPin::ScopedPin() {
 
 ScopedPin::~ScopedPin() {
     if (!wasPinned) {
-        context::scheduler()->currentControlBlock()->pin = nullptr;
+        context::scheduler()->currentTask()->pin = nullptr;
     }
 }
 

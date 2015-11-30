@@ -10,7 +10,7 @@
 #include <fiberize/scheduler.hpp>
 #include <fiberize/context.hpp>
 #include <fiberize/io/mode.hpp>
-#include <fiberize/detail/controlblock.hpp>
+#include <fiberize/detail/task.hpp>
 #include <fiberize/detail/refrencecounted.hpp>
 #include <fiberize/context.hpp>
 #include <fiberize/scopedpin.hpp>
@@ -67,13 +67,13 @@ struct AwaitRequestEnv : public fiberize::detail::ReferenceCountedAtomic {
         request.data = this;
         condition = false;
         dirty = false;
-        scheduler = Scheduler::current();
-        block = scheduler->currentControlBlock();
-        block->grab();
+        scheduler = context::scheduler();
+        task = context::detail::task();
+        task->grab();
     }
 
     virtual ~AwaitRequestEnv() {
-        block->drop();
+        task->drop();
         if (dirty)
             cleanup(&request);
     }
@@ -81,15 +81,18 @@ struct AwaitRequestEnv : public fiberize::detail::ReferenceCountedAtomic {
 
     void completed() {
         /**
+         * Temporarily swap the current scheduler.
+         * @todo what if the scheduler is destroyed? This isn't a big problem right now, because it only
+         *       happens after shutdown. This should be fixed for the graceful shutdown patch.
+         */
+        SwapScheduler swapScheduler(scheduler);
+
+        /**
          * Set the condition to true and reschedule the fiber, if necesssary.
          */
-        boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(block->mutex);
+        std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
         condition = true;
-        if (block->status == fiberize::detail::Suspended) {
-            /// @todo what if the scheduler is destroyed? This isn't a big problem right now, because it only
-            ///       happens after shutdown. This should be fixed for the graceful shutdown patch.
-            scheduler->enable(block, std::move(lock));
-        }
+        context::detail::resume(task, std::move(lock));
     }
 
     static void callback(Request* req) {
@@ -101,7 +104,7 @@ struct AwaitRequestEnv : public fiberize::detail::ReferenceCountedAtomic {
     Request request;
     bool condition;
     bool dirty;
-    fiberize::detail::ControlBlock* block;
+    fiberize::detail::Task* task;
     Scheduler* scheduler;
 };
 
@@ -110,26 +113,28 @@ struct AwaitHandleEnv : public fiberize::detail::ReferenceCounted {
     AwaitHandleEnv() {
         handle.data = this;
         condition = false;
-        scheduler = Scheduler::current();
-        block = scheduler->currentControlBlock();
-        block->grab();
+        scheduler = context::scheduler();
+        task = context::detail::task();
+        task->grab();
     }
 
     virtual ~AwaitHandleEnv() {
-        block->drop();
+        task->drop();
     }
 
     void completed() {
         /**
+         * Temporarily swap the current scheduler.
+         * @todo what if the scheduler is destroyed?
+         */
+        SwapScheduler swapScheduler(scheduler);
+
+        /**
          * Set the condition to true and reschedule the fiber, if necesssary.
          */
-        boost::unique_lock<fiberize::detail::ControlBlockMutex> lock(block->mutex);
+        std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
         condition = true;
-        if (block->status == fiberize::detail::Suspended) {
-            /// @todo what if the scheduler is destroyed? This isn't a big problem right now, because it only
-            ///       happens after shutdown. This should be fixed for the graceful shutdown patch.
-            scheduler->enable(block, std::move(lock));
-        }
+        context::detail::resume(task, std::move(lock));
     }
 
     static void callback(Handle* handle) {
@@ -142,7 +147,7 @@ struct AwaitHandleEnv : public fiberize::detail::ReferenceCounted {
 
     Handle handle;
     bool condition;
-    fiberize::detail::ControlBlock* block;
+    fiberize::detail::Task* task;
     Scheduler* scheduler;
 };
 

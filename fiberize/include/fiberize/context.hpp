@@ -7,6 +7,8 @@
 #ifndef FIBERIZE_CONTEXT_HPP
 #define FIBERIZE_CONTEXT_HPP
 
+#include <mutex>
+
 #include <fiberize/fiberref.hpp>
 
 namespace fiberize {
@@ -16,16 +18,16 @@ class Scheduler;
 
 namespace detail {
 
-class ControlBlock;
+class Task;
 
 } // namespace detail
 
 namespace context {
 
 /**
- * @defgroup context Fiber context
+ * @defgroup context Context
  *
- * Global functions available inside any fiberized OS thread, fiber, actor, future or thread.
+ * Global functions available inside any task.
  *
  */
 ///@{
@@ -69,9 +71,9 @@ FiberRef self();
 namespace detail {
 
 /**
- * Returns the control block of the currently executing fiber.
+ * Returns the currently running task.
  */
-fiberize::detail::ControlBlock* controlBlock();
+fiberize::detail::Task* task();
 
 /**
  * Dispatches an event to the handlers.
@@ -86,7 +88,12 @@ HandlerRef bind(const Path& path, std::unique_ptr<fiberize::detail::Handler> han
 /**
  * Resumes execution of a suspended fiber.
  */
-void resume(fiberize::detail::ControlBlock* controlBlock, boost::unique_lock<boost::detail::spinlock> lock);
+void resume(fiberize::detail::Task* task, std::unique_lock<std::mutex> lock);
+
+/**
+ * Terminate the currently running task.
+ */
+[[ noreturn ]] void terminate();
 
 } // namespace detail
 

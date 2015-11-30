@@ -12,17 +12,17 @@
 #include <fiberize/fiberref.hpp>
 #include <fiberize/scheduler.hpp>
 #include <fiberize/context.hpp>
-#include <fiberize/detail/controlblock.hpp>
+#include <fiberize/detail/task.hpp>
 #include <fiberize/detail/localfiberref.hpp>
 #include <fiberize/detail/devnullfiberref.hpp>
-#include <fiberize/detail/threadscheduler.hpp>
-#include <fiberize/detail/entitytraits.hpp>
+#include <fiberize/detail/tasktraits.hpp>
+#include <fiberize/detail/singletaskscheduler.hpp>
 
 namespace fiberize {
 
 namespace detail {
 
-class FiberScheduler;
+class MultiTaskScheduler;
 
 } // namespace detail
 
@@ -95,50 +95,42 @@ public:
      * A thread once fiberized cannot be unfiberized. This makes the function leak some memory.
      * TODO: unfiberizing?
      */
-    template <typename MailboxImpl = DequeMailbox>
-    FiberRef fiberize() {
-        auto controlBlock = createFiberizedControlBlock<MailboxImpl>();
-        controlBlock->grab();
+    template <typename MailboxType = DequeMailbox>
+    FiberRef fiberize(MailboxType mailbox = {}) {
+        auto task = new detail::Task;
+        task->pin = nullptr;
+        task->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
+        task->mailbox.reset(new MailboxType(std::move(mailbox)));
+        task->status = detail::Running;
+        task->scheduled = false;
+        task->grab();
 
         std::uniform_int_distribution<uint64_t> seedDist;
         generatorMutex.lock();
         uint64_t seed = seedDist(seedGenerator);
         generatorMutex.unlock();
 
-        auto scheduler = new detail::ThreadScheduler(this, seed, controlBlock);
+        auto scheduler = new detail::SingleTaskScheduler(this, seed, task);
         scheduler->makeCurrent();
 
         /**
-         * Pin the thread's control block to the thread's scheduler.
+         * Pin the thread's task to the thread's scheduler.
          */
-        controlBlock->pin = scheduler;
+        task->pin = scheduler;
 
-        return FiberRef(std::make_shared<detail::LocalFiberRef>(this, controlBlock));
+        return FiberRef(std::make_shared<detail::LocalFiberRef>(this, task));
     }
 
     /**
      * Returns a vector of fiber schedulers.
      */
-    inline const std::vector<detail::FiberScheduler*>& schedulers() { return schedulers_; }
+    inline const std::vector<detail::MultiTaskScheduler*>& schedulers() { return schedulers_; }
 
 private:
     /**
-     * Creates a block for a thread that is not running an executor.
-     */
-    template <typename MailboxImpl = DequeMailbox>
-    detail::FiberizedControlBlock* createFiberizedControlBlock() {
-        auto block = new detail::FiberizedControlBlock;
-        block->pin = nullptr;
-        block->path = PrefixedPath(uuid(), uniqueIdentGenerator.generate());
-        block->mailbox.reset(new MailboxImpl);
-        block->status = detail::Running;
-        return block;
-    }
-    
-    /**
      * Currently running schedulers.
      */
-    std::vector<detail::FiberScheduler*> schedulers_;
+    std::vector<detail::MultiTaskScheduler*> schedulers_;
     
     /**
      * The prefix of this actor system.

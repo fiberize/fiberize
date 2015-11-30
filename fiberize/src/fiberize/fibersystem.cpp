@@ -1,6 +1,6 @@
 #include <fiberize/fibersystem.hpp>
 #include <fiberize/context.hpp>
-#include <fiberize/detail/fiberscheduler.hpp>
+#include <fiberize/detail/multitaskscheduler.hpp>
 
 #include <thread>
 #include <chrono>
@@ -27,7 +27,7 @@ FiberSystem::FiberSystem(uint32_t macrothreads)
 
     // Spawn the schedulers.
     for (uint32_t i = 0; i < macrothreads; ++i) {
-        schedulers_.emplace_back(new detail::FiberScheduler(this, seedDist(seedGenerator), i));
+        schedulers_.emplace_back(new detail::MultiTaskScheduler(this, seedDist(seedGenerator), i));
     }
 
     for (uint32_t i = 0; i < macrothreads; ++i) {

@@ -339,6 +339,41 @@ private:
     };
 };
 
+namespace detail {
+
+template <typename Closure, typename A>
+struct ResultWrapper {
+    static Result<A> result(Closure& closure) {
+        try {
+            return Result<A>(closure());
+        } catch (...) {
+            return Result<A>(std::current_exception());
+        }
+    }
+};
+
+template <typename Closure>
+struct ResultWrapper<Closure, void> {
+    static Result<void> result(Closure& closure) {
+        try {
+            closure();
+            return Result<void>();
+        } catch (...) {
+            return Result<void>(std::current_exception());
+        }
+    }
+};
+
+} // namespace detail
+
+/**
+ * Executes a closure, catching any exceptions, and wraps the result in a Result.
+ */
+template <typename Closure, typename A = decltype(std::declval<Closure>()())>
+Result<A> result(Closure& closure) {
+    return detail::ResultWrapper<Closure, A>::result(closure);
+}
+
 } // namespace fiberize
 
 #endif // FIBERIZE_RESULT_HPP

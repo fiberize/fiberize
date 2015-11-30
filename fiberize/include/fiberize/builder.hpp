@@ -1,5 +1,5 @@
 /**
- * Builder used to construct and run fibers and futures.
+ * Builder used to construct and run tasks.
  *
  * @file builder.hpp
  * @copyright 2015 Paweł Nowak
@@ -18,14 +18,12 @@ namespace fiberize {
 class Mailbox;
 
 /**
- * Runnable entity builder.
+ * Task builder.
  *
- * A builder class used to configure runnable entities, like fibers,
- * futures, threads or actors. After configuration you can start the
- * entity with the run (or run_) function. The builder itself is
- * immutable and modyfing paremeters returns a new builder.
+ * A builder class used to configure tasks, like fibers, futures, threads or actors.
+ * After configuration you can start the task with the run (or run_) function.
  */
-template <typename EntityTraits, typename Entity, typename MailboxType>
+template <typename TaskTraits, typename TaskType, typename MailboxType>
 class Builder {
 public:
     /**
@@ -38,11 +36,11 @@ public:
      */
     Builder(
         boost::optional<std::string> name,
-        Entity entity,
+        TaskType task,
         MailboxType mailbox,
         Scheduler* pin)
         : name_(std::move(name))
-        , entity_(std::move(entity))
+        , task_(std::move(task))
         , mailbox_(std::move(mailbox))
         , pin_(pin)
         {}
@@ -89,10 +87,10 @@ public:
     }
 
     /**
-     * Returns the entity.
+     * Returns the task.
      */
-    Entity& entity() const {
-        return entity_;
+    TaskType& task() const {
+        return task_;
     }
 
     /**
@@ -114,7 +112,7 @@ public:
     /**
      * @name Modyfing the builder.
      *
-     * Methods in this section are used to modify the parameters of the runnable entity.
+     * Methods in this section are used to modify the parameters of the runnable task.
      * Instead of modyfing the builder directly, they return a new one, with old variables
      * moved (instead of copied) to the new one. This invalidates the old builder. If you
      * want to use a builder more then once, you have to copy() it.
@@ -122,56 +120,56 @@ public:
     ///@{
 
     /**
-     * Creates a new builder that is going to build an entity pinned to the currently running scheduler.
+     * Creates a new builder that is going to build a task pinned to the currently running scheduler.
      * @warning This invalidates the current builder.
      */
     Builder pinned() {
-        return Builder(std::move(name_), std::move(entity_), std::move(mailbox_), Scheduler::current());
+        return Builder(std::move(name_), std::move(task_), std::move(mailbox_), Scheduler::current());
     }
 
     /**
-     * Creates a new builder that is going to build an entity pinned to the the given scheduler.
+     * Creates a new builder that is going to build a task pinned to the the given scheduler.
      * @warning This invalidates the current builder.
      */
     Builder pinned(Scheduler* scheduler) {
-        return Builder(std::move(name_), std::move(entity_), std::move(mailbox_), scheduler);
+        return Builder(std::move(name_), std::move(task_), std::move(mailbox_), scheduler);
     }
 
     /**
-     * Creates a new builder that is going to build an entity not pinned to any scheduler.
+     * Creates a new builder that is going to build a task not pinned to any scheduler.
      * @warning This invalidates the current builder.
      */
     Builder detached() const {
-        return Builder(std::move(name_), std::move(entity_), std::move(mailbox_), nullptr);
+        return Builder(std::move(name_), std::move(task_), std::move(mailbox_), nullptr);
     }
 
     /**
-     * Creates a new builder that is going to build a named entity.
+     * Creates a new builder that is going to build a named task.
      * @warning This invalidates the current builder.
      */
     Builder named(std::string name) const {
-        return Builder(std::move(name), std::move(entity_), std::move(mailbox_), pin_);
+        return Builder(std::move(name), std::move(task_), std::move(mailbox_), pin_);
     }
 
     /**
-     * Creates a new builder that is going to build an unnamed entity.
+     * Creates a new builder that is going to build an unnamed task.
      * @warning This invalidates the current builder.
      */
     Builder unnamed() const {
-        return Builder(boost::none_t{}, std::move(entity_), std::move(mailbox_), pin_);
+        return Builder(boost::none_t{}, std::move(task_), std::move(mailbox_), pin_);
     }
 
     /**
-     * Creates a new builder that is going to build an entity with the given mailbox.
+     * Creates a new builder that is going to build a task with the given mailbox.
      * @warning This invalidates the current builder.
      */
     template <typename NewMailboxType>
-    Builder<EntityTraits, Entity, NewMailboxType> withMailbox(std::unique_ptr<NewMailboxType> newMailbox) const {
+    Builder<TaskTraits, TaskType, NewMailboxType> withMailbox(std::unique_ptr<NewMailboxType> newMailbox) const {
         static_assert(boost::is_base_of<Mailbox, MailboxType>::value_type,
             "The given mailbox type must be derived from Maiblox.");
         mailbox_.reset();
-        return Builder<EntityTraits, Entity, NewMailboxType>(
-            std::move(name_), std::move(entity_), std::move(newMailbox), pin_
+        return Builder<TaskTraits, TaskType, NewMailboxType>(
+            std::move(name_), std::move(task_), std::move(newMailbox), pin_
         );
     }
 
@@ -183,16 +181,16 @@ public:
     ///@{
 
     /**
-     * Runs the entity using the given arguments and returns a reference.
+     * Runs the task using the given arguments and returns a reference.
      * @warning This invalidates the builder.
      * @warning This must be executed on a thread with an attached scheduler.
      */
     template <typename... Args>
-    typename EntityTraits::template For<Entity>::template WithArgs<Args...>::RefType
+    typename TaskTraits::template For<TaskType>::template WithArgs<Args...>::RefType
     run(Args&&... args);
 
     /**
-     * Runs the entity using the given arguments.
+     * Runs the task using the given arguments.
      * @warning This invalidates the builder.
      * @warning This must be executed on a thread with an attached scheduler.
      */
@@ -217,7 +215,7 @@ private:
     }
 
     boost::optional<std::string> name_;
-    Entity entity_;
+    TaskType task_;
     MailboxType mailbox_;
     Scheduler* const pin_;
 };
