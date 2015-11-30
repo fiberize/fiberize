@@ -138,17 +138,6 @@ fiberize is built for performance. Currently, when running on a 4 core Intel i7-
 
 IO and http benchmarks will come when the respective components are done.
 
-TODO list and ideas
-=========
-
-The project is pretty new and has a long and ambitious todo list :)
-
-* complete the low-level IO library
-* http library
-* high-level stream based IO library
-* remoting tunnels - the first step to cluster support is to establish a tunnel between two systems, that allows them to lookup remote fibers and send events. It should be possible to link two tunnels, creating a relay node. Of course this requires serialization: protocol buffers and JSON/BSON are what I'm currently looking at.
-* clustering - the idea is to use existing p2p and DHT implementations to create a cluster management layer. The job of the management layer is to maintain a mapping from system UUIDs to lists of IP addresses/ports, global fiber paths to system UUIDs, a list of relay nodes, etc. Using this information remoting tunnels can be established, possibly routing around NATs using a technique like [ICE](https://tools.ietf.org/html/rfc5245) and the relay nodes.
-
 Bibliography
 ==========
 
