@@ -27,7 +27,7 @@ public:
     // Scheduler
     void suspend(std::unique_lock<TaskMutex> lock) override;
     void yield(std::unique_lock<TaskMutex> lock) override;
-    [[ noreturn ]] void terminate() override;
+    void terminate(std::unique_lock<TaskMutex> lock) override;
     detail::Task* currentTask() override;
     bool isMultiTasking() override;
 

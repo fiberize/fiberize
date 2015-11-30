@@ -69,13 +69,14 @@ void MultiTaskScheduler::yield(std::unique_lock<detail::TaskMutex> lock) {
     switchFromRunning(std::move(lock));
 }
 
-void MultiTaskScheduler::terminate() {
-    assert(currentTask_->status == Running);
-
+void MultiTaskScheduler::terminate(std::unique_lock<std::mutex> lock) {
     /**
      * Destroy the task.
      */
+    assert(currentTask_->status == Running);
+    assert(!currentTask_->scheduled);
     currentTask_->status = Dead;
+    lock.unlock();
     currentTask_->runnable.reset();
     currentTask_->handlers.clear();
     stackPool->delayedDeallocate(currentTask_->stack);

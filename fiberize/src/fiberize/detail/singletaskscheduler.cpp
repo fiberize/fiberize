@@ -14,8 +14,9 @@ namespace detail {
 
 SingleTaskScheduler::SingleTaskScheduler(FiberSystem* system, uint64_t seed, Task* task)
     : Scheduler(system, seed)
-    , task_(task)
-    {}
+    , task_(task) {
+    task->pin = this;
+}
 
 SingleTaskScheduler::~SingleTaskScheduler() {
     if (task_ != nullptr)
@@ -63,17 +64,30 @@ void SingleTaskScheduler::yield(std::unique_lock<TaskMutex> lock) {
     std::this_thread::yield();
 }
 
-void SingleTaskScheduler::terminate() {
+void SingleTaskScheduler::terminate(std::unique_lock<TaskMutex> lock) {
+    /**
+     * Complete the task.
+     */
+    assert(task_->status == Running);
+    assert(!task_->scheduled);
     task_->status = Dead;
+    lock.unlock();
     task_->runnable.reset();
     task_->handlers.clear();
     task_->drop();
     task_ = nullptr;
-    int retval = 0;
 
-    // NOTE: AFAIK there is no equivalent to this function in boost::thread or std.
-    //       This is not an issue for now, because we only target linux.
-    pthread_exit(&retval);
+    /**
+     * Delete the scheduler! It's sole purpose is complete.
+     */
+    delete this;
+
+    /**
+     * Exit the function. Single task scheduler's terminate should be only called when:
+     *  - unfiberizing a thread, in which case we don't want to end the thread.
+     *  - terminating a fiber started as a thread, in which case we're going to end the
+     *    thread right after terminate()
+     */
 }
 
 Task* SingleTaskScheduler::currentTask() {

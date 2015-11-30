@@ -55,12 +55,22 @@ public:
      * Creates an empty promise.
      */
     Promise() : isCompleted(false) {}
+    Promise(const Promise&) = delete;
+    Promise(Promise&&) = default;
+
+    /**
+     * Creates a promise that will watch the given event and complete when it fires.
+     */
+    Promise(const Event<A>& watched) : isCompleted(false) {
+        handler = watched.bind([this] (const A& value) {
+            complete(value);
+        });
+    }
 
     /**
      * Destroys the promise.
      */
     ~Promise() {
-        std::unique_lock<std::mutex> lock(mutex);
         if (isCompleted) {
             result.~Box();
         }
@@ -124,6 +134,7 @@ public:
     }
 
 private:
+    HandlerRef handler;
     Event<void> completed;
     std::mutex mutex;
     std::vector<FiberRef> awaiting;

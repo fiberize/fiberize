@@ -52,7 +52,7 @@ public:
     /**
      * Terminate the currently running task.
      */
-    [[ noreturn ]] virtual void terminate() = 0;
+    virtual void terminate(std::unique_lock<detail::TaskMutex> lock) = 0;
 
     /**
      * Returns the currently executing task.

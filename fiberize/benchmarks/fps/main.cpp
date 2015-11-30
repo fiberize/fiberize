@@ -3,29 +3,18 @@
 
 using namespace fiberize;
 
-const size_t fibers = 1000 * 1000 * 4;
-const size_t spawners = 8;
+const size_t fibersPerLine = 1000 * 1000;
+const size_t lines = 100;
 
 Event<void> finished;
-std::atomic<size_t> spawned(0);
 
 FiberRef mainThread;
 
-void noop() {
-    if (std::atomic_fetch_add(&spawned, size_t(1)) == fibers * spawners - 1) {
+void fiber(size_t i) {
+    if (i == fibersPerLine) {
         mainThread.send(finished);
-    }
-}
-
-void spawner() {
-    using namespace context;
-    
-    auto builder = system()->fiber(noop);
-    for (size_t i = 1; i <= fibers; ++i) {
-        builder.copy().run_();
-        if (i % 100 == 0) {
-            yield();
-        }
+    } else {
+        context::system()->fiber(fiber).run_(i+1);
     }
 }
 
@@ -33,10 +22,13 @@ int main() {
     FiberSystem system;
     mainThread = system.fiberize();
 
-    for (size_t i = 0; i < spawners; ++i) {
-        system.fiber(spawner).run_();
+    for (size_t i = 0; i < lines; ++i) {
+        system.fiber(fiber).run_(1);
     }
 
-    finished.await();
+    for (size_t i = 0; i < lines; ++i) {
+        finished.await();
+    }
+
     return 0;
 }

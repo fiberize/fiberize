@@ -16,6 +16,9 @@ namespace detail {
 
 class StackPool;
 
+/**
+ * @ingroup lifecycle
+ */
 class MultiTaskScheduler : public Scheduler {
 public:
     MultiTaskScheduler(FiberSystem* system, uint64_t seed, uint32_t index);
@@ -27,7 +30,7 @@ public:
     void resume(Task* task, std::unique_lock<TaskMutex> lock);
     void suspend(std::unique_lock<TaskMutex> lock) override;
     void yield(std::unique_lock<TaskMutex> lock) override;
-    [[ noreturn ]] void terminate() override;
+    [[ noreturn ]] void terminate(std::unique_lock<std::mutex> lock) override;
     Task* currentTask() override;
     bool isMultiTasking() override;
 

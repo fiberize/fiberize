@@ -12,6 +12,7 @@
 
 #include <fiberize/path.hpp>
 #include <fiberize/scheduler.hpp>
+#include <fiberize/detail/schedulertraits.hpp>
 
 namespace fiberize {
 
@@ -23,7 +24,7 @@ class Mailbox;
  * A builder class used to configure tasks, like fibers, futures, threads or actors.
  * After configuration you can start the task with the run (or run_) function.
  */
-template <typename TaskTraits, typename TaskType, typename MailboxType>
+template <typename TaskTraits, typename TaskType, typename MailboxType, typename SchedulerTraits>
 class Builder {
 public:
     /**
@@ -137,6 +138,7 @@ public:
 
     /**
      * Creates a new builder that is going to build a task not pinned to any scheduler.
+     * @note This is the default.
      * @warning This invalidates the current builder.
      */
     Builder detached() const {
@@ -153,6 +155,7 @@ public:
 
     /**
      * Creates a new builder that is going to build an unnamed task.
+     * @note This is the default.
      * @warning This invalidates the current builder.
      */
     Builder unnamed() const {
@@ -164,12 +167,37 @@ public:
      * @warning This invalidates the current builder.
      */
     template <typename NewMailboxType>
-    Builder<TaskTraits, TaskType, NewMailboxType> withMailbox(std::unique_ptr<NewMailboxType> newMailbox) const {
+    Builder<TaskTraits, TaskType, NewMailboxType, SchedulerTraits>
+    withMailbox(std::unique_ptr<NewMailboxType> newMailbox) const {
         static_assert(boost::is_base_of<Mailbox, MailboxType>::value_type,
             "The given mailbox type must be derived from Maiblox.");
         mailbox_.reset();
-        return Builder<TaskTraits, TaskType, NewMailboxType>(
+        return Builder<TaskTraits, TaskType, NewMailboxType, SchedulerTraits>(
             std::move(name_), std::move(task_), std::move(newMailbox), pin_
+        );
+    }
+
+    /**
+     * Creates a new builder that is going to execute the task as a microthread.
+     * @note This is the default.
+     * @warning This invalidates the current builder.
+     */
+    Builder<TaskTraits, TaskType, MailboxType, detail::MultiTaskSchedulerTraits>
+    microthread() {
+        return Builder<TaskTraits, TaskType, MailboxType, detail::MultiTaskSchedulerTraits>(
+            std::move(name_), std::move(task_), std::move(mailbox_), pin_
+        );
+    }
+
+    /**
+     * Creates a new builder that is going to execute the task as an OS thread.
+     * @note This overrides the pinned setting.
+     * @warning This invalidates the current builder.
+     */
+    Builder<TaskTraits, TaskType, MailboxType, detail::SingleTaskSchedulerTraits>
+    osthread() {
+        return Builder<TaskTraits, TaskType, MailboxType, detail::SingleTaskSchedulerTraits>(
+            std::move(name_), std::move(task_), std::move(mailbox_), pin_
         );
     }
 
@@ -180,13 +208,17 @@ public:
      */
     ///@{
 
+    template <typename... Args>
+    using TraitsFor = typename TaskTraits::template ForResult<decltype(std::declval<TaskType>()(std::declval<Args>()...))>;
+
     /**
      * Runs the task using the given arguments and returns a reference.
+     * @returns A FiberRef or FutureRef, depending on the task type.
      * @warning This invalidates the builder.
      * @warning This must be executed on a thread with an attached scheduler.
      */
     template <typename... Args>
-    typename TaskTraits::template For<TaskType>::template WithArgs<Args...>::RefType
+    typename TraitsFor<Args...>::RefType
     run(Args&&... args);
 
     /**

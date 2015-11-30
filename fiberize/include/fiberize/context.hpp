@@ -43,6 +43,11 @@ FiberSystem* system();
 Scheduler* scheduler();
 
 /**
+ * Returns a thread local random generator.
+ */
+std::mt19937_64& random();
+
+/**
  * Suspends and reschedules this fiber, allowing other fibers to be run.
  */
 void yield();
@@ -93,7 +98,7 @@ void resume(fiberize::detail::Task* task, std::unique_lock<std::mutex> lock);
 /**
  * Terminate the currently running task.
  */
-[[ noreturn ]] void terminate();
+void terminate();
 
 } // namespace detail
 

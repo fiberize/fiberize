@@ -19,6 +19,10 @@ Scheduler* scheduler() {
     return Scheduler::current();
 }
 
+std::mt19937_64& random() {
+    return scheduler()->random();
+}
+
 void yield() {
     Scheduler::current()->yield(std::unique_lock<fiberize::detail::TaskMutex>(detail::task()->mutex));
 }
@@ -211,12 +215,7 @@ void resume(fiberize::detail::Task* task, std::unique_lock<fiberize::detail::Tas
 }
 
 void terminate() {
-    scheduler()->terminate();
-
-    /**
-     * terminate() doesn't return
-     */
-    __builtin_unreachable();
+    scheduler()->terminate(std::unique_lock<fiberize::detail::TaskMutex>(task()->mutex));
 }
 
 } // namespace detail

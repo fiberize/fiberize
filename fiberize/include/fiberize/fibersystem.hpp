@@ -16,6 +16,7 @@
 #include <fiberize/detail/localfiberref.hpp>
 #include <fiberize/detail/devnullfiberref.hpp>
 #include <fiberize/detail/tasktraits.hpp>
+#include <fiberize/detail/schedulertraits.hpp>
 #include <fiberize/detail/singletaskscheduler.hpp>
 
 namespace fiberize {
@@ -48,9 +49,10 @@ public:
      * By default the fiber is unnamed, not pinned and has a DequeMailbox.
      */
     template <typename Fiber, typename MailboxType = DequeMailbox>
-    Builder<detail::FiberTraits, Fiber, DequeMailbox> fiber(Fiber fiber, MailboxType mailbox = {}) {
+    Builder<detail::FiberTraits, Fiber, DequeMailbox, detail::MultiTaskSchedulerTraits>
+    fiber(Fiber fiber, MailboxType mailbox = {}) {
         static_assert(std::is_move_constructible<Fiber>{}, "Fiber must be move constructible.");
-        return Builder<detail::FiberTraits, Fiber, DequeMailbox>(
+        return Builder<detail::FiberTraits, Fiber, DequeMailbox, detail::MultiTaskSchedulerTraits>(
             boost::none,
             std::move(fiber),
             std::move(mailbox),
@@ -64,9 +66,10 @@ public:
      * By default the future is unnamed, not pinned and has a DequeMailbox.
      */
     template <typename Future, typename MailboxType = DequeMailbox>
-    Builder<detail::FutureTraits, Future, DequeMailbox> future(Future future, MailboxType mailbox = {}) {
+    Builder<detail::FutureTraits, Future, DequeMailbox, detail::MultiTaskSchedulerTraits>
+    future(Future future, MailboxType mailbox = {}) {
         static_assert(std::is_move_constructible<Future>{}, "Future must be move constructible.");
-        return Builder<detail::FutureTraits, Future, DequeMailbox>(
+        return Builder<detail::FutureTraits, Future, DequeMailbox, detail::MultiTaskSchedulerTraits>(
             boost::none,
             std::move(future),
             std::move(mailbox),
