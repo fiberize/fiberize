@@ -73,18 +73,11 @@ int main() {
     bobRef.kill();
     aliceRef.kill();
 
-    // Wait until both futures finish. The Killed exception is propagated throught
-    // the result, so we have to catch it.
-    try {
-        bobRef.await();
-    } catch (Killed&) {
-        std::cout << "Bob is dead." << std::endl;
-    }
-    try {
-        aliceRef.await();
-    } catch (Killed&) {
-        std::cout << "Alice is dead." << std::endl;
-    }
+    // Wait until both futures finish.
+    bobRef.await();
+    std::cout << "Bob is dead." << std::endl;
+    aliceRef.await();
+    std::cout << "Alice is dead." << std::endl;
 
     return 0;
 }
