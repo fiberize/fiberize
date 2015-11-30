@@ -55,7 +55,7 @@ private:
     size_t inUse;
     std::vector<boost::context::stack_context> pool;
     boost::context::stack_context delayed;
-    boost::context::protected_fixedsize_stack allocator;
+    boost::context::fixedsize_stack allocator;
 };
 
 typedef CachedFixedSizeStackPool DefaultStackPool;

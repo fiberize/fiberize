@@ -212,6 +212,11 @@ void resume(fiberize::detail::Task* task, std::unique_lock<fiberize::detail::Tas
 
 void terminate() {
     scheduler()->terminate();
+
+    /**
+     * terminate() doesn't return
+     */
+    __builtin_unreachable();
 }
 
 } // namespace detail
