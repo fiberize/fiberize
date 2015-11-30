@@ -14,7 +14,7 @@ UniqueIdentGenerator::UniqueIdentGenerator()
     {}
 
 UniqueIdent UniqueIdentGenerator::generate() {
-    return UniqueIdent(nextToken++ & (generatorId << 48));
+    return UniqueIdent((nextToken++) | (generatorId << 48));
 }
 
 thread_local UniqueIdentGenerator uniqueIdentGenerator;
