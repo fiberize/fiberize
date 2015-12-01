@@ -31,7 +31,7 @@ void Scheduler::idle(uint64_t& idleStreak) {
     } else if (idleStreak <= 64) {
         // Yield.
         std::this_thread::yield();
-    } else if (idleStreak <= 1024 * 1024) {
+    } else if (idleStreak <= 64 * 1024) {
         // Nanosleep.
         std::this_thread::sleep_for(1ns);
     } else {
