@@ -21,7 +21,7 @@ int main() {
     });
 
     for (size_t i = 0; i < fibers; ++i) {
-        printer.run_(i);
+        printer.copy().run_(i);
     }
 
     finished.await();

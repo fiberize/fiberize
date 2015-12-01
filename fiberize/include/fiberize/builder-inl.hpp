@@ -24,6 +24,8 @@ template <typename TaskTraits, typename Entity, typename MailboxType, typename S
 template <typename... Args>
 auto Builder<TaskTraits, Entity, MailboxType, SchedulerTraits>::run(Args&&... args) -> typename TraitsFor<Args...>::RefType {
     using Traits = TraitsFor<Args...>;
+    assert(!invalidated);
+    invalidated = true;
 
     FiberSystem* system = Scheduler::current()->system();
     if (!system->shuttingDown()) {
@@ -51,6 +53,8 @@ template <typename TaskTraits, typename Entity, typename MailboxType, typename S
 template <typename... Args>
 void Builder<TaskTraits, Entity, MailboxType, SchedulerTraits>::run_(Args&&... args) {
     using Traits = TraitsFor<Args...>;
+    assert(!invalidated);
+    invalidated = true;
 
     FiberSystem* system = Scheduler::current()->system();
     if (!system->shuttingDown()) {

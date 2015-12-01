@@ -40,7 +40,8 @@ public:
         TaskType task,
         MailboxType mailbox,
         Scheduler* pin)
-        : name_(std::move(name))
+        : invalidated(false)
+        , name_(std::move(name))
         , task_(std::move(task))
         , mailbox_(std::move(mailbox))
         , pin_(pin)
@@ -84,6 +85,7 @@ public:
      * The name of the entities built by this builder, if they are named.
      */
     boost::optional<std::string>& name() const {
+        assert(!invalidated);
         return name_;
     }
 
@@ -91,6 +93,7 @@ public:
      * Returns the task.
      */
     TaskType& task() const {
+        assert(!invalidated);
         return task_;
     }
 
@@ -98,6 +101,7 @@ public:
      * Returns the mailbox.
      */
     MailboxType& mailbox() const {
+        assert(!invalidated);
         return mailbox_;
     }
 
@@ -105,6 +109,7 @@ public:
      * Scheduler the entities built by this builder are pinned to.
      */
     Scheduler*& pin() const {
+        assert(!invalidated);
         return pin_;
     }
 
@@ -125,6 +130,8 @@ public:
      * @warning This invalidates the current builder.
      */
     Builder pinned() {
+        assert(!invalidated);
+        invalidated = true;
         return Builder(std::move(name_), std::move(task_), std::move(mailbox_), Scheduler::current());
     }
 
@@ -133,6 +140,8 @@ public:
      * @warning This invalidates the current builder.
      */
     Builder pinned(Scheduler* scheduler) {
+        assert(!invalidated);
+        invalidated = true;
         return Builder(std::move(name_), std::move(task_), std::move(mailbox_), scheduler);
     }
 
@@ -142,6 +151,8 @@ public:
      * @warning This invalidates the current builder.
      */
     Builder detached() const {
+        assert(!invalidated);
+        invalidated = true;
         return Builder(std::move(name_), std::move(task_), std::move(mailbox_), nullptr);
     }
 
@@ -150,6 +161,8 @@ public:
      * @warning This invalidates the current builder.
      */
     Builder named(std::string name) const {
+        assert(!invalidated);
+        invalidated = true;
         return Builder(std::move(name), std::move(task_), std::move(mailbox_), pin_);
     }
 
@@ -159,6 +172,8 @@ public:
      * @warning This invalidates the current builder.
      */
     Builder unnamed() const {
+        assert(!invalidated);
+        invalidated = true;
         return Builder(boost::none_t{}, std::move(task_), std::move(mailbox_), pin_);
     }
 
@@ -171,6 +186,8 @@ public:
     withMailbox(std::unique_ptr<NewMailboxType> newMailbox) const {
         static_assert(boost::is_base_of<Mailbox, MailboxType>::value_type,
             "The given mailbox type must be derived from Maiblox.");
+        assert(!invalidated);
+        invalidated = true;
         mailbox_.reset();
         return Builder<TaskTraits, TaskType, NewMailboxType, SchedulerTraits>(
             std::move(name_), std::move(task_), std::move(newMailbox), pin_
@@ -184,6 +201,8 @@ public:
      */
     Builder<TaskTraits, TaskType, MailboxType, detail::MultiTaskSchedulerTraits>
     microthread() {
+        assert(!invalidated);
+        invalidated = true;
         return Builder<TaskTraits, TaskType, MailboxType, detail::MultiTaskSchedulerTraits>(
             std::move(name_), std::move(task_), std::move(mailbox_), pin_
         );
@@ -196,6 +215,8 @@ public:
      */
     Builder<TaskTraits, TaskType, MailboxType, detail::SingleTaskSchedulerTraits>
     osthread() {
+        assert(!invalidated);
+        invalidated = true;
         return Builder<TaskTraits, TaskType, MailboxType, detail::SingleTaskSchedulerTraits>(
             std::move(name_), std::move(task_), std::move(mailbox_), pin_
         );
@@ -246,6 +267,7 @@ private:
         }
     }
 
+    bool invalidated;
     boost::optional<std::string> name_;
     TaskType task_;
     MailboxType mailbox_;
