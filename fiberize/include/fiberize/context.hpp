@@ -10,6 +10,7 @@
 #include <mutex>
 
 #include <fiberize/fiberref.hpp>
+#include <fiberize/spinlock.hpp>
 
 namespace fiberize {
 
@@ -83,7 +84,7 @@ namespace detail {
 /**
  * Processes all pending events (or until the actor is stopped).
  */
-void process(std::unique_lock<std::mutex>& lock);
+void process(std::unique_lock<Spinlock>& lock);
 
 /**
  * Returns the currently running task.
@@ -108,7 +109,7 @@ void suspend();
 /**
  * Resumes execution of a suspended task.
  */
-void resume(fiberize::detail::Task* task, std::unique_lock<std::mutex> lock);
+void resume(fiberize::detail::Task* task, std::unique_lock<Spinlock> lock);
 
 } // namespace detail
 

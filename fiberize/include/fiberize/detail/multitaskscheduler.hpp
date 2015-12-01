@@ -38,12 +38,12 @@ private:
     std::atomic<bool> stopping;
 
     std::deque<Task*> softTasks;
-    std::mutex softMutex;
+    Spinlock softMutex;
     void dequeueSoft(Task*& task);
     void stealSoft(Task*& task);
 
     std::deque<Task*> hardTasks;
-    std::mutex hardMutex;
+    Spinlock hardMutex;
     void dequeueHard(Task*& task);
     void stealHard(Task*& task);
 

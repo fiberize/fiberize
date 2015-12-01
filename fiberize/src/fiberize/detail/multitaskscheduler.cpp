@@ -58,10 +58,10 @@ void MultiTaskScheduler::resume(Task* task, std::unique_lock<TaskMutex> lock) {
     lock.unlock();
 
     if (status == Starting || status == Listening) {
-        std::unique_lock<std::mutex> lock(softMutex);
+        std::unique_lock<Spinlock> lock(softMutex);
         softTasks.push_front(task);
     } else if (status == Suspended) {
-        std::unique_lock<std::mutex> lock(hardMutex);
+        std::unique_lock<Spinlock> lock(hardMutex);
         hardTasks.push_front(task);
     } else {
         // Impossible.
@@ -87,7 +87,7 @@ bool MultiTaskScheduler::isMultiTasking() {
 }
 
 void MultiTaskScheduler::dequeueSoft(Task*& task) {
-    std::unique_lock<std::mutex> lock(softMutex);
+    std::unique_lock<Spinlock> lock(softMutex);
     if (!softTasks.empty()) {
         task = softTasks.front();
         softTasks.pop_front();
@@ -95,7 +95,7 @@ void MultiTaskScheduler::dequeueSoft(Task*& task) {
 }
 
 void MultiTaskScheduler::stealSoft(Task*& task) {
-    std::unique_lock<std::mutex> lock(softMutex);
+    std::unique_lock<Spinlock> lock(softMutex);
     if (!softTasks.empty() && softTasks.back()->pin == nullptr) {
         task = softTasks.back();
         softTasks.pop_back();
@@ -103,7 +103,7 @@ void MultiTaskScheduler::stealSoft(Task*& task) {
 }
 
 void MultiTaskScheduler::dequeueHard(Task*& task) {
-    std::unique_lock<std::mutex> lock(hardMutex);
+    std::unique_lock<Spinlock> lock(hardMutex);
     if (!hardTasks.empty()) {
         task = hardTasks.front();
         hardTasks.pop_front();
@@ -111,7 +111,7 @@ void MultiTaskScheduler::dequeueHard(Task*& task) {
 }
 
 void MultiTaskScheduler::stealHard(Task*& task) {
-    std::unique_lock<std::mutex> lock(hardMutex);
+    std::unique_lock<Spinlock> lock(hardMutex);
     if (!hardTasks.empty() && hardTasks.back()->pin == nullptr) {
         task = hardTasks.back();
         hardTasks.pop_back();

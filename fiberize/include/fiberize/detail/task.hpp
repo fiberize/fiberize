@@ -11,6 +11,7 @@
 #include <fiberize/mailbox.hpp>
 #include <fiberize/fiberref.hpp>
 #include <fiberize/promise.hpp>
+#include <fiberize/spinlock.hpp>
 #include <fiberize/detail/runnable.hpp>
 #include <fiberize/detail/refrencecounted.hpp>
 
@@ -88,7 +89,7 @@ enum TaskStatus : uint8_t {
     Dead
 };
 
-using TaskMutex = std::mutex;
+using TaskMutex = Spinlock;
 using HandlerBlock = std::vector<std::unique_ptr<detail::Handler>>;
 
 class Task : public ReferenceCountedAtomic {
