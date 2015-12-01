@@ -16,7 +16,7 @@
 #include <fiberize/detail/localfiberref.hpp>
 #include <fiberize/detail/devnullfiberref.hpp>
 #include <fiberize/detail/tasktraits.hpp>
-#include <fiberize/detail/schedulertraits.hpp>
+#include <fiberize/detail/runner.hpp>
 #include <fiberize/detail/singletaskscheduler.hpp>
 
 namespace fiberize {
@@ -49,31 +49,32 @@ public:
      * By default the fiber is unnamed, not pinned and has a DequeMailbox.
      */
     template <typename Fiber, typename MailboxType = DequeMailbox>
-    Builder<detail::FiberTraits, Fiber, DequeMailbox, detail::MultiTaskSchedulerTraits>
+    Builder<detail::FiberTraits, Fiber, DequeMailbox>
     fiber(Fiber fiber, MailboxType mailbox = {}) {
         static_assert(std::is_move_constructible<Fiber>{}, "Fiber must be move constructible.");
-        return Builder<detail::FiberTraits, Fiber, DequeMailbox, detail::MultiTaskSchedulerTraits>(
+        return Builder<detail::FiberTraits, Fiber, DequeMailbox>(
             boost::none,
             std::move(fiber),
             std::move(mailbox),
-            nullptr
+            nullptr,
+            detail::runTaskAsMicrothread
         );
     }
-
 
     /**
      * Creates a new future builder using the given future instance and optionally a mailbox.
      * By default the future is unnamed, not pinned and has a DequeMailbox.
      */
     template <typename Future, typename MailboxType = DequeMailbox>
-    Builder<detail::FutureTraits, Future, DequeMailbox, detail::MultiTaskSchedulerTraits>
+    Builder<detail::FutureTraits, Future, DequeMailbox>
     future(Future future, MailboxType mailbox = {}) {
         static_assert(std::is_move_constructible<Future>{}, "Future must be move constructible.");
-        return Builder<detail::FutureTraits, Future, DequeMailbox, detail::MultiTaskSchedulerTraits>(
+        return Builder<detail::FutureTraits, Future, DequeMailbox>(
             boost::none,
             std::move(future),
             std::move(mailbox),
-            nullptr
+            nullptr,
+            detail::runTaskAsMicrothread
         );
     }
 
@@ -82,14 +83,15 @@ public:
      * By default the actor is unnamed, not pinned and has a DequeMailbox.
      */
     template <typename Actor, typename MailboxType = DequeMailbox>
-    Builder<detail::ActorTraits, Actor, DequeMailbox, detail::MultiTaskSchedulerTraits>
+    Builder<detail::ActorTraits, Actor, DequeMailbox>
     actor(Actor actor, MailboxType mailbox = {}) {
         static_assert(std::is_move_constructible<Actor>{}, "Actor must be move constructible.");
-        return Builder<detail::ActorTraits, Actor, DequeMailbox, detail::MultiTaskSchedulerTraits>(
+        return Builder<detail::ActorTraits, Actor, DequeMailbox>(
             boost::none,
             std::move(actor),
             std::move(mailbox),
-            nullptr
+            nullptr,
+            detail::runTaskAsMicrothread
         );
     }
 

@@ -1,10 +1,10 @@
 /**
  * Starting tasks on different schedulers.
  *
- * @file schedulertraits.cpp
+ * @file runner.cpp
  * @copyright 2015 Paweł Nowak
  */
-#include <fiberize/detail/schedulertraits.hpp>
+#include <fiberize/detail/runner.hpp>
 #include <fiberize/detail/singletaskscheduler.hpp>
 #include <fiberize/detail/task.hpp>
 #include <fiberize/context.hpp>
@@ -14,13 +14,13 @@
 namespace fiberize {
 namespace detail {
 
-void MultiTaskSchedulerTraits::runTask(Task* task) {
+void runTaskAsMicrothread(Task* task) {
     task->grab();
     std::unique_lock<TaskMutex> lock(task->mutex);
     context::detail::resume(task, std::move(lock));
 }
 
-void SingleTaskSchedulerTraits::runTask(Task* task) {
+void runTaskAsOSThread(Task* task) {
     task->grab();
 
     FiberSystem* system = context::system();

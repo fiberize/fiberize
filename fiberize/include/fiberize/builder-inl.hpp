@@ -20,9 +20,9 @@ auto bind(Entity&& entity) {
 
 } // namespace detail
 
-template <typename TaskTraits, typename Entity, typename MailboxType, typename SchedulerTraits>
+template <typename TaskTraits, typename Entity, typename MailboxType>
 template <typename... Args>
-auto Builder<TaskTraits, Entity, MailboxType, SchedulerTraits>::run(Args&&... args) -> typename TraitsFor<Args...>::RefType {
+auto Builder<TaskTraits, Entity, MailboxType>::run(Args&&... args) -> typename TraitsFor<Args...>::RefType {
     using Traits = TraitsFor<Args...>;
     assert(!invalidated);
     invalidated = true;
@@ -42,16 +42,16 @@ auto Builder<TaskTraits, Entity, MailboxType, SchedulerTraits>::run(Args&&... ar
          * before we can increment the refernce counter.
          */
         auto ref = Traits::localRef(system, task);
-        SchedulerTraits::runTask(task);
+        runner_(task);
         return ref;
     } else {
         return Traits::devNullRef();
     }
 }
 
-template <typename TaskTraits, typename Entity, typename MailboxType, typename SchedulerTraits>
+template <typename TaskTraits, typename Entity, typename MailboxType>
 template <typename... Args>
-void Builder<TaskTraits, Entity, MailboxType, SchedulerTraits>::run_(Args&&... args) {
+void Builder<TaskTraits, Entity, MailboxType>::run_(Args&&... args) {
     using Traits = TraitsFor<Args...>;
     assert(!invalidated);
     invalidated = true;
@@ -65,7 +65,7 @@ void Builder<TaskTraits, Entity, MailboxType, SchedulerTraits>::run_(Args&&... a
         std::unique_ptr<Mailbox> mailbox(new MailboxType(std::move(mailbox_)));
         auto task = Traits::newTask(std::move(path), std::move(mailbox), pin_,
             detail::bind<Entity, Args...>(std::move(task_), std::forward<Args>(args)...));
-        SchedulerTraits::runTask(task);
+        runner_(task);
     }
 }
 

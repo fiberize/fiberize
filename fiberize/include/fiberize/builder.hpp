@@ -12,7 +12,7 @@
 
 #include <fiberize/path.hpp>
 #include <fiberize/scheduler.hpp>
-#include <fiberize/detail/schedulertraits.hpp>
+#include <fiberize/detail/runner.hpp>
 
 namespace fiberize {
 
@@ -24,14 +24,9 @@ class Mailbox;
  * A builder class used to configure tasks, like fibers, futures, threads or actors.
  * After configuration you can start the task with the run (or run_) function.
  */
-template <typename TaskTraits, typename TaskType, typename MailboxType, typename SchedulerTraits>
+template <typename TaskTraits, typename TaskType, typename MailboxType>
 class Builder {
-public:
-    /**
-     * @name Construction and copying
-     */
-    ///@{
-
+private:
     /**
      * Initializes a builder with the given values.
      */
@@ -39,13 +34,23 @@ public:
         boost::optional<std::string> name,
         TaskType task,
         MailboxType mailbox,
-        Scheduler* pin)
+        Scheduler* pin,
+        void (*runner)(detail::Task*))
         : invalidated(false)
         , name_(std::move(name))
         , task_(std::move(task))
         , mailbox_(std::move(mailbox))
         , pin_(pin)
+        , runner_(runner)
         {}
+
+    friend class FiberSystem;
+
+public:
+    /**
+     * @name Construction and copying
+     */
+    ///@{
 
     /**
      * Copies a builder.
@@ -71,6 +76,7 @@ public:
      * Returns a copy of this builder.
      */
     Builder copy() const {
+        assert(!invalidated);
         return Builder(*this);
     }
 
@@ -118,108 +124,75 @@ public:
     /**
      * @name Modyfing the builder.
      *
-     * Methods in this section are used to modify the parameters of the runnable task.
-     * Instead of modyfing the builder directly, they return a new one, with old variables
-     * moved (instead of copied) to the new one. This invalidates the old builder. If you
-     * want to use a builder more then once, you have to copy() it.
+     * Methods in this section are used to modify the parameters of the task.
      */
     ///@{
 
     /**
-     * Creates a new builder that is going to build a task pinned to the currently running scheduler.
-     * @warning This invalidates the current builder.
+     * Pins the task to the currently running scheduler.
      */
-    Builder pinned() {
+    Builder& pinned() {
         assert(!invalidated);
-        invalidated = true;
-        return Builder(std::move(name_), std::move(task_), std::move(mailbox_), Scheduler::current());
+        pin_ = Scheduler::current();
+        return *this;
     }
 
     /**
-     * Creates a new builder that is going to build a task pinned to the the given scheduler.
-     * @warning This invalidates the current builder.
+     * Pins the task to the given scheduler.
      */
-    Builder pinned(Scheduler* scheduler) {
+    Builder& pinned(Scheduler* scheduler) {
         assert(!invalidated);
-        invalidated = true;
-        return Builder(std::move(name_), std::move(task_), std::move(mailbox_), scheduler);
+        pin_ = scheduler;
+        return *this;
     }
 
     /**
-     * Creates a new builder that is going to build a task not pinned to any scheduler.
+     * Unpins the task.
      * @note This is the default.
-     * @warning This invalidates the current builder.
      */
-    Builder detached() const {
+    Builder& detached() const {
         assert(!invalidated);
-        invalidated = true;
-        return Builder(std::move(name_), std::move(task_), std::move(mailbox_), nullptr);
+        pin_ = nullptr;
+        return *this;
     }
 
     /**
-     * Creates a new builder that is going to build a named task.
-     * @warning This invalidates the current builder.
+     * Names the task.
      */
-    Builder named(std::string name) const {
+    Builder& named(std::string name) const {
         assert(!invalidated);
-        invalidated = true;
-        return Builder(std::move(name), std::move(task_), std::move(mailbox_), pin_);
+        name_ = name;
+        return *this;
     }
 
     /**
-     * Creates a new builder that is going to build an unnamed task.
+     * Makes the task unnamed.
      * @note This is the default.
-     * @warning This invalidates the current builder.
      */
-    Builder unnamed() const {
+    Builder& unnamed() const {
         assert(!invalidated);
-        invalidated = true;
-        return Builder(boost::none_t{}, std::move(task_), std::move(mailbox_), pin_);
+        name_ = boost::none;
+        return *this;
     }
 
     /**
-     * Creates a new builder that is going to build a task with the given mailbox.
-     * @warning This invalidates the current builder.
-     */
-    template <typename NewMailboxType>
-    Builder<TaskTraits, TaskType, NewMailboxType, SchedulerTraits>
-    withMailbox(std::unique_ptr<NewMailboxType> newMailbox) const {
-        static_assert(boost::is_base_of<Mailbox, MailboxType>::value_type,
-            "The given mailbox type must be derived from Maiblox.");
-        assert(!invalidated);
-        invalidated = true;
-        mailbox_.reset();
-        return Builder<TaskTraits, TaskType, NewMailboxType, SchedulerTraits>(
-            std::move(name_), std::move(task_), std::move(newMailbox), pin_
-        );
-    }
-
-    /**
-     * Creates a new builder that is going to execute the task as a microthread.
+     * Configures the task to execute as a microthread.
      * @note This is the default.
-     * @warning This invalidates the current builder.
      */
-    Builder<TaskTraits, TaskType, MailboxType, detail::MultiTaskSchedulerTraits>
-    microthread() {
+    Builder& microthread() {
         assert(!invalidated);
-        invalidated = true;
-        return Builder<TaskTraits, TaskType, MailboxType, detail::MultiTaskSchedulerTraits>(
-            std::move(name_), std::move(task_), std::move(mailbox_), pin_
-        );
+        runner_ = detail::runTaskAsMicrothread;
+        return *this;
     }
 
     /**
-     * Creates a new builder that is going to execute the task as an OS thread.
-     * @note This overrides the pinned setting.
-     * @warning This invalidates the current builder.
+     * Configures the task to execute as an OS thread.
+     * @note This overrides the "pinned" setting.
      */
-    Builder<TaskTraits, TaskType, MailboxType, detail::SingleTaskSchedulerTraits>
-    osthread() {
+    Builder& osthread() {
         assert(!invalidated);
-        invalidated = true;
-        return Builder<TaskTraits, TaskType, MailboxType, detail::SingleTaskSchedulerTraits>(
-            std::move(name_), std::move(task_), std::move(mailbox_), pin_
-        );
+        runner_ = detail::runTaskAsOSThread;
+        return *this;
     }
 
     ///@}
@@ -272,6 +245,7 @@ private:
     TaskType task_;
     MailboxType mailbox_;
     Scheduler* const pin_;
+    void (*runner_)(detail::Task*);
 };
 
 } // namespace fiberize

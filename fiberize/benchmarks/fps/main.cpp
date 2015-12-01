@@ -3,7 +3,7 @@
 
 using namespace fiberize;
 
-const size_t fibersPerLine = 1000 * 100;
+const size_t fibersPerLine = 1000 * 1000;
 const size_t lines = 100;
 
 Event<void> finished;
