@@ -15,14 +15,12 @@ namespace detail {
 SingleTaskScheduler::SingleTaskScheduler(FiberSystem* system, uint64_t seed, Task* task)
     : Scheduler(system, seed)
     , task_(task) {
-    task->grab();
     task->pin = this;
 }
 
 SingleTaskScheduler::~SingleTaskScheduler() {
     if (task_ != nullptr) {
         task_->pin = nullptr;
-        task_->drop();
     }
 }
 

@@ -92,18 +92,23 @@ enum TaskStatus : uint8_t {
 using TaskMutex = Spinlock;
 using HandlerBlock = std::vector<std::unique_ptr<detail::Handler>>;
 
-class Task : public ReferenceCountedAtomic {
+class Task {
 public:
-    Task() {
-        status = Starting;
-        scheduled = false;
-        handlersInitialized = false;
-        reschedule = false;
-        stopped = false;
-        resumes = 0;
-    }
+    Task()
+        : status(Starting)
+        , scheduled(false)
+        , handlersInitialized(false)
+        , resumes(0)
+        , stopped(false)
+        , refCount(0)
+        {}
 
     virtual ~Task() {}
+
+    /**
+     * Lock used during status change.
+     */
+    TaskMutex mutex;
 
     /**
      * Status of this task.
@@ -116,11 +121,6 @@ public:
     bool scheduled;
 
     /**
-     * Lock used during status change.
-     */
-    TaskMutex mutex;
-
-    /**
      * Path to this task.
      */
     Path path;
@@ -131,24 +131,9 @@ public:
     Scheduler* pin;
     
     /**
-     * Mailbox attached to this task.
-     */
-    std::unique_ptr<Mailbox> mailbox;
-
-    /**
      * Whether the standard event handlers were initialized.
      */
     bool handlersInitialized;
-
-    /**
-     * Hash map of event handlers.
-     */
-    std::unordered_map<Path, detail::HandlerBlock, boost::hash<Path>> handlers;
-
-    /**
-     * Function used to execute this task.
-     */
-    std::unique_ptr<detail::ErasedRunnable> runnable;
 
     /**
      * The last saved context.
@@ -166,15 +151,61 @@ public:
     uint64_t resumesExpected;
 
     /**
-     * Whether a block should be rescheduled after a jump.
-     */
-    bool reschedule;
-
-    /**
      * Whether a listening task was stopped.
      */
     bool stopped;
+
+    /**
+     * Reference count.
+     */
+    uint32_t refCount;
+
+    /**
+     * Hash map of event handlers.
+     */
+    std::unordered_map<Path, detail::HandlerBlock, boost::hash<Path>> handlers;
+
+    /**
+     * Mailbox attached to this task.
+     */
+    std::unique_ptr<Mailbox> mailbox;
+
+    /**
+     * Function used to execute this task.
+     */
+    std::unique_ptr<detail::ErasedRunnable> runnable;
+
+    /**
+     * Increases the reference count by 1.
+     * @note Thread-safe.
+     */
+    inline void grab() {
+        std::unique_lock<TaskMutex> lock(mutex);
+        refCount += 1;
+    }
+
+    /**
+     * Decreases the reference count by 1. When the count goes down to 0
+     * and the task is dead the object is destroyed.
+     * @note Thread-safe.
+     */
+    inline void drop() {
+        std::unique_lock<TaskMutex> lock(mutex);
+        refCount -= 1;
+        if (refCount == 0 && status == Dead) {
+            lock.release();
+            delete this;
+        }
+    }
 };
+
+inline void intrusive_ptr_add_ref(Task* task) {
+    task->grab();
+}
+
+inline void intrusive_ptr_release(Task* task) {
+    task->drop();
+}
 
 template <typename A>
 class Future : public Task {

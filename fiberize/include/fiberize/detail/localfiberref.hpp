@@ -34,8 +34,8 @@ class LocalFutureRef : public FutureRefImpl<A> {
 public:
     LocalFutureRef(FiberSystem* system, Future<A>* future)
         : system(system), future(future) {
-            future->grab();
-        }
+        future->grab();
+    }
 
     virtual ~LocalFutureRef() {
         future->drop();

@@ -124,7 +124,6 @@ public:
         task->mailbox.reset(new MailboxType(std::move(mailbox)));
         task->status = detail::Running;
         task->scheduled = false;
-        task->grab();
 
         std::uniform_int_distribution<uint64_t> seedDist;
         generatorMutex.lock();
