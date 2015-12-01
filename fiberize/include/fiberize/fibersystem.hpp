@@ -78,6 +78,22 @@ public:
     }
 
     /**
+     * Creates a new actor builder using the given actor instance and optionally a mailbox.
+     * By default the actor is unnamed, not pinned and has a DequeMailbox.
+     */
+    template <typename Actor, typename MailboxType = DequeMailbox>
+    Builder<detail::ActorTraits, Actor, DequeMailbox, detail::MultiTaskSchedulerTraits>
+    actor(Actor actor, MailboxType mailbox = {}) {
+        static_assert(std::is_move_constructible<Actor>{}, "Actor must be move constructible.");
+        return Builder<detail::ActorTraits, Actor, DequeMailbox, detail::MultiTaskSchedulerTraits>(
+            boost::none,
+            std::move(actor),
+            std::move(mailbox),
+            nullptr
+        );
+    }
+
+    /**
      * Shut down the system.
      */
     void shutdown();
@@ -115,11 +131,6 @@ public:
 
         auto scheduler = new detail::SingleTaskScheduler(this, seed, task);
         scheduler->makeCurrent();
-
-        /**
-         * Pin the thread's task to the thread's scheduler.
-         */
-        task->pin = scheduler;
 
         return FiberRef(std::make_shared<detail::LocalFiberRef>(this, task));
     }

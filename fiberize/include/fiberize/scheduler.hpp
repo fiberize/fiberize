@@ -42,17 +42,12 @@ public:
     /**
      * Suspend the currently running task.
      */
-    virtual void suspend(std::unique_lock<detail::TaskMutex> lock) = 0;
+    virtual void suspend() = 0;
 
     /**
      * Yield CPU to other tasks or the OS, but eventually reschedule this task.
      */
-    virtual void yield(std::unique_lock<detail::TaskMutex> lock) = 0;
-
-    /**
-     * Terminate the currently running task.
-     */
-    virtual void terminate(std::unique_lock<detail::TaskMutex> lock) = 0;
+    virtual void yield() = 0;
 
     /**
      * Returns the currently executing task.
@@ -84,7 +79,11 @@ public:
      */
     static inline Scheduler* current() { return current_; }
 
+    static void idle(uint64_t& idleStreak);
+    static void kill(detail::Task* task, std::unique_lock<detail::TaskMutex>&& lock);
+
 private:
+
     FiberSystem* system_;
     io::detail::IOContext ioContext_;
     std::mt19937_64 random_;

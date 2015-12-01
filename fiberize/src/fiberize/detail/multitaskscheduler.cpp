@@ -1,113 +1,81 @@
 /**
- * Multitasking scheduler.
+ * Advanced multitasking scheduler.
  *
  * @file multitaskscheduler.cpp
  * @copyright 2015 Paweł Nowak
  */
 #include <fiberize/detail/multitaskscheduler.hpp>
-#include <fiberize/detail/stackpool.hpp>
 #include <fiberize/fibersystem.hpp>
-
-#include <thread>
-#include <chrono>
-
-using namespace std::literals;
 
 namespace fiberize {
 namespace detail {
 
-MultiTaskScheduler::MultiTaskScheduler(FiberSystem* system, uint64_t seed, uint32_t index)
-    : Scheduler(system, seed)
-    , previousTask_(nullptr)
-    , currentTask_(nullptr)
-    , myIndex(index)
-    , stackPool(new DefaultStackPool)
-    , emergencyStop(false)
-    {}
+constexpr uint64_t sameStreakLimit = 64;
+constexpr uint64_t stashSize = 256;
+constexpr uint64_t stealTries = 2;
 
-MultiTaskScheduler::~MultiTaskScheduler() {}
+MultiTaskScheduler::MultiTaskScheduler(FiberSystem* system, uint64_t seed)
+    : Scheduler(system, seed)
+    , stopping(false)
+    , sameStreak(0)
+    , suspendingTask(nullptr)
+    , currentTask_(nullptr)
+    , unowned(nullptr) {
+    stash.reserve(stashSize);
+}
+
+MultiTaskScheduler::~MultiTaskScheduler() {
+    if (!stopping.load(std::memory_order_consume))
+        stop();
+}
 
 void MultiTaskScheduler::start() {
-    executorThread = std::thread(&MultiTaskScheduler::idle, this);
+    thread = std::thread([this] () {
+        makeCurrent();
+        unowned = stashGet();
+        boost::context::jump_fcontext(&initialContext, unowned->context, 0);
+        if (unowned != nullptr) {
+            stashPut(unowned);
+            unowned = nullptr;
+        }
+        resetCurrent();
+    });
 }
 
 void MultiTaskScheduler::stop() {
-    emergencyStop = true;
-    executorThread.join();
+    stopping.store(true, std::memory_order_release);
+    thread.join();
+    stashClear();
 }
 
 void MultiTaskScheduler::resume(Task* task, std::unique_lock<TaskMutex> lock) {
     assert(lock.owns_lock());
-    assert(task->status == Starting || task->status == Suspended);
+    assert(task->status == Starting || task->status == Listening || task->status == Suspended);
     assert(!task->scheduled);
+    TaskStatus status = task->status;
+    task->resumes += 1;
     task->scheduled = true;
     lock.unlock();
 
-    std::unique_lock<boost::mutex> tasksLock(tasksMutex);
-    tasks.push_back(task);
-}
-
-void MultiTaskScheduler::suspend(std::unique_lock<TaskMutex> lock) {
-    assert(lock.owns_lock());
-    assert(currentTask_->status == Running);
-    currentTask_->reschedule = false;
-
-    /**
-     * Switch to the next task.
-     */
-    switchFromRunning(std::move(lock));
-}
-
-void MultiTaskScheduler::yield(std::unique_lock<detail::TaskMutex> lock) {
-    assert(lock.owns_lock());
-    assert(currentTask_->status == Running);
-    currentTask_->reschedule = true;
-
-    /**
-     * Switch to the next task.
-     */
-    switchFromRunning(std::move(lock));
-}
-
-void MultiTaskScheduler::terminate(std::unique_lock<std::mutex> lock) {
-    /**
-     * Destroy the task.
-     */
-    assert(currentTask_->status == Running);
-    assert(!currentTask_->scheduled);
-    currentTask_->status = Dead;
-    lock.unlock();
-    currentTask_->runnable.reset();
-    currentTask_->handlers.clear();
-    stackPool->delayedDeallocate(currentTask_->stack);
-    currentTask_->drop();
-    currentTask_ = nullptr;
-
-    /**
-     * Switch to the next fiber.
-     */
-    switchFromTerminated();
-
-    /**
-     * The jump doesn't return.
-     */
-    __builtin_unreachable();
-}
-
-bool MultiTaskScheduler::tryToStealTask(Task*& task) {
-    std::unique_lock<boost::mutex> lock(tasksMutex);
-    if (tasks.size() > 0 && !tasks[0]->pin) {
-        task = tasks.front();
-        tasks.pop_front();
-        return true;
-    } else if (tasks.size() > 1 && !tasks[1]->pin) {
-        task = tasks[1];
-        tasks[1] = tasks[0];
-        tasks.pop_front();
-        return true;
+    if (status == Starting || status == Listening) {
+        std::unique_lock<std::mutex> lock(softMutex);
+        softTasks.push_front(task);
+    } else if (status == Suspended) {
+        std::unique_lock<std::mutex> lock(hardMutex);
+        hardTasks.push_front(task);
     } else {
-        return false;
+        // Impossible.
+        __builtin_unreachable();
     }
+}
+
+void MultiTaskScheduler::suspend() {
+    ownedLoop();
+}
+
+void MultiTaskScheduler::yield() {
+    currentTask_->resumesExpected = std::numeric_limits<uint64_t>::max();
+    ownedLoop();
 }
 
 Task* MultiTaskScheduler::currentTask() {
@@ -118,194 +86,293 @@ bool MultiTaskScheduler::isMultiTasking() {
     return true;
 }
 
-bool MultiTaskScheduler::tryDequeue(Task*& task) {
-    if (emergencyStop) return false;
-
-    std::unique_lock<boost::mutex> lock(tasksMutex);
-    if (!tasks.empty()) {
-        task = tasks.back();
-        tasks.pop_back();
-        return true;
-    } else {
-        return false;
+void MultiTaskScheduler::dequeueSoft(Task*& task) {
+    std::unique_lock<std::mutex> lock(softMutex);
+    if (!softTasks.empty()) {
+        task = softTasks.front();
+        softTasks.pop_front();
     }
 }
 
-void MultiTaskScheduler::idle() {
-    makeCurrent();
+void MultiTaskScheduler::stealSoft(Task*& task) {
+    std::unique_lock<std::mutex> lock(softMutex);
+    if (!softTasks.empty() && softTasks.back()->pin == nullptr) {
+        task = softTasks.back();
+        softTasks.pop_back();
+    }
+}
 
-    /**
-     * Idle loop.
-     */
-    Task* task;
-    std::uniform_int_distribution<uint32_t> randomFiberScheduler(0, system()->schedulers().size() - 2);
+void MultiTaskScheduler::dequeueHard(Task*& task) {
+    std::unique_lock<std::mutex> lock(hardMutex);
+    if (!hardTasks.empty()) {
+        task = hardTasks.front();
+        hardTasks.pop_front();
+    }
+}
 
-    while (!emergencyStop) {
-        while (tryDequeue(task)) {
-            assert(task->status == Starting || task->status == Suspended);
-            assert(task->scheduled);
-            jumpToFiber(&idleContext, task);
+void MultiTaskScheduler::stealHard(Task*& task) {
+    std::unique_lock<std::mutex> lock(hardMutex);
+    if (!hardTasks.empty() && hardTasks.back()->pin == nullptr) {
+        task = hardTasks.back();
+        hardTasks.pop_back();
+    }
+}
+
+void MultiTaskScheduler::dequeue(Task*& task, MultiTaskScheduler::Priority priority) {
+    if (priority == Soft) {
+        for (int i = 0; i < 2; ++i) {
+            dequeueSoft(task); if (task) return;
+            dequeueHard(task); if (task) return;
+        }
+    } else {
+        for (int i = 0; i < 2; ++i) {
+            dequeueHard(task); if (task) return;
+            dequeueSoft(task); if (task) return;
+        }
+    }
+}
+
+void MultiTaskScheduler::steal(Task*& task, MultiTaskScheduler::Priority priority) {
+    size_t n = system()->schedulers().size();
+    std::uniform_int_distribution<size_t> dist(0, n-1);
+
+    for (uint i = 0; i < stealTries; ++i) {
+        size_t index = dist(random());
+        auto target = system()->schedulers()[index];
+
+        if (priority == Soft) {
+            target->stealSoft(task); if (task) return;
+            target->stealHard(task); if (task) return;
+        } else {
+            target->stealHard(task); if (task) return;
+            target->stealSoft(task); if (task) return;
+        }
+    }
+}
+
+void MultiTaskScheduler::finishSuspending() {
+    if (suspendingTask != nullptr) {
+        std::unique_lock<TaskMutex> lock(suspendingTask->mutex);
+        assert(suspendingTask->status == Running);
+        suspendingTask->status = Suspended;
+        suspendingTask->scheduled = false;
+
+        // Reschedule the task if required.
+        if (suspendingTask->resumes != suspendingTask->resumesExpected) {
+            resume(suspendingTask, std::move(lock));
         }
 
-        if (system()->schedulers().size() > 1) {
-            /**
-             * Choose a random executor that is not ourself.
-             */
-            uint32_t i = randomFiberScheduler(random());
-            if (i >= myIndex)
-                i += 1;
+        suspendingTask = nullptr;
+    }
+}
 
-            /**
-             * Try to take his job.
-             */
-            if (system()->schedulers()[i]->tryToStealTask(task)) {
-                assert(task->status == Starting || task->status == Suspended);
-                assert(task->scheduled);
-                jumpToFiber(&idleContext, task);
+void MultiTaskScheduler::ownedLoop() {
+    MultiTaskScheduler* self = static_cast<MultiTaskScheduler*>(current());
+
+    // If we are in the ownedLoop we must be executing a task.
+    assert(self->currentTask_ != nullptr);
+
+    // If the scheduler is stopping return to the initial context.
+    if (self->stopping.load(std::memory_order_consume)) {
+        boost::context::jump_fcontext(&self->currentTask_->context, self->initialContext, 0);
+        return;
+    }
+
+    // Perform the periodic IO check.
+    self->ioContext().throttledPoll();
+
+    self->suspendingTask = self->currentTask_;
+    self->currentTask_ = nullptr;
+
+    // Try to find a task, prefferably a hard one.
+    self->dequeue(self->currentTask_, self->sameStreak > sameStreakLimit ? Hard : Soft);
+
+    // If we have no tasks, try to steal some.
+    if (self->currentTask_ == nullptr)
+        self->steal(self->currentTask_, self->sameStreak > sameStreakLimit ? Hard : Soft);
+
+    // If we still don't have any task, jump into an unowned context.
+    if (self->currentTask_ == nullptr) {
+        self->sameStreak = 0;
+        self->unowned = self->stashGet();
+        boost::context::jump_fcontext(&self->suspendingTask->context, self->unowned->context, 0);
+    } else {
+        // We got a task, execute it.
+        if (self->currentTask_->status == Starting || self->currentTask_->status == Listening) {
+            // We cannot start a new task on an owned stack. Let's get a new stack and jump to it.
+            self->sameStreak = 0;
+            self->unowned = self->stashGet();
+            boost::context::jump_fcontext(&self->suspendingTask->context, self->unowned->context, 0);
+        } else if (self->currentTask_->status == Suspended) {
+            // Jump back to a suspended task.
+            self->sameStreak += 1;
+            boost::context::jump_fcontext(&self->suspendingTask->context, self->currentTask_->context, 0);
+        } else {
+            // Impossible.
+            __builtin_unreachable();
+        }
+    }
+
+    // Restore self after running a task, in case the context got migrated.
+    self = static_cast<MultiTaskScheduler*>(current());
+
+    // We might have to finish suspending a task if one jumeped to us.
+    self->finishSuspending();
+
+    // If we jumped form an unowned context we have to stash it.
+    if (self->unowned != nullptr) {
+        self->stashPut(self->unowned);
+        self->unowned = nullptr;
+    }
+
+    // Change the status of the current task.
+    std::unique_lock<TaskMutex> lock(self->currentTask_->mutex);
+    assert(self->currentTask_->status == Suspended);
+    assert(self->currentTask_->scheduled);
+    self->currentTask_->status = Running;
+    self->currentTask_->scheduled = false;
+}
+
+void MultiTaskScheduler::unownedLoop() {
+    uint64_t idleStreak = 0;
+    for (;;) {
+        // Refresh self, in case we got migrated.
+        MultiTaskScheduler* self = static_cast<MultiTaskScheduler*>(current());
+
+        // If the scheduler is stopping return to the initial context.
+        if (self->stopping.load(std::memory_order_consume)) {
+            boost::context::jump_fcontext(&self->unowned->context, self->initialContext, 0);
+            continue;
+        }
+
+        // Perform the periodic IO check.
+        self->ioContext().throttledPoll();
+
+        // We might have to suspend a task, after a jump from the owned loop.
+        self->finishSuspending();
+
+        // If there was no assigned task, try to get one.
+        if (self->currentTask_ == nullptr)
+            self->dequeue(self->currentTask_, self->sameStreak > sameStreakLimit ? Soft : Hard);
+
+        // If we have no tasks, try to steal some.
+        if (self->currentTask_ == nullptr)
+            self->steal(self->currentTask_, self->sameStreak > sameStreakLimit ? Soft : Hard);
+
+        // If we still don't have any task, try again or go to sleep,
+        // depending on how long are we spinning.
+        if (self->currentTask_ == nullptr) {
+            self->idle(idleStreak);
+            continue;
+        }
+
+        TaskStatus status = self->currentTask_->status;
+        if (status == Starting || status == Listening) {
+            self->sameStreak += 1;
+
+            // The context becomes owned.
+            UnownedContext* unowned = self->unowned;
+            self->unowned = nullptr;
+
+            // Change the status.
+            std::unique_lock<TaskMutex> lock(self->currentTask_->mutex);
+            self->currentTask_->status = Running;
+            self->currentTask_->scheduled = false;
+            self->currentTask_->context = unowned->context;
+
+            if (status == Starting) {
+                // Execute the task.
+                lock.unlock();
+                self->currentTask_->runnable->run();
+                lock.lock();
+            } else if (status == Listening) {
+                // Process events.
+                try {
+                    context::detail::process(lock);
+                } catch (...) {
+                    // Kill the task if an exception escapes.
+                    assert(!lock.owns_lock());
+                    lock.lock();
+                    kill(self->currentTask_, std::move(lock));
+                }
             } else {
-                if (!ioContext().poll())
-                    std::this_thread::sleep_for(1ns);
+                // Impossible.
+                __builtin_unreachable();
             }
+
+            // Restore self after running a task, in case the context got migrated.
+            self = static_cast<MultiTaskScheduler*>(current());
+
+            // The context becomes unowned again.
+            self->unowned = unowned;
+
+            // Change the status of the task.
+            assert(lock.owns_lock());
+            assert(self->currentTask_->status == Running);
+            assert(!self->currentTask_->scheduled);
+
+            // If the task is not stopped put it back to listening, otherwise kill it.
+            if (!self->currentTask_->stopped) {
+                self->currentTask_->status = Listening;
+
+                // Reschedule the task if required.
+                if (!self->currentTask_->mailbox->empty()) {
+                    self->resume(self->currentTask_, std::move(lock));
+                } else {
+                    lock.unlock();
+                }
+            } else {
+                kill(self->currentTask_, std::move(lock));
+            }
+
+            self->currentTask_ = nullptr;
+        } else if (self->currentTask_->status == Suspended) {
+            self->sameStreak = 0;
+
+            // Too bad, the task is suspended. This means we have to context switch, therefore
+            // wasting our current context.
+            boost::context::jump_fcontext(&self->unowned->context, self->currentTask_->context, 0);
         } else {
-            std::this_thread::sleep_for(1ns);
+            // Impossible.
+            __builtin_unreachable();
         }
     }
 }
 
-void MultiTaskScheduler::switchFromRunning(std::unique_lock<TaskMutex> lock) {
-    assert(lock.owns_lock());
-    Task* task;
+MultiTaskScheduler::UnownedContext* MultiTaskScheduler::stashGet() {
+    UnownedContext* context;
 
-    if (tryDequeue(task)) {
-        assert(task->status == Starting || task->status == Suspended);
-        assert(task->scheduled);
-
-        /**
-         * Make sure we don't context switch into the same context.
-         */
-        if (task == currentTask_) {
-            task->status = Running;
-            task->scheduled = false;
-            return;
-        } else {
-            previousTaskLock = std::move(lock);
-
-            /**
-             * Switch the current control block to the next fiber and make the jump
-             * saving our current state to the control block.
-             */
-            jumpToFiber(&currentTask_->context, task);
-        }
+    if (!stash.empty()) {
+        context = stash.back();
+        stash.pop_back();
     } else {
-        previousTaskLock = std::move(lock);
-
-        /**
-         * Jump to the idle context.
-         */
-        jumpToIdle(&currentTask_->context);
+        // Create a new context.
+        context = new UnownedContext;
+        context->stack = stackAllocator.allocate();
+        context->context = boost::context::make_fcontext(context->stack.sp, context->stack.size, [] (intptr_t) {
+            unownedLoop();
+        });
     }
+
+    return context;
 }
 
-void MultiTaskScheduler::switchFromTerminated() {
-    Task* task;
-
-    if (tryDequeue(task)) {
-        assert(task->status == Starting || task->status == Suspended);
-        assert(task->scheduled);
-
-        /**
-         * Switch the current control block to the next fiber and make the jump
-         * saving our current state to the control block.
-         */
-        jumpToFiber(&dummyContext, task);
-
+void MultiTaskScheduler::stashPut(UnownedContext* context) {
+    assert(context != nullptr);
+    if (stash.size() < stashSize) {
+        stash.push_back(context);
     } else {
-        /**
-         * Jump to the idle context.
-         */
-        jumpToIdle(&dummyContext);
+        stackAllocator.deallocate(context->stack);
+        delete context;
     }
-
-    /**
-     * Both jumps cannot return.
-     */
-    __builtin_unreachable();
 }
 
-void MultiTaskScheduler::jumpToIdle(boost::context::fcontext_t* stash) {
-    previousTask_ = currentTask_;
-    currentTask_ = nullptr;
-
-    boost::context::jump_fcontext(stash, idleContext, 0);
-    static_cast<MultiTaskScheduler*>(current())->afterJump();
-}
-
-void MultiTaskScheduler::jumpToFiber(boost::context::fcontext_t* stash, Task* task) {
-    previousTask_ = currentTask_;
-    currentTask_ = task;
-
-    if (previousTask_ != nullptr) {
-        assert(previousTaskLock.owns_lock());
+void MultiTaskScheduler::stashClear() {
+    for (UnownedContext* context : stash) {
+        stackAllocator.deallocate(context->stack);
+        delete context;
     }
-
-    if (currentTask_->status == Starting) {
-        currentTask_->stack = stackPool->allocate();
-        currentTask_->context = boost::context::make_fcontext(currentTask_->stack.sp, currentTask_->stack.size, &MultiTaskScheduler::fiberRunner);
-    }
-
-    boost::context::jump_fcontext(stash, currentTask_->context, 0);
-    static_cast<MultiTaskScheduler*>(current())->afterJump();
-}
-
-void MultiTaskScheduler::afterJump() {
-    if (previousTask_ != nullptr) {
-        /**
-         * We jumped from a fiber and are holding the mutex on it.
-         * Suspend that fiber and drop the reference.
-         */
-        assert(previousTaskLock.owns_lock());
-        previousTask_->status = Suspended;
-
-        if (previousTask_->reschedule) {
-            previousTask_->scheduled = true;
-            previousTaskLock.unlock();
-
-            std::unique_lock<boost::mutex> taskLock(tasksMutex);
-            tasks.push_front(previousTask_);
-        } else {
-            previousTask_->scheduled = false;
-            previousTaskLock.unlock();
-        }
-
-        assert(!previousTaskLock.owns_lock());
-        previousTask_ = nullptr;
-    } else {
-        assert(!previousTaskLock.owns_lock());
-    }
-
-    if (currentTask_ != nullptr) {
-        std::unique_lock<TaskMutex> lock(currentTask_->mutex);
-        assert(currentTask_->status == Starting || currentTask_->status == Suspended);
-        assert(currentTask_->scheduled);
-        currentTask_->status = Running;
-        currentTask_->scheduled = false;
-    }
-
-    ioContext().throttledPoll();
-}
-
-void MultiTaskScheduler::fiberRunner(intptr_t) {
-    /**
-      * Change the status to Running.
-      */
-    auto scheduler = static_cast<MultiTaskScheduler*>(current());
-    scheduler->afterJump();
-
-    /**
-     * Execute the fiber.
-     */
-    auto task = scheduler->currentTask_;
-    task->runnable->run();
+    stash.clear();
 }
 
 } // namespace detail

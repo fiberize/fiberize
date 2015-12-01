@@ -25,15 +25,14 @@ public:
     void resume(std::unique_lock<TaskMutex> lock);
 
     // Scheduler
-    void suspend(std::unique_lock<TaskMutex> lock) override;
-    void yield(std::unique_lock<TaskMutex> lock) override;
-    void terminate(std::unique_lock<TaskMutex> lock) override;
+    void suspend() override;
+    void yield() override;
     detail::Task* currentTask() override;
     bool isMultiTasking() override;
 
 private:
     Task* task_;
-    std::unique_lock<detail::TaskMutex> transferredLock;
+    std::atomic<bool> resumed;
 };
 
 } // namespace detail

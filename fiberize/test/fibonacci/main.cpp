@@ -29,9 +29,10 @@ TEST(Fibonacci, ComputesFibonacciSequence) {
     FiberSystem system;
     system.fiberize();
 
+    auto fibonacciPar = system.future(fibonacciFuture);
     for (int i = 0; i < 100; ++i) {
         for (uint64_t n = 0; n <= 20; ++n) {
-            EXPECT_EQ(fibonacci(n), system.future(fibonacciFuture).run(n).await().get());
+            EXPECT_EQ(fibonacci(n), fibonacciPar.copy().run(n).await().get());
         }
     }
 }

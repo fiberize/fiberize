@@ -37,6 +37,11 @@ public:
     virtual void enqueue(const PendingEvent& event) = 0;
 
     /**
+     * Whether the mailbox is empty.
+     */
+    virtual bool empty() = 0;
+
+    /**
      * Clears the mailbox.
      */
     virtual void clear() = 0;
@@ -44,13 +49,19 @@ public:
 
 class DequeMailbox : public Mailbox {
 public:
+    DequeMailbox();
+    DequeMailbox(const DequeMailbox& other);
+    DequeMailbox(DequeMailbox&& other);
+
     virtual ~DequeMailbox();
     virtual bool dequeue(PendingEvent& event);
     virtual void enqueue(const PendingEvent& event);
+    virtual bool empty();
     virtual void clear();
 
 private:
-    std::deque<PendingEvent> pendingEvents;
+    bool initialized;
+    union { std::deque<PendingEvent> pendingEvents; };
 };
 
 } // namespace fiberize

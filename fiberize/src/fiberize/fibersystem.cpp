@@ -27,7 +27,7 @@ FiberSystem::FiberSystem(uint32_t macrothreads)
 
     // Spawn the schedulers.
     for (uint32_t i = 0; i < macrothreads; ++i) {
-        schedulers_.emplace_back(new detail::MultiTaskScheduler(this, seedDist(seedGenerator), i));
+        schedulers_.emplace_back(new detail::MultiTaskScheduler(this, seedDist(seedGenerator)));
     }
 
     for (uint32_t i = 0; i < macrothreads; ++i) {

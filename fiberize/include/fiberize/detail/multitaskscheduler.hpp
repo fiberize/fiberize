@@ -21,111 +21,65 @@ class StackPool;
  */
 class MultiTaskScheduler : public Scheduler {
 public:
-    MultiTaskScheduler(FiberSystem* system, uint64_t seed, uint32_t index);
+    MultiTaskScheduler(FiberSystem* system, uint64_t seed);
     virtual ~MultiTaskScheduler();
 
     void start();
     void stop();
 
     void resume(Task* task, std::unique_lock<TaskMutex> lock);
-    void suspend(std::unique_lock<TaskMutex> lock) override;
-    void yield(std::unique_lock<TaskMutex> lock) override;
-    [[ noreturn ]] void terminate(std::unique_lock<std::mutex> lock) override;
+    void suspend() override;
+    void yield() override;
     Task* currentTask() override;
     bool isMultiTasking() override;
 
-    bool tryToStealTask(Task*& task);
-
 private:
-    bool tryDequeue(Task*& task);
+    std::thread thread;
+    std::atomic<bool> stopping;
 
-    /**
-     * Switches to the next task from a task. You must hold the control block mutex.
-     */
-    void switchFromRunning(std::unique_lock<TaskMutex> lock);
+    std::deque<Task*> softTasks;
+    std::mutex softMutex;
+    void dequeueSoft(Task*& task);
+    void stealSoft(Task*& task);
 
-    /**
-     * Switches to the next task.
-     */
-    [[ noreturn ]] void switchFromTerminated();
+    std::deque<Task*> hardTasks;
+    std::mutex hardMutex;
+    void dequeueHard(Task*& task);
+    void stealHard(Task*& task);
 
-    /**
-     * Jumps to the idle loop.
-     */
-    void jumpToIdle(boost::context::fcontext_t* stash);
+    enum Priority : uint8_t {
+        Soft, Hard
+    };
 
-    /**
-     * Jumps to the given task.
-     */
-    void jumpToFiber(boost::context::fcontext_t* stash, Task* task);
+    void dequeue(Task*& task, Priority priority);
+    void steal(Task*& task, Priority priority);
 
-    /**
-     * Performs cleanup after a jump.
-     */
-    void afterJump();
+    void finishSuspending();
+    static void ownedLoop();
+    static void unownedLoop();
 
-    /**
-     * Called when the executor has nothing to do.
-     */
-    void idle();
+    struct UnownedContext {
+        boost::context::fcontext_t context;
+        boost::context::stack_context stack;
+    };
 
-    /**
-     * Trampoline used to start a task.
-     */
-    static void fiberRunner(intptr_t);
-
-    /**
-     * Stack allocator.
-     */
-    boost::context::fixedsize_stack stackAllocator;
-
-    /**
-     * The thread this scheduler is running on.
-     */
-    std::thread executorThread;
-
-    /**
-     * Scheduled tasks waiting to be executed.
-     */
-    std::deque<Task*> tasks;
-    boost::mutex tasksMutex;
-
-    /**
-     * Context executed when we have nothing to do.
-     */
-    boost::context::fcontext_t idleContext;
-
-    /**
-     * A context used just because boost requires some context to save the current state.
-     */
-    boost::context::fcontext_t dummyContext;
-
-    /**
-     * Previously executing task.
-     */
-    Task* previousTask_;
-
-    /**
-     * Variable used to transport the lock during a context switch.
-     */
-    std::unique_lock<TaskMutex> previousTaskLock;
-
-    /**
-     * The currently executing task.
-     */
+    uint64_t sameStreak;
+    Task* suspendingTask;
     Task* currentTask_;
+    UnownedContext* unowned;
+    boost::context::fcontext_t initialContext;
 
-    /**
-     * Index of this scheduler.
-     */
-    const uint32_t myIndex;
+    std::vector<UnownedContext*> stash;
+    UnownedContext* stashGet();
+    void stashPut(UnownedContext* context);
+    void stashClear();
 
-    /**
-     * Stack allocator.
-     */
-    std::unique_ptr<StackPool> stackPool;
+#ifdef FIBERIZE_SEGMENTED_STACKS
+    boost::context::segmented_stack stackAllocator;
+#else
+    boost::context::fixedsize_stack stackAllocator;
+#endif
 
-    bool emergencyStop;
 };
 
 } // namespace detail

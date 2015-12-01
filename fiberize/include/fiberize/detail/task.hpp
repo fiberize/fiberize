@@ -98,6 +98,8 @@ public:
         scheduled = false;
         handlersInitialized = false;
         reschedule = false;
+        stopped = false;
+        resumes = 0;
     }
 
     virtual ~Task() {}
@@ -148,19 +150,29 @@ public:
     std::unique_ptr<detail::ErasedRunnable> runnable;
 
     /**
-     * The stack of this task.
-     */
-    boost::context::stack_context stack;
-
-    /**
      * The last saved context.
      */
     boost::context::fcontext_t context;
 
     /**
+     * Tracks how many times there was an attempt to resume this task.
+     */
+    uint64_t resumes;
+
+    /**
+     * Used by the scheduler to know whether a task needs to be rescheduled.
+     */
+    uint64_t resumesExpected;
+
+    /**
      * Whether a block should be rescheduled after a jump.
      */
     bool reschedule;
+
+    /**
+     * Whether a listening task was stopped.
+     */
+    bool stopped;
 };
 
 template <typename A>

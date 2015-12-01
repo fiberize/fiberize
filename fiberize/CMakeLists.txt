@@ -21,8 +21,14 @@ endif(SEGMENTED_STACKS)
 option(PROFILING "enable profiling" OFF)
 
 if(PROFILING)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg -g")
 endif(PROFILING)
+
+option(LTO "link time optimization" ON)
+
+if(LTO)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto")
+endif(LTO)
 
 ################################################################################
 ### Project files.

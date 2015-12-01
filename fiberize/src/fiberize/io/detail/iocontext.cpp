@@ -42,25 +42,6 @@ void IOContext::throttledPoll() {
     }
 }
 
-void IOContext::runLoop() {
-    stopped = false;
-    while (!stopped) {
-        uv_run(loop(), UV_RUN_DEFAULT);
-        if (stopped)
-            return;
-        std::this_thread::sleep_for(1ns);
-    }
-}
-
-void IOContext::runLoopNoWait() {
-    uv_run(loop(), UV_RUN_NOWAIT);
-}
-
-void IOContext::stopLoop() {
-    stopped = true;
-    uv_stop(loop());
-}
-
 uv_loop_t* IOContext::loop() {
     return &loop_;
 }

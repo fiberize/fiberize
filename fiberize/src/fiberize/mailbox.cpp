@@ -5,16 +5,38 @@ namespace fiberize {
 Mailbox::~Mailbox() {
 }
 
+DequeMailbox::DequeMailbox() {
+    initialized = false;
+}
+
+DequeMailbox::DequeMailbox(const DequeMailbox& other) {
+    initialized = other.initialized;
+    if (initialized) {
+        new (&pendingEvents) std::deque<PendingEvent>(other.pendingEvents);
+    }
+}
+
+DequeMailbox::DequeMailbox(fiberize::DequeMailbox&& other) {
+    initialized = other.initialized;
+    if (initialized) {
+        new (&pendingEvents) std::deque<PendingEvent>(std::move(other.pendingEvents));
+    }
+}
+
 DequeMailbox::~DequeMailbox() {
     clear();
 }
 
 void DequeMailbox::enqueue(const PendingEvent& event) {
+    if (!initialized) {
+        new (&pendingEvents) std::deque<PendingEvent>;
+        initialized = true;
+    }
     pendingEvents.push_back(event);
 }
 
 bool DequeMailbox::dequeue(PendingEvent& event) {
-    if (pendingEvents.empty()) {
+    if (!initialized || pendingEvents.empty()) {
         return false;
     } else {
         event = pendingEvents.front();
@@ -23,10 +45,16 @@ bool DequeMailbox::dequeue(PendingEvent& event) {
     }
 }
 
+bool DequeMailbox::empty() {
+    return !initialized || pendingEvents.empty();
+}
+
 void DequeMailbox::clear() {
-    for (auto& event : pendingEvents) {
-        if (event.freeData)
-            event.freeData(event.data);
+    if (initialized) {
+        for (auto& event : pendingEvents) {
+            if (event.freeData)
+                event.freeData(event.data);
+        }
     }
 }
 

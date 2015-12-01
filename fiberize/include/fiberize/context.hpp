@@ -53,6 +53,11 @@ std::mt19937_64& random();
 void yield();
 
 /**
+ * Stop the actor.
+ */
+void stop();
+
+/**
  * Processes all pending events.
  */
 void process();
@@ -76,6 +81,11 @@ FiberRef self();
 namespace detail {
 
 /**
+ * Processes all pending events (or until the actor is stopped).
+ */
+void process(std::unique_lock<std::mutex>& lock);
+
+/**
  * Returns the currently running task.
  */
 fiberize::detail::Task* task();
@@ -91,14 +101,14 @@ void dispatchEvent(const PendingEvent& event);
 HandlerRef bind(const Path& path, std::unique_ptr<fiberize::detail::Handler> handler);
 
 /**
- * Resumes execution of a suspended fiber.
+ * Suspends execution of this task.
  */
-void resume(fiberize::detail::Task* task, std::unique_lock<std::mutex> lock);
+void suspend();
 
 /**
- * Terminate the currently running task.
+ * Resumes execution of a suspended task.
  */
-void terminate();
+void resume(fiberize::detail::Task* task, std::unique_lock<std::mutex> lock);
 
 } // namespace detail
 

@@ -24,26 +24,19 @@ std::mt19937_64& random() {
 }
 
 void yield() {
-    Scheduler::current()->yield(std::unique_lock<fiberize::detail::TaskMutex>(detail::task()->mutex));
+    Scheduler::current()->yield();
+}
+
+void stop() {
+    auto task = detail::task();
+    std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
+    task->stopped = true;
 }
 
 void process() {
-    PendingEvent event;
     auto task = detail::task();
     std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
-    while (task->mailbox->dequeue(event)) {
-        lock.unlock();
-        try {
-            detail::dispatchEvent(event);
-        } catch (...) {
-            if (event.freeData)
-                event.freeData(event.data);
-            throw;
-        }
-        if (event.freeData)
-            event.freeData(event.data);
-        lock.lock();
-    }
+    detail::process(lock);
 }
 
 void processForever() {
@@ -79,10 +72,11 @@ void processUntil(const bool& condition) {
         PendingEvent event;
         std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
         while (task->mailbox->dequeue(event)) {
+            lock.unlock();
+
             if (!task->handlersInitialized)
                 initializeHandlers();
 
-            lock.unlock();
             try {
                 detail::dispatchEvent(event);
             } catch (...) {
@@ -102,11 +96,13 @@ void processUntil(const bool& condition) {
 
             lock.lock();
         }
+        task->resumesExpected = task->resumes;
+        lock.unlock();
 
         /**
          * No more events, we can suspend the thread.
          */
-        scheduler()->suspend(std::move(lock));
+        detail::suspend();
     }
 }
 
@@ -115,6 +111,24 @@ FiberRef self() {
 }
 
 namespace detail {
+
+void process(std::unique_lock<fiberize::detail::TaskMutex>& lock) {
+    PendingEvent event;
+    auto task = detail::task();
+    while (!task->stopped && task->mailbox->dequeue(event)) {
+        lock.unlock();
+        try {
+            detail::dispatchEvent(event);
+        } catch (...) {
+            if (event.freeData)
+                event.freeData(event.data);
+            throw;
+        }
+        if (event.freeData)
+            event.freeData(event.data);
+        lock.lock();
+    }
+}
 
 fiberize::detail::Task* task() {
     return scheduler()->currentTask();
@@ -175,8 +189,13 @@ HandlerRef bind(const Path& path, std::unique_ptr<fiberize::detail::Handler> han
     return ref;
 }
 
+void suspend() {
+    scheduler()->suspend();
+}
+
 void resume(fiberize::detail::Task* task, std::unique_lock<fiberize::detail::TaskMutex> lock) {
     assert(lock.owns_lock());
+    task->resumes += 1;
 
     Scheduler* sched;
     bool knownMultiTasking = false;
@@ -212,10 +231,6 @@ void resume(fiberize::detail::Task* task, std::unique_lock<fiberize::detail::Tas
     } else {
         static_cast<fiberize::detail::SingleTaskScheduler*>(sched)->resume(std::move(lock));
     }
-}
-
-void terminate() {
-    scheduler()->terminate(std::unique_lock<fiberize::detail::TaskMutex>(task()->mutex));
 }
 
 } // namespace detail

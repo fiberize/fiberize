@@ -15,79 +15,56 @@ namespace detail {
 SingleTaskScheduler::SingleTaskScheduler(FiberSystem* system, uint64_t seed, Task* task)
     : Scheduler(system, seed)
     , task_(task) {
+    task->grab();
     task->pin = this;
 }
 
 SingleTaskScheduler::~SingleTaskScheduler() {
-    if (task_ != nullptr)
+    if (task_ != nullptr) {
+        task_->pin = nullptr;
         task_->drop();
+    }
 }
 
 void SingleTaskScheduler::resume(std::unique_lock<TaskMutex> lock) {
-    assert(task_->status == Suspended);
+    assert(task_->status == Suspended || task_->status == Listening);
     assert(!task_->scheduled);
-    task_->scheduled = true;
-
-    /**
-     * Transfer the lock.
-     */
-    assert(!transferredLock.owns_lock());
-    transferredLock = std::move(lock);
-    ioContext().stopLoop();
+    task_->status = Running;
+    task_->scheduled = false;
+    task_->resumes += 1;
+    resumed.store(true, std::memory_order_release);
+    lock.unlock();
 }
 
-void SingleTaskScheduler::suspend(std::unique_lock<TaskMutex> lock) {
+void SingleTaskScheduler::suspend() {
+    std::unique_lock<TaskMutex> lock(task_->mutex);
     assert(task_->status == Running);
-    task_->status = Suspended;
     assert(!task_->scheduled);
+
+    // Resume instantly if we have something to process.
+    if (task_->resumes != task_->resumesExpected) {
+        return;
+    }
+
+    task_->status = Suspended;
+    resumed.store(false, std::memory_order_relaxed);
     lock.unlock();
 
     /**
      * Loop until someone breaks it.
      */
-    ioContext().runLoop();
-
-    /**
-     * Receive the lock.
-     */
-    assert(transferredLock.owns_lock());
-    assert(task_->status == Suspended);
-    assert(task_->scheduled);
-    task_->status = Running;
-    task_->scheduled = false;
-    transferredLock.unlock();
+    uint64_t idleStreak = 0;
+    while (!resumed.load(std::memory_order_acquire)) {
+        if (ioContext().poll()) {
+            idleStreak = 0;
+        } else {
+            idle(idleStreak);
+        }
+    }
 }
 
-void SingleTaskScheduler::yield(std::unique_lock<TaskMutex> lock) {
-    lock.unlock();
-    ioContext().runLoopNoWait();
+void SingleTaskScheduler::yield() {
     std::this_thread::yield();
-}
-
-void SingleTaskScheduler::terminate(std::unique_lock<TaskMutex> lock) {
-    /**
-     * Complete the task.
-     */
-    assert(task_->status == Running);
-    assert(!task_->scheduled);
-    task_->status = Dead;
-    lock.unlock();
-    task_->runnable.reset();
-    task_->handlers.clear();
-    task_->drop();
-    task_ = nullptr;
-
-    /**
-     * Delete the scheduler! It's sole purpose is complete.
-     */
-    delete this;
-
-    /**
-     * Exit the function. Single task scheduler's terminate should be only called when:
-     *  - unfiberizing a thread, in which case we don't want to end the thread.
-     *  - terminating a fiber started as a thread, in which case we're going to end the
-     *    thread right after terminate()
-     */
 }
 
 Task* SingleTaskScheduler::currentTask() {

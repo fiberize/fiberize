@@ -5,7 +5,7 @@
 using namespace fiberize;
 using namespace std::literals;
 
-uint32_t timers = 100000;
+uint32_t timers = 10000;
 
 TEST(Sleep, ShouldWork) {
     FiberSystem fiberSystem;

@@ -32,28 +32,12 @@ public:
     void throttledPoll();
 
     /**
-     * Run the event loop in the current thread.
-     */
-    void runLoop();
-
-    /**
-     * Run the event loop once, exiting immediately if there are no events.
-     */
-    void runLoopNoWait();
-
-    /**
-     * Stops the running event loop.
-     */
-    void stopLoop();
-
-    /**
      * Returns the libuv loop associated with this IO context.
      */
     uv_loop_t* loop();
 
 private:
     uv_loop_t loop_;
-    bool stopped;
     uint64_t lastRun;
 };
 

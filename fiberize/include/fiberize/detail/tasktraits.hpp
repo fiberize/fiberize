@@ -48,14 +48,48 @@ struct FiberTraits {
                 } catch (...) {
                     // Nothing.
                 }
-
-                context::detail::terminate();
+                context::stop();
             });
             return task;
         }
     };
 };
 
+struct ActorTraits {
+    template <typename A>
+    struct ForResult {
+        using RefType = FiberRef;
+        using TaskType = Task;
+
+        inline static RefType devNullRef() {
+            auto impl = std::shared_ptr<FiberRefImpl>(
+                std::shared_ptr<FiberRefImpl>(), &devNullFiberRef);
+            return FiberRef(impl);
+        }
+
+        inline static RefType localRef(FiberSystem* system, TaskType* task) {
+            auto impl = std::make_shared<LocalFiberRef>(system, task);
+            return FiberRef(impl);
+        }
+
+        template <typename Runnable>
+        inline static TaskType*
+        newTask(const Path& path, std::unique_ptr<Mailbox> mailbox, Scheduler* pin, Runnable runnable) {
+            auto task = new Task;
+            task->pin = pin;
+            task->path = path;
+            task->mailbox = std::move(mailbox);
+            task->runnable = makeRunnable([runnable = std::move(runnable)] () mutable {
+                try {
+                    runnable();
+                } catch (...) {
+                    // Nothing.
+                }
+            });
+            return task;
+        }
+    };
+};
 
 template <typename A>
 struct CompletePromise {
@@ -102,7 +136,7 @@ struct FutureTraits {
                 auto task = context::detail::task();
                 auto future = static_cast<Future<A>*>(task);
                 future->result.complete(result(runnable));
-                context::detail::terminate();
+                context::stop();
             });
             return task;
         }

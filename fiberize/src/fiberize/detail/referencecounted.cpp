@@ -14,7 +14,7 @@ ReferenceCountedAtomic::ReferenceCountedAtomic() : count(0) {}
 ReferenceCountedAtomic::~ReferenceCountedAtomic() {}
 
 void ReferenceCountedAtomic::grab() {
-    std::atomic_fetch_add(&count, 1u);
+    std::atomic_fetch_add_explicit(&count, 1u, std::memory_order_relaxed);
 }
 
 void ReferenceCountedAtomic::drop() {
