@@ -48,11 +48,13 @@ private:
     void stealHard(Task*& task);
 
     enum Priority : uint8_t {
-        Soft, Hard
+        Soft = 0,
+        Hard = 1
     };
 
     void dequeue(Task*& task, Priority priority);
     void steal(Task*& task, Priority priority);
+    Priority choosePriority(Priority preferred);
 
     void finishSuspending();
     static void ownedLoop();

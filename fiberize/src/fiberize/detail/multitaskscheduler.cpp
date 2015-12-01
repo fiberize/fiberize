@@ -150,6 +150,25 @@ void MultiTaskScheduler::steal(Task*& task, MultiTaskScheduler::Priority priorit
     }
 }
 
+MultiTaskScheduler::Priority MultiTaskScheduler::choosePriority(MultiTaskScheduler::Priority preferred) {
+    if (sameStreak >= sameStreakLimit) {
+        sameStreak = 0;
+
+        switch (preferred) {
+            case Hard:
+                return Soft;
+
+            case Soft:
+                return Hard;
+
+            default:
+                __builtin_unreachable();
+        }
+    } else {
+        return preferred;
+    }
+}
+
 void MultiTaskScheduler::finishSuspending() {
     if (suspendingTask != nullptr) {
         std::unique_lock<TaskMutex> lock(suspendingTask->mutex);
@@ -184,12 +203,13 @@ void MultiTaskScheduler::ownedLoop() {
     self->suspendingTask = self->currentTask_;
     self->currentTask_ = nullptr;
 
+    Priority priority = self->choosePriority(Hard);
     // Try to find a task, prefferably a hard one.
-    self->dequeue(self->currentTask_, self->sameStreak > sameStreakLimit ? Hard : Soft);
+    self->dequeue(self->currentTask_, priority);
 
     // If we have no tasks, try to steal some.
     if (self->currentTask_ == nullptr)
-        self->steal(self->currentTask_, self->sameStreak > sameStreakLimit ? Hard : Soft);
+        self->steal(self->currentTask_, priority);
 
     // If we still don't have any task, jump into an unowned context.
     if (self->currentTask_ == nullptr) {
@@ -251,13 +271,14 @@ void MultiTaskScheduler::unownedLoop() {
         // We might have to suspend a task, after a jump from the owned loop.
         self->finishSuspending();
 
+        Priority priority = self->choosePriority(Soft);
         // If there was no assigned task, try to get one.
         if (self->currentTask_ == nullptr)
-            self->dequeue(self->currentTask_, self->sameStreak > sameStreakLimit ? Soft : Hard);
+            self->dequeue(self->currentTask_, priority);
 
         // If we have no tasks, try to steal some.
         if (self->currentTask_ == nullptr)
-            self->steal(self->currentTask_, self->sameStreak > sameStreakLimit ? Soft : Hard);
+            self->steal(self->currentTask_, priority);
 
         // If we still don't have any task, try again or go to sleep,
         // depending on how long are we spinning.
