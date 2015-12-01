@@ -6,11 +6,11 @@ fiberize
 Fiberize is a C++ framework for high performance parallel (and in the future distributed) computing. It implements an user space scheduler integrated with an evented IO system (based on node.js's libuv). There are three concurrency abstractions:
 * fibers - lightweight threads, well suited for sequential tasks,
 * futures - computations that eventually return some value,
-* actors (wip) - objects that respond to messages.
+* actors - objects that respond to messages, after an initialization phase.
 
 Any of them can be run in a thread pool using the user space scheduler (the default) or standalone as an OS thread.
 
-Tasks in fiberize can communicate by sending and receiving events. When a fiber waits for an event or performs an IO operation it doesn't block the OS thread it was running on - instead the execution switches to another task. This means that you can write asynchronous and nonblocking code as easly as you would write a synchronous version (think es7 await/async, but faster and multithreaded ;)
+Tasks in fiberize can communicate by sending and receiving events. When a fiber, future or actor waits for an event or performs an IO operation it doesn't block the OS thread it was running on - instead the execution switches to another task. This means that you can write asynchronous and nonblocking code as easly as you would write a synchronous version (think es7 await/async, but faster and multithreaded ;)
 
 Example
 =======
