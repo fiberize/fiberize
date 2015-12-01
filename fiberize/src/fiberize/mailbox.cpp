@@ -24,7 +24,10 @@ DequeMailbox::DequeMailbox(fiberize::DequeMailbox&& other) {
 }
 
 DequeMailbox::~DequeMailbox() {
-    clear();
+    if (initialized) {
+        clear();
+        pendingEvents.~deque();
+    }
 }
 
 void DequeMailbox::enqueue(const PendingEvent& event) {
