@@ -49,10 +49,17 @@ void Scheduler::kill(detail::Task* task, std::unique_lock<detail::TaskMutex>&& l
     } else {
         task->status = detail::Dead;
         task->scheduled = false;
+        task->refCount += 1;
+        lock.unlock();
         task->runnable.reset();
         task->mailbox->clear();
         task->handlers.clear();
-        lock.unlock();
+        lock.lock();
+        task->refCount -= 1;
+        if (task->refCount == 0) {
+            lock.release();
+            delete task;
+        }
     }
 }
 

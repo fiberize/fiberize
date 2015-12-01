@@ -85,6 +85,9 @@ struct ActorTraits {
                 } catch (...) {
                     // Nothing.
                 }
+
+                // Process all pending messages. This is required, because we have to set resumesExpected!
+                context::process();
             });
             return task;
         }

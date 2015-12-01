@@ -316,7 +316,7 @@ void MultiTaskScheduler::unownedLoop() {
                 self->currentTask_->status = Listening;
 
                 // Reschedule the task if required.
-                if (!self->currentTask_->mailbox->empty()) {
+                if (self->currentTask_->resumesExpected != self->currentTask_->resumes) {
                     self->resume(self->currentTask_, std::move(lock));
                 } else {
                     lock.unlock();

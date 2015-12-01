@@ -128,6 +128,7 @@ void process(std::unique_lock<fiberize::detail::TaskMutex>& lock) {
             event.freeData(event.data);
         lock.lock();
     }
+    task->resumesExpected = task->resumes;
 }
 
 fiberize::detail::Task* task() {
@@ -203,7 +204,9 @@ void resume(fiberize::detail::Task* task, std::unique_lock<fiberize::detail::Tas
     /**
      * Do not resume a scheduled or running task.
      */
-    if ((task->status != fiberize::detail::Suspended && task->status != fiberize::detail::Starting) || task->scheduled)
+    if ((task->status != fiberize::detail::Suspended
+        && task->status != fiberize::detail::Starting
+        && task->status != fiberize::detail::Listening) || task->scheduled)
         return;
 
     if (task->pin != nullptr) {
