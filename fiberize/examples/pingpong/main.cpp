@@ -36,8 +36,9 @@ void alice(FiberRef peer) {
 }
 
 // Bob will be an actor. Actors begin their life in the same way as fibers, but after the
-// initial function exits they don't die and instead they start processing messages.
-// That
+// initial function exits they don't die - instead they start processing messages.
+// That message processing phase is very efficient, as an actor waiting for a message
+// does not need a stack.
 struct Bob {
     static Event<void> killed;
 
