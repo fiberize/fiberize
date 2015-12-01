@@ -4,6 +4,8 @@
 using namespace fiberize;
 using ::testing::TestWithParam;
 
+uint fibers = 100000;
+
 TEST(Sleeper, ShouldDie) {
     FiberSystem system;
     system.fiberize();
@@ -12,9 +14,19 @@ TEST(Sleeper, ShouldDie) {
         context::processForever();
     });
 
-    for (int i = 0; i < 100000; ++i) {
-        auto ref = sleeper.copy().run();
-        ref.kill();
-        EXPECT_THROW(ref.await().get(), Killed);
+    std::vector<FutureRef<void>> refs;
+
+    for (uint i = 0; i < fibers; ++i) {
+        refs.push_back(sleeper.copy().run());
     }
+
+    for (uint i = 0; i < fibers; ++i) {
+        refs[i].kill();
+    }
+
+    for (uint i = 0; i < fibers; ++i) {
+        EXPECT_THROW(refs[i].await().get(), Killed);
+    }
+
+    refs.clear();
 }
