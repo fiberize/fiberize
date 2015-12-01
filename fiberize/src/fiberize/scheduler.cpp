@@ -43,13 +43,17 @@ void Scheduler::idle(uint64_t& idleStreak) {
 }
 
 void Scheduler::kill(detail::Task* task, std::unique_lock<detail::TaskMutex>&& lock) {
-    task->status = detail::Dead;
-    task->scheduled = false;
-    task->mailbox->clear();
-    lock.unlock();
-    task->runnable.reset();
-    task->handlers.clear();
-    task->drop();
+    if (task->refCount == 0) {
+        lock.release();
+        delete task;
+    } else {
+        task->status = detail::Dead;
+        task->scheduled = false;
+        task->mailbox->clear();
+        lock.unlock();
+        task->runnable.reset();
+        task->handlers.clear();
+    }
 }
 
 thread_local Scheduler* Scheduler::current_ = nullptr;

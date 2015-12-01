@@ -92,15 +92,15 @@ enum TaskStatus : uint8_t {
 using TaskMutex = Spinlock;
 using HandlerBlock = std::vector<std::unique_ptr<detail::Handler>>;
 
-class Task : public ReferenceCountedAtomic {
+class Task {
 public:
     Task() {
         status = Starting;
         scheduled = false;
         handlersInitialized = false;
-        reschedule = false;
         stopped = false;
         resumes = 0;
+        refCount = 0;
     }
 
     virtual ~Task() {}
@@ -166,14 +166,37 @@ public:
     uint64_t resumesExpected;
 
     /**
-     * Whether a block should be rescheduled after a jump.
-     */
-    bool reschedule;
-
-    /**
      * Whether a listening task was stopped.
      */
     bool stopped;
+
+    /**
+     * Reference count.
+     */
+    uint32_t refCount;
+
+    /**
+     * Increases the reference count by 1.
+     * @note Thread-safe.
+     */
+    inline void grab() {
+        std::unique_lock<TaskMutex> lock(mutex);
+        refCount += 1;
+    }
+
+    /**
+     * Decreases the reference count by 1. When the count goes down to 0
+     * and the task is dead the object is destroyed.
+     * @note Thread-safe.
+     */
+    inline void drop() {
+        std::unique_lock<TaskMutex> lock(mutex);
+        refCount -= 1;
+        if (refCount == 0 && status == Dead) {
+            lock.release();
+            delete this;
+        }
+    }
 };
 
 template <typename A>
