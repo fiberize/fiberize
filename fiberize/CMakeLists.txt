@@ -30,6 +30,8 @@ if(LTO)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto")
 endif(LTO)
 
+option(TCMALLOC "enable tcmalloc" ON)
+
 ################################################################################
 ### Project files.
 ################################################################################
@@ -96,10 +98,12 @@ target_link_libraries(fiberize ${LIBUV_LIBRARIES})
 ### tcmalloc
 ################################################################################
 
-target_link_libraries(fiberize tcmalloc)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-      -fno-builtin-malloc -fno-builtin-calloc\
-      -fno-builtin-realloc -fno-builtin-free")
+if (TCMALLOC)
+  target_link_libraries(fiberize tcmalloc)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
+    -fno-builtin-malloc -fno-builtin-calloc\
+    -fno-builtin-realloc -fno-builtin-free")
+endif(TCMALLOC)
 
 ################################################################################
 ### Installation
