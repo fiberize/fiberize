@@ -311,10 +311,10 @@ void MultiTaskScheduler::unownedLoop() {
                 try {
                     context::detail::process(lock);
                 } catch (...) {
-                    // Kill the task if an exception escapes.
+                    // Stop the task if an exception escapes.
                     assert(!lock.owns_lock());
                     lock.lock();
-                    kill(self->currentTask_, std::move(lock));
+                    self->currentTask_->stopped = true;
                 }
             } else {
                 // Impossible.

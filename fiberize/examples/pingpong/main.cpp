@@ -35,46 +35,60 @@ void alice(FiberRef peer) {
     }
 }
 
-// Fibers can be defined as function objects, possibly with some methods and state.
+// Bob will be an actor. Actors begin their life in the same way as fibers, but after the
+// initial function exits they don't die and instead they start processing messages.
+// That
 struct Bob {
-    void operator () () {
+    static Event<void> killed;
+
+    HandlerRef handlePing;
+    HandlerRef handleKill;
+
+    void operator () (FiberRef main) {
         // Perform the handshake.
         FiberRef peer = hello.await();
         peer.send(ack);
 
-        // Enter the loop.
-        while (true) {
-            ping.await();
+        // Bind a handler that will remain once we exit this loop.
+        handlePing = ping.bind([peer] () {
             io::sleep(500ms);
             std::cout << "Pong" << std::endl;
             peer.send(pong);
-        }
+        });
+
+        // Unlike futures, actors don't (yet, I'm thinking about it!) have a built-in mechanism
+        // that would report the fact that actor died. We're going to do it manually.
+        handleKill = fiberize::kill.bind([main] () {
+            main.send(killed);
+        });
     }
 };
+
+Event<void> Bob::killed;
 
 int main() {
     // The FiberSystem by default will create an OS thread for each CPU core we have.
     // After initializing the system, we fiberize the current thread. This means it will
     // be able to start and communicate with fibers.
     FiberSystem system;
-    system.fiberize();
+    FiberRef main = system.fiberize();
 
     // A fiber/future can be created from any function, lambda or function object. The future()
     // function returns a Builder, which is used to configure the future and start it. The only
     // difference between a fiber and a future is that we can await a future to get it's result.
-    auto bobRef = system.future(Bob{}).run();
+    auto bobRef = system.actor(Bob{}).run(main);
     auto aliceRef = system.future(alice).run(bobRef);
 
     // Let them run for a few seconds.
     io::sleep(5s);
 
-    // Kill the futures. The kill() function sends a special event which will trigger
+    // Kill the tasks. The kill() function sends the special kill event which will trigger
     // the Killed exception inside the fiber/future.
     bobRef.kill();
     aliceRef.kill();
 
-    // Wait until both futures finish.
-    bobRef.await();
+    // Wait until both tasks finish.
+    Bob::killed.await();
     std::cout << "Bob is dead." << std::endl;
     aliceRef.await();
     std::cout << "Alice is dead." << std::endl;
