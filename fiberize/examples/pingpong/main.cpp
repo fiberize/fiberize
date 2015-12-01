@@ -74,9 +74,9 @@ int main() {
     FiberSystem system;
     FiberRef main = system.fiberize();
 
-    // A fiber/future can be created from any function, lambda or function object. The future()
-    // function returns a Builder, which is used to configure the future and start it. The only
-    // difference between a fiber and a future is that we can await a future to get it's result.
+    // A task can be created from any function, lambda or function object. FiberSystem has three
+    // function: fiber(), future() and actor() that are used to create tasks. These functions
+    // return a Builder, which configures and starts the task.
     auto bobRef = system.actor(Bob{}).run(main);
     auto aliceRef = system.future(alice).run(bobRef);
 
