@@ -15,11 +15,14 @@ namespace fiberize {
 namespace detail {
 
 void runTaskAsMicrothread(Task* task) {
+    task->grab();
     std::unique_lock<TaskMutex> lock(task->mutex);
     context::detail::resume(task, std::move(lock));
 }
 
 void runTaskAsOSThread(Task* task) {
+    task->grab();
+
     FiberSystem* system = context::system();
     std::uniform_int_distribution<uint64_t> seedDist;
     uint64_t seed = seedDist(context::random());
