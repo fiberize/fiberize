@@ -24,7 +24,7 @@ struct Box {
     template <typename... Args>
     Box(Args&&... args) : value(std::forward<Args>(args)...) {}
 
-    A get() const {
+    A copy() const {
         return value;
     }
 
@@ -33,7 +33,7 @@ struct Box {
 
 template <>
 struct Box<void> {
-    void get() const {}
+    void copy() const {}
 };
 
 } // namespace detail
@@ -49,26 +49,17 @@ public:
     /**
      * Creates an empty promise.
      */
-    Promise() : isCompleted(false) {}
+    Promise() {}
     Promise(const Promise&) = delete;
     Promise(Promise&&) = default;
 
     /**
      * Creates a promise that will watch the given event and complete when it fires.
      */
-    Promise(const Event<A>& watched) : isCompleted(false) {
+    Promise(const Event<A>& watched) {
         handler = watched.bind([this] (const A& value) {
             complete(value);
         });
-    }
-
-    /**
-     * Destroys the promise.
-     */
-    ~Promise() {
-        if (isCompleted) {
-            result.~Box();
-        }
     }
 
     /**
@@ -81,15 +72,14 @@ public:
         /**
          * Check if the promise was empty.
          */
-        if (isCompleted)
+        if (result)
             return false;
 
         /**
          * Try to construct the result.
          */
         try {
-            new (&result) detail::Box<A>{std::forward<Args>(args)...};
-            isCompleted = true;
+            result.emplace(std::forward<Args>(args)...);
         } catch (...) {
             // We failed to complete the promise.
             return false;
@@ -108,21 +98,17 @@ public:
      */
     A await() {
         std::unique_lock<Spinlock> lock(spinlock);
-        if (!isCompleted) {
+        if (!result) {
             completed.await(lock);
         }
-        return result.get();
+        return result.get().copy();
     }
 
 private:
     HandlerRef handler;
     Condition completed;
     Spinlock spinlock;
-
-    bool isCompleted;
-    union {
-        detail::Box<A> result;
-    };
+    boost::optional<detail::Box<A>> result;
 };
 
 } // namespace fiberize
