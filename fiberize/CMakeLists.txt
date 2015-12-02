@@ -98,7 +98,7 @@ target_link_libraries(fiberize ${LIBUV_LIBRARIES})
 ### tcmalloc
 ################################################################################
 
-if (TCMALLOC)
+if(TCMALLOC)
   target_link_libraries(fiberize tcmalloc)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
     -fno-builtin-malloc -fno-builtin-calloc\

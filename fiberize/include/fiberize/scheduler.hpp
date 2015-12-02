@@ -80,7 +80,7 @@ public:
     static inline Scheduler* current() { return current_; }
 
     static void idle(uint64_t& idleStreak);
-    static void kill(detail::Task* task, std::unique_lock<detail::TaskMutex>&& lock);
+    static void kill(detail::Task* task, std::unique_lock<Spinlock>&& lock);
 
 private:
 

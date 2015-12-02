@@ -89,7 +89,6 @@ enum TaskStatus : uint8_t {
     Dead
 };
 
-using TaskMutex = Spinlock;
 using HandlerBlock = std::vector<std::unique_ptr<detail::Handler>>;
 
 class Task {
@@ -108,7 +107,7 @@ public:
     /**
      * Lock used during status change.
      */
-    TaskMutex mutex;
+    Spinlock spinlock;
 
     /**
      * Status of this task.
@@ -180,7 +179,7 @@ public:
      * @note Thread-safe.
      */
     inline void grab() {
-        std::unique_lock<TaskMutex> lock(mutex);
+        std::unique_lock<Spinlock> lock(spinlock);
         refCount += 1;
     }
 
@@ -190,7 +189,7 @@ public:
      * @note Thread-safe.
      */
     inline void drop() {
-        std::unique_lock<TaskMutex> lock(mutex);
+        std::unique_lock<Spinlock> lock(spinlock);
         refCount -= 1;
         if (refCount == 0 && status == Dead) {
             lock.release();

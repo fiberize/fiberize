@@ -90,7 +90,7 @@ struct AwaitRequestEnv : public fiberize::detail::ReferenceCountedAtomic {
         /**
          * Set the condition to true and reschedule the fiber, if necesssary.
          */
-        std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
+        std::unique_lock<Spinlock> lock(task->spinlock);
         condition = true;
         context::detail::resume(task, std::move(lock));
     }
@@ -132,7 +132,7 @@ struct AwaitHandleEnv : public fiberize::detail::ReferenceCounted {
         /**
          * Set the condition to true and reschedule the fiber, if necesssary.
          */
-        std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
+        std::unique_lock<Spinlock> lock(task->spinlock);
         condition = true;
         context::detail::resume(task, std::move(lock));
     }

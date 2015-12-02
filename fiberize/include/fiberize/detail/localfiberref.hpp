@@ -52,7 +52,7 @@ public:
     }
 
     void send(const PendingEvent& pendingEvent) override {
-        std::unique_lock<TaskMutex> lock(future->mutex);
+        std::unique_lock<Spinlock> lock(future->spinlock);
         future->mailbox->enqueue(pendingEvent);
         context::detail::resume(future, std::move(lock));
     }

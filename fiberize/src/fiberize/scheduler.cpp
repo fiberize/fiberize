@@ -8,8 +8,6 @@
 #include <thread>
 #include <chrono>
 
-using namespace std::literals;
-
 namespace fiberize {
 
 Scheduler::Scheduler(FiberSystem* system, uint64_t seed)
@@ -26,6 +24,8 @@ void Scheduler::resetCurrent() {
 }
 
 void Scheduler::idle(uint64_t& idleStreak) {
+    using namespace std::literals;
+
     if (idleStreak <= 16) {
         // Nothing.
     } else if (idleStreak <= 64) {
@@ -42,7 +42,7 @@ void Scheduler::idle(uint64_t& idleStreak) {
     idleStreak += 1;
 }
 
-void Scheduler::kill(detail::Task* task, std::unique_lock<detail::TaskMutex>&& lock) {
+void Scheduler::kill(detail::Task* task, std::unique_lock<Spinlock>&& lock) {
     if (task->refCount == 0) {
         lock.release();
         delete task;

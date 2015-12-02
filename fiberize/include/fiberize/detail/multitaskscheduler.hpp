@@ -27,7 +27,7 @@ public:
     void start();
     void stop();
 
-    void resume(Task* task, std::unique_lock<TaskMutex> lock);
+    void resume(Task* task, std::unique_lock<Spinlock> lock);
     void suspend() override;
     void yield() override;
     Task* currentTask() override;

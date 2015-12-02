@@ -10,6 +10,7 @@
 #include <boost/thread.hpp>
 
 #include <fiberize/path.hpp>
+#include <fiberize/detail/lazydeque.hpp>
 
 namespace fiberize {
 
@@ -49,10 +50,6 @@ public:
 
 class DequeMailbox : public Mailbox {
 public:
-    DequeMailbox();
-    DequeMailbox(const DequeMailbox& other);
-    DequeMailbox(DequeMailbox&& other);
-
     virtual ~DequeMailbox();
     virtual bool dequeue(PendingEvent& event);
     virtual void enqueue(const PendingEvent& event);
@@ -60,8 +57,7 @@ public:
     virtual void clear();
 
 private:
-    bool initialized;
-    union { std::deque<PendingEvent> pendingEvents; };
+    detail::LazyDeque<PendingEvent> pendingEvents;
 };
 
 } // namespace fiberize

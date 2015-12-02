@@ -29,24 +29,21 @@ void yield() {
 
 void stop() {
     auto task = detail::task();
-    std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
+    std::unique_lock<Spinlock> lock(task->spinlock);
     task->stopped = true;
 }
 
 void process() {
     auto task = detail::task();
-    std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
+    std::unique_lock<Spinlock> lock(task->spinlock);
     detail::process(lock);
 }
 
 void processForever() {
-    const bool condition = false;
-    processUntil(condition);
-
-    /**
-     * Obviously, the condition will always be false.
-     */
-    __builtin_unreachable();
+    for (;;) {
+        process();
+        detail::suspend();
+    }
 }
 
 static void initializeHandlers() {
@@ -70,7 +67,7 @@ void processUntil(const bool& condition) {
          * First, process all pending events.
          */
         PendingEvent event;
-        std::unique_lock<fiberize::detail::TaskMutex> lock(task->mutex);
+        std::unique_lock<Spinlock> lock(task->spinlock);
         while (task->mailbox->dequeue(event)) {
             lock.unlock();
 
@@ -112,11 +109,15 @@ FiberRef self() {
 
 namespace detail {
 
-void process(std::unique_lock<fiberize::detail::TaskMutex>& lock) {
+void process(std::unique_lock<Spinlock>& lock) {
     PendingEvent event;
     auto task = detail::task();
     while (!task->stopped && task->mailbox->dequeue(event)) {
         lock.unlock();
+
+        if (!task->handlersInitialized)
+            initializeHandlers();
+
         try {
             detail::dispatchEvent(event);
         } catch (...) {
@@ -194,7 +195,11 @@ void suspend() {
     scheduler()->suspend();
 }
 
-void resume(fiberize::detail::Task* task, std::unique_lock<fiberize::detail::TaskMutex> lock) {
+void resume(fiberize::detail::Task* task) {
+    resume(task, std::unique_lock<Spinlock>(task->spinlock));
+}
+
+void resume(fiberize::detail::Task* task, std::unique_lock<Spinlock> lock) {
     assert(lock.owns_lock());
     task->resumes += 1;
 

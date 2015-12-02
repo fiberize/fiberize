@@ -24,7 +24,7 @@ SingleTaskScheduler::~SingleTaskScheduler() {
     }
 }
 
-void SingleTaskScheduler::resume(std::unique_lock<TaskMutex> lock) {
+void SingleTaskScheduler::resume(std::unique_lock<Spinlock> lock) {
     assert(task_->status == Suspended || task_->status == Listening);
     assert(!task_->scheduled);
     task_->status = Running;
@@ -35,7 +35,7 @@ void SingleTaskScheduler::resume(std::unique_lock<TaskMutex> lock) {
 }
 
 void SingleTaskScheduler::suspend() {
-    std::unique_lock<TaskMutex> lock(task_->mutex);
+    std::unique_lock<Spinlock> lock(task_->spinlock);
     assert(task_->status == Running);
     assert(!task_->scheduled);
 

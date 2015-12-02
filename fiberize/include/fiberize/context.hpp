@@ -109,6 +109,11 @@ void suspend();
 /**
  * Resumes execution of a suspended task.
  */
+void resume(fiberize::detail::Task* task);
+
+/**
+ * Resumes execution of a suspended task.
+ */
 void resume(fiberize::detail::Task* task, std::unique_lock<Spinlock> lock);
 
 } // namespace detail

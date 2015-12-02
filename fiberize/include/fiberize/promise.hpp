@@ -12,6 +12,8 @@
 #include <fiberize/event-inl.hpp>
 #include <fiberize/context.hpp>
 #include <fiberize/result.hpp>
+#include <fiberize/mutex.hpp>
+#include <fiberize/condition.hpp>
 
 namespace fiberize {
 
@@ -43,13 +45,6 @@ struct Box<void> {
  */
 template <typename A>
 class Promise {
-private:
-    enum State : uint8_t {
-        Empty,
-        Completing,
-        Complete
-    };
-
 public:
     /**
      * Creates an empty promise.
@@ -81,7 +76,7 @@ public:
      */
     template <typename... Args>
     bool complete(Args&&... args) {
-        std::unique_lock<std::mutex> lock(mutex);
+        std::unique_lock<Spinlock> lock(spinlock);
 
         /**
          * Check if the promise was empty.
@@ -103,43 +98,28 @@ public:
         /**
          * Wake up tasks awaiting this promise.
          */
-        for (FiberRef& ref : awaiting) {
-            ref.send(completed);
-        }
-        awaiting.clear();
+        completed.signalAll(lock);
 
         return true;
     }
 
     /**
-     * Awaits
+     * Awaits until the promise is complete.
      */
     A await() {
-        std::unique_lock<std::mutex> lock(mutex);
-
-        /**
-         * If the promise is empty we have to sleep until it is completed.
-         */
+        std::unique_lock<Spinlock> lock(spinlock);
         if (!isCompleted) {
-            /**
-             * Add this task to the awaiting list and wait for the result.
-             */
-            awaiting.push_back(context::self());
-            lock.unlock();
-            completed.await();
-            lock.lock();
+            completed.await(lock);
         }
-
         return result.get();
     }
 
 private:
     HandlerRef handler;
-    Event<void> completed;
-    std::mutex mutex;
-    std::vector<FiberRef> awaiting;
-    bool isCompleted;
+    Condition completed;
+    Spinlock spinlock;
 
+    bool isCompleted;
     union {
         detail::Box<A> result;
     };

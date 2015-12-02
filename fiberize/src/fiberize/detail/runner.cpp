@@ -15,7 +15,7 @@ namespace fiberize {
 namespace detail {
 
 void runTaskAsMicrothread(Task* task) {
-    std::unique_lock<TaskMutex> lock(task->mutex);
+    std::unique_lock<Spinlock> lock(task->spinlock);
     context::detail::resume(task, std::move(lock));
 }
 
@@ -38,7 +38,7 @@ void runTaskAsOSThread(Task* task) {
             while (!task->stopped) {
                 scheduler->idle(idleStreak);
 
-                std::unique_lock<TaskMutex> lock(task->mutex);
+                std::unique_lock<Spinlock> lock(task->spinlock);
                 if (!task->mailbox->empty()) {
                     context::detail::process(lock);
                     idleStreak = 0;
@@ -53,7 +53,7 @@ void runTaskAsOSThread(Task* task) {
             // Nothing,
         }
 
-        std::unique_lock<TaskMutex> lock(task->mutex);
+        std::unique_lock<Spinlock> lock(task->spinlock);
         scheduler->kill(task, std::move(lock));
         scheduler->resetCurrent();
     });

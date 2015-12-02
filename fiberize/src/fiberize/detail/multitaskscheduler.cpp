@@ -48,7 +48,7 @@ void MultiTaskScheduler::stop() {
     stashClear();
 }
 
-void MultiTaskScheduler::resume(Task* task, std::unique_lock<TaskMutex> lock) {
+void MultiTaskScheduler::resume(Task* task, std::unique_lock<Spinlock> lock) {
     assert(lock.owns_lock());
     assert(task->status == Starting || task->status == Listening || task->status == Suspended);
     assert(!task->scheduled);
@@ -171,7 +171,7 @@ MultiTaskScheduler::Priority MultiTaskScheduler::choosePriority(MultiTaskSchedul
 
 void MultiTaskScheduler::finishSuspending() {
     if (suspendingTask != nullptr) {
-        std::unique_lock<TaskMutex> lock(suspendingTask->mutex);
+        std::unique_lock<Spinlock> lock(suspendingTask->spinlock);
         assert(suspendingTask->status == Running);
         suspendingTask->status = Suspended;
         suspendingTask->scheduled = false;
@@ -246,7 +246,7 @@ void MultiTaskScheduler::ownedLoop() {
     }
 
     // Change the status of the current task.
-    std::unique_lock<TaskMutex> lock(self->currentTask_->mutex);
+    std::unique_lock<Spinlock> lock(self->currentTask_->spinlock);
     assert(self->currentTask_->status == Suspended);
     assert(self->currentTask_->scheduled);
     self->currentTask_->status = Running;
@@ -296,7 +296,7 @@ void MultiTaskScheduler::unownedLoop() {
             self->unowned = nullptr;
 
             // Change the status.
-            std::unique_lock<TaskMutex> lock(self->currentTask_->mutex);
+            std::unique_lock<Spinlock> lock(self->currentTask_->spinlock);
             self->currentTask_->status = Running;
             self->currentTask_->scheduled = false;
             self->currentTask_->context = unowned->context;

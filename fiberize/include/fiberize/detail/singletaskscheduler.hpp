@@ -22,7 +22,7 @@ public:
     SingleTaskScheduler(FiberSystem* system, uint64_t seed, Task* task);
     virtual ~SingleTaskScheduler();
 
-    void resume(std::unique_lock<TaskMutex> lock);
+    void resume(std::unique_lock<Spinlock> lock);
 
     // Scheduler
     void suspend() override;

@@ -26,7 +26,7 @@ Path LocalFiberRef::path() const {
 }
 
 void LocalFiberRef::send(const PendingEvent& pendingEvent) {
-    std::unique_lock<TaskMutex> lock(task->mutex);
+    std::unique_lock<Spinlock> lock(task->spinlock);
     task->mailbox->enqueue(pendingEvent);
     context::detail::resume(task, std::move(lock));
 }

@@ -17,6 +17,8 @@ namespace fiberize {
 class Spinlock {
 public:
     Spinlock();
+    Spinlock(const Spinlock&) = delete;
+    Spinlock(Spinlock&&) = default;
 
     void lock();
     bool try_lock();

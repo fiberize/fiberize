@@ -2,6 +2,9 @@
 #define FIBERIZE_FIBERIZE_HPP
 
 #include <fiberize/spinlock.hpp>
+#include <fiberize/mutex.hpp>
+#include <fiberize/condition.hpp>
+
 #include <fiberize/locality.hpp>
 #include <fiberize/path.hpp>
 #include <fiberize/handler.hpp>
