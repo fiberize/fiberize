@@ -221,7 +221,7 @@ void resume(fiberize::detail::Task* task, std::unique_lock<Spinlock> lock) {
         sched = task->pin;
     } else {
         /**
-         * If the current scheduler is a multi tasking one, us it. Otherwise pick a random
+         * If the current scheduler is a multi tasking one, use it. Otherwise pick a random
          * multitasking scheduler.
          */
         if (scheduler()->isMultiTasking()) {

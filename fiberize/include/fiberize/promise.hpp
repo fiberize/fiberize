@@ -40,8 +40,6 @@ struct Box<void> {
 
 /**
  * A promise that will contain a value of type A.
- *
- * @warning The copy constructor of A must be thread-safe.
  */
 template <typename A>
 class Promise {

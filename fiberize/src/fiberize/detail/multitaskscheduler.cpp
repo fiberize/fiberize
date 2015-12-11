@@ -285,6 +285,8 @@ void MultiTaskScheduler::unownedLoop() {
         if (self->currentTask_ == nullptr) {
             self->idle(idleStreak);
             continue;
+        } else {
+            idleStreak = 0;
         }
 
         TaskStatus status = self->currentTask_->status;
