@@ -37,6 +37,19 @@ void Mutex::lock() {
         // Process events when we are waiting.
         while (released.load(std::memory_order_consume) < ticket) {
             context::process();
+
+            // The process() call will set the expected resume count. If the condition
+            // arrives before process() sets the resume count, we'll see that the thread
+            // was woken up here and NOT go to sleep. If the resumt arrives after process()
+            // sets the resume count we will not go to sleep (because suspend() will break
+            // immediately). In this case the change to "released" will be visible after
+            // exiting suspend() and the loop will end. In the third case the condition
+            // arrives after we suspend, in which case we will be woken up.
+
+            if (released.load(std::memory_order_consume) >= ticket) {
+                break;
+            }
+
             context::detail::suspend();
         }
     } catch (...) {
