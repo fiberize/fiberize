@@ -4,7 +4,7 @@
 #include <utility>
 #include <type_traits>
 
-#include <boost/context/all.hpp>
+#include <boost/context/detail/fcontext.hpp>
 #include <boost/type_traits.hpp>
 
 #include <fiberize/promise.hpp>

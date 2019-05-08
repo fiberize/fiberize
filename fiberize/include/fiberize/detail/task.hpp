@@ -21,7 +21,7 @@
 #include <mutex>
 
 #include <boost/atomic/atomic.hpp>
-#include <boost/context/all.hpp>
+#include <boost/context/detail/fcontext.hpp>
 #include <boost/smart_ptr/detail/spinlock.hpp>
 
 namespace fiberize {
@@ -137,7 +137,7 @@ public:
     /**
      * The last saved context.
      */
-    boost::context::fcontext_t context;
+    boost::context::detail::fcontext_t context;
 
     /**
      * Tracks how many times there was an attempt to resume this task.

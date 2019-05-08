@@ -1,6 +1,7 @@
 #include <fiberize/path.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <iostream>
+#include <atomic>
 
 namespace fiberize {
 
@@ -11,7 +12,7 @@ std::atomic<uint64_t> generators(0);
 } // namespace detail
 
 UniqueIdentGenerator::UniqueIdentGenerator()
-    : generatorId(std::atomic_fetch_add(&detail::generators, 1ul))
+    : generatorId(std::atomic_fetch_add(&detail::generators, 1ull))
     , nextToken(0)
     {}
 

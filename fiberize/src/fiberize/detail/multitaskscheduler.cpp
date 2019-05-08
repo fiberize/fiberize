@@ -33,7 +33,7 @@ void MultiTaskScheduler::start() {
     thread = std::thread([this] () {
         makeCurrent();
         unowned = stashGet();
-        boost::context::jump_fcontext(&initialContext, unowned->context, 0);
+        boost::context::detail::jump_fcontext(&initialContext, unowned->context);
         if (unowned != nullptr) {
             stashPut(unowned);
             unowned = nullptr;
@@ -193,7 +193,7 @@ void MultiTaskScheduler::ownedLoop() {
 
     // If the scheduler is stopping return to the initial context.
     if (self->stopping.load(std::memory_order_consume)) {
-        boost::context::jump_fcontext(&self->currentTask_->context, self->initialContext, 0);
+        boost::context::detail::jump_fcontext(&self->currentTask_->context, self->initialContext);
         return;
     }
 
@@ -215,18 +215,18 @@ void MultiTaskScheduler::ownedLoop() {
     if (self->currentTask_ == nullptr) {
         self->sameStreak = 0;
         self->unowned = self->stashGet();
-        boost::context::jump_fcontext(&self->suspendingTask->context, self->unowned->context, 0);
+        boost::context::detail::jump_fcontext(&self->suspendingTask->context, self->unowned->context);
     } else {
         // We got a task, execute it.
         if (self->currentTask_->status == Starting || self->currentTask_->status == Listening) {
             // We cannot start a new task on an owned stack. Let's get a new stack and jump to it.
             self->sameStreak = 0;
             self->unowned = self->stashGet();
-            boost::context::jump_fcontext(&self->suspendingTask->context, self->unowned->context, 0);
+            boost::context::detail::jump_fcontext(&self->suspendingTask->context, self->unowned->context);
         } else if (self->currentTask_->status == Suspended) {
             // Jump back to a suspended task.
             self->sameStreak += 1;
-            boost::context::jump_fcontext(&self->suspendingTask->context, self->currentTask_->context, 0);
+            boost::context::detail::jump_fcontext(&self->suspendingTask->context, self->currentTask_->context);
         } else {
             // Impossible.
             __builtin_unreachable();
@@ -261,7 +261,7 @@ void MultiTaskScheduler::unownedLoop() {
 
         // If the scheduler is stopping return to the initial context.
         if (self->stopping.load(std::memory_order_consume)) {
-            boost::context::jump_fcontext(&self->unowned->context, self->initialContext, 0);
+            boost::context::detail::jump_fcontext(&self->unowned->context, self->initialContext);
             continue;
         }
 
@@ -354,7 +354,7 @@ void MultiTaskScheduler::unownedLoop() {
 
             // Too bad, the task is suspended. This means we have to context switch, therefore
             // wasting our current context.
-            boost::context::jump_fcontext(&self->unowned->context, self->currentTask_->context, 0);
+            boost::context::detail::jump_fcontext(&self->unowned->context, self->currentTask_->context);
         } else {
             // Impossible.
             __builtin_unreachable();
@@ -372,7 +372,7 @@ MultiTaskScheduler::UnownedContext* MultiTaskScheduler::stashGet() {
         // Create a new context.
         context = new UnownedContext;
         context->stack = stackAllocator.allocate();
-        context->context = boost::context::make_fcontext(context->stack.sp, context->stack.size, [] (intptr_t) {
+        context->context = boost::context::detail::make_fcontext(context->stack.sp, context->stack.size, [] (boost::context::detail::transfer_t) {
             unownedLoop();
         });
     }
