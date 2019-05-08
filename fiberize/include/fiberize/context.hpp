@@ -11,6 +11,8 @@
 
 #include <fiberize/fiberref.hpp>
 #include <fiberize/spinlock.hpp>
+#include <random>
+
 
 namespace fiberize {
 

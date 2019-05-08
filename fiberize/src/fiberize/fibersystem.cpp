@@ -21,9 +21,7 @@ FiberSystem::FiberSystem(uint32_t macrothreads)
      * Generate the uuid.
      */
     std::uniform_int_distribution<uint64_t> seedDist;
-    boost::random::mt19937 pseudorandom(seedDist(seedGenerator));
-    boost::uuids::random_generator uuidGenerator(pseudorandom);
-    uuid_ = uuidGenerator();
+    uuid_ = boost::uuids::random_generator()();
 
     // Spawn the schedulers.
     for (uint32_t i = 0; i < macrothreads; ++i) {

@@ -8,6 +8,8 @@
 #define FIBERIZE_DETAIL_MULTITASKSCHEDULER_HPP
 
 #include <thread>
+#include <boost/context/stack_context.hpp>
+#include <boost/context/fixedsize_stack.hpp>
 
 #include <fiberize/scheduler.hpp>
 
@@ -61,7 +63,7 @@ private:
     static void unownedLoop();
 
     struct UnownedContext {
-        boost::context::fcontext_t context;
+        boost::context::detail::fcontext_t context;
         boost::context::stack_context stack;
     };
 
@@ -69,7 +71,7 @@ private:
     Task* suspendingTask;
     Task* currentTask_;
     UnownedContext* unowned;
-    boost::context::fcontext_t initialContext;
+    boost::context::detail::fcontext_t initialContext;
 
     std::vector<UnownedContext*> stash;
     UnownedContext* stashGet();
